@@ -16,9 +16,10 @@ interface ImageCardProps {
     error?: string;
     onRegenerate: () => void;
     onDownload: () => void;
+    onOpen?: (imageUrl: string) => void;
 }
 
-const ImageCard: React.FC<ImageCardProps> = ({ imageUrl, caption, status, onRegenerate, onDownload }) => {
+const ImageCard: React.FC<ImageCardProps> = ({ imageUrl, caption, status, onRegenerate, onDownload, onOpen }) => {
     return (
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden flex flex-col group">
             <div className="w-full bg-gray-100 aspect-square relative">
@@ -57,8 +58,19 @@ const ImageCard: React.FC<ImageCardProps> = ({ imageUrl, caption, status, onRege
                             <img
                                 src={imageUrl}
                                 alt={caption}
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-cover cursor-zoom-in"
+                                onClick={() => onOpen && onOpen(imageUrl)}
                             />
+                            {/* Always-visible expand button (mobile + desktop) */}
+                            <div className="absolute top-2 right-2 z-10">
+                                <button
+                                    onClick={() => onOpen && onOpen(imageUrl)}
+                                    className="h-10 w-10 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/60"
+                                    aria-label={`Открыть ${caption} на весь экран`}
+                                >
+                                    <Icons.expand className="h-5 w-5" />
+                                </button>
+                            </div>
                             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3">
                                 <button
                                     onClick={onDownload}

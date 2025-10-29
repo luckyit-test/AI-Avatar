@@ -5,13 +5,127 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 import type { GenerateContentResponse } from "@google/genai";
 
-const API_KEY = process.env.API_KEY;
-
-if (!API_KEY) {
-  throw new Error("API_KEY environment variable is not set");
+function resolveApiKey(): string | undefined {
+  return (
+    (process.env.GEMINI_API_KEY as unknown as string) ||
+    (process.env.API_KEY as unknown as string) ||
+    // Support optional window-based injection for local dev
+    (typeof window !== 'undefined' ? (window as any).GEMINI_API_KEY : undefined) ||
+    // Support vite-style env if provided
+    ((import.meta as any)?.env?.VITE_GEMINI_API_KEY as string | undefined)
+  );
 }
 
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+let ai: GoogleGenAI | null = null;
+function getClient(): GoogleGenAI {
+  if (ai) return ai;
+  const apiKey = resolveApiKey();
+  if (!apiKey) {
+    throw new Error(
+      "Отсутствует ключ API. Установите переменную окружения GEMINI_API_KEY."
+    );
+  }
+  ai = new GoogleGenAI({ apiKey });
+  return ai;
+}
+
+async function callGeminiTextWithRetry(imagePart: object, textPart: object): Promise<GenerateContentResponse> {
+    const maxRetries = 5;
+    const initialDelayMs = 1000;
+
+    function isRetriableErrorMessage(message: string): boolean {
+        const m = message.toLowerCase();
+        return (
+            m.includes('internal') ||
+            m.includes('"code":500') ||
+            m.includes('resource_exhausted') ||
+            m.includes('rate_limit') ||
+            m.includes('quota') ||
+            m.includes('429') ||
+            m.includes('503') ||
+            m.includes('unavailable') ||
+            m.includes('timeout') ||
+            m.includes('timed out') ||
+            m.includes('etimedout') ||
+            m.includes('econnreset') ||
+            m.includes('network') ||
+            m.includes('fetch failed')
+        );
+    }
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            return await getClient().models.generateContent({
+                model: 'gemini-2.0-flash',
+                contents: { parts: [imagePart, textPart] },
+                config: {
+                    responseModalities: [Modality.TEXT],
+                },
+            });
+        } catch (error) {
+            console.error(`Error calling Gemini Text API (Attempt ${attempt}/${maxRetries}):`, error);
+            const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+            const retriable = isRetriableErrorMessage(errorMessage);
+            if (retriable && attempt < maxRetries) {
+                const backoff = initialDelayMs * Math.pow(2, attempt - 1);
+                const jitter = backoff * (0.5 + Math.random());
+                const delay = Math.min(backoff + jitter, 15000);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                continue;
+            }
+            throw error;
+        }
+    }
+    throw new Error("Gemini Text API call failed after all retries.");
+}
+
+export type DetectedGender = 'male' | 'female' | 'unknown';
+export interface GenderDetectionResult { gender: DetectedGender; confidence: number }
+
+function stripCodeFences(text: string): string {
+    const trimmed = text.trim();
+    if (trimmed.startsWith('```')) {
+        // remove leading ```json or ```
+        const withoutStart = trimmed.replace(/^```[a-zA-Z]*\n?/, '');
+        return withoutStart.replace(/```$/, '');
+    }
+    return trimmed;
+}
+
+export async function detectGender(imageDataUrl: string): Promise<GenderDetectionResult> {
+    const match = imageDataUrl.match(/^data:(image\/\w+);base64,(.*)$/);
+    if (!match) {
+        return { gender: 'unknown', confidence: 0 };
+    }
+    const [, mimeType, base64Data] = match;
+
+    const imagePart = {
+        inlineData: { mimeType, data: base64Data },
+    };
+
+    const instruction = {
+        text: "You are a precise classifier. Determine the gender presentation of the primary person in the image. Respond in STRICT JSON only, no prose, no code fences: {\n  \"gender\": \"male|female|unknown\",\n  \"confidence\": number between 0 and 1\n}.",
+    };
+
+    try {
+        const response = await callGeminiTextWithRetry(imagePart, instruction);
+        const raw = (response.text || '').toString();
+        let parsed: any = null;
+        try { parsed = JSON.parse(stripCodeFences(raw)); } catch { /* ignore */ }
+        if (parsed && (parsed.gender === 'male' || parsed.gender === 'female' || parsed.gender === 'unknown')) {
+            const conf = Math.max(0, Math.min(1, Number(parsed.confidence) || 0));
+            return { gender: parsed.gender, confidence: conf };
+        }
+        // Fallback: try to infer from text when JSON parse failed
+        const text = raw.trim().toLowerCase();
+        if (text.includes('male') || text.includes('муж')) return { gender: 'male', confidence: 0.5 };
+        if (text.includes('female') || text.includes('жен')) return { gender: 'female', confidence: 0.5 };
+        return { gender: 'unknown', confidence: 0 };
+    } catch (e) {
+        console.warn('Gender detection failed, defaulting to unknown:', e);
+        return { gender: 'unknown', confidence: 0 };
+    }
+}
 
 
 // --- Helper Functions ---
@@ -49,12 +163,32 @@ function processGeminiResponse(response: GenerateContentResponse): string {
  * @returns The GenerateContentResponse from the API.
  */
 async function callGeminiWithRetry(imagePart: object, textPart: object): Promise<GenerateContentResponse> {
-    const maxRetries = 3;
-    const initialDelay = 1000;
+    const maxRetries = 5;
+    const initialDelayMs = 1000;
+
+    function isRetriableErrorMessage(message: string): boolean {
+        const m = message.toLowerCase();
+        return (
+            m.includes('internal') ||
+            m.includes('"code":500') ||
+            m.includes('resource_exhausted') ||
+            m.includes('rate_limit') ||
+            m.includes('quota') ||
+            m.includes('429') ||
+            m.includes('503') ||
+            m.includes('unavailable') ||
+            m.includes('timeout') ||
+            m.includes('timed out') ||
+            m.includes('etimedout') ||
+            m.includes('econnreset') ||
+            m.includes('network') ||
+            m.includes('fetch failed')
+        );
+    }
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-            return await ai.models.generateContent({
+            return await getClient().models.generateContent({
                 model: 'gemini-2.5-flash-image',
                 contents: { parts: [imagePart, textPart] },
                 config: {
@@ -64,11 +198,13 @@ async function callGeminiWithRetry(imagePart: object, textPart: object): Promise
         } catch (error) {
             console.error(`Error calling Gemini API (Attempt ${attempt}/${maxRetries}):`, error);
             const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
-            const isInternalError = errorMessage.includes('"code":500') || errorMessage.includes('INTERNAL');
+            const retriable = isRetriableErrorMessage(errorMessage);
 
-            if (isInternalError && attempt < maxRetries) {
-                const delay = initialDelay * Math.pow(2, attempt - 1);
-                console.log(`Internal error detected. Retrying in ${delay}ms...`);
+            if (retriable && attempt < maxRetries) {
+                const backoff = initialDelayMs * Math.pow(2, attempt - 1);
+                const jitter = backoff * (0.5 + Math.random());
+                const delay = Math.min(backoff + jitter, 15000);
+                console.log(`Retriable error detected. Retrying in ${Math.round(delay)}ms...`);
                 await new Promise(resolve => setTimeout(resolve, delay));
                 continue;
             }

@@ -41,9 +41,7 @@ export async function createAlbumPage(imageData: Record<string, string>): Promis
     ctx.font = `bold 90px 'Inter', sans-serif`;
     ctx.fillText('Ваши AI Бизнес-Портреты', canvasWidth / 2, 180);
 
-    ctx.font = `50px 'Inter', sans-serif`;
-    ctx.fillStyle = '#4b5563'; // a medium gray
-    ctx.fillText('Создано в Google AI Studio', canvasWidth / 2, 260);
+    // Removed secondary subtitle text below the title
 
     // 3. Load all the images concurrently
     const styles = Object.keys(imageData);
