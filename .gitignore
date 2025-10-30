@@ -43,4 +43,7 @@ test-*.sh
 final-*.sh
 restart-*.sh
 update-*.sh
+!update-server-secure.sh
 compare-*.sh
+deploy-prod.sh
+final-security-check.sh
