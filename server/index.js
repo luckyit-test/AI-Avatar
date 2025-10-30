@@ -22,7 +22,7 @@ if (!GEMINI_API_KEY) {
 const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
 // Эндпоинт для генерации изображения
-app.post('/api/generate-image', async (req, res) => {
+app.post('/generate-image', async (req, res) => {
   try {
     const { imageData, prompt } = req.body;
 
@@ -151,7 +151,7 @@ app.post('/api/generate-image', async (req, res) => {
 });
 
 // Эндпоинт для определения пола
-app.post('/api/detect-gender', async (req, res) => {
+app.post('/detect-gender', async (req, res) => {
   try {
     const { imageData } = req.body;
 
