@@ -25,5 +25,22 @@ dist-ssr
 
 .env
 .env.local
+.env.*
+!.env.template
 deploy/certbot/conf/
 deploy/certbot/www/
+
+# Скрипты развертывания с секретами
+*-deploy.sh
+*-server.sh
+*deploy*.sh
+!deploy-with-proxy.sh.template
+redeploy.sh
+fix-*.sh
+check-*.sh
+debug-*.sh
+test-*.sh
+final-*.sh
+restart-*.sh
+update-*.sh
+compare-*.sh

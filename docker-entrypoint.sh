@@ -1,15 +1,13 @@
 #!/bin/sh
 set -e
 
+# API ключ больше не нужен во фронтенде - все запросы идут через серверный прокси
+# Создаем пустой env.js для совместимости, если он где-то используется
 HTML_DIR=/usr/share/nginx/html
-TEMPLATE="$HTML_DIR/env.template.js"
 OUT="$HTML_DIR/env.js"
 
-if [ -f "$TEMPLATE" ]; then
-  # inject runtime env var
-  sh -c "GEMINI_API_KEY=${GEMINI_API_KEY} envsubst '\$GEMINI_API_KEY' < $TEMPLATE > $OUT" || echo "window.GEMINI_API_KEY='';" > "$OUT"
-else
-  echo "window.GEMINI_API_KEY='';" > "$OUT"
-fi
+echo "// API ключ больше не используется во фронтенде - все запросы через серверный прокси" > "$OUT"
+echo "window.GEMINI_API_KEY='';" >> "$OUT"
 
 nginx -g 'daemon off;'
+

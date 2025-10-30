@@ -1,14 +1,20 @@
 #!/usr/bin/expect -f
 
+# ШАБЛОН скрипта развертывания
+# Скопируйте этот файл в deploy-with-proxy.sh и заполните переменные
+# НЕ КОММИТЬТЕ deploy-with-proxy.sh в git!
+
 set timeout 600
-set SERVER_HOST "43.245.226.24"
-set SERVER_USER "root"
-set SERVER_PASS "Yd2Vc_Wejus0DlNB"
+set SERVER_HOST "${SERVER_HOST}"
+set SERVER_USER "${SERVER_USER}"
+set SERVER_PASS "${SERVER_PASSWORD}"
 set APP_DIR "/opt/newava"
 set GIT_REPO "https://github.com/luckyit-test/AI-Avatar.git"
+set GEMINI_API_KEY "${GEMINI_API_KEY}"
 
 set app_dir "${APP_DIR}"
 set git_repo "${GIT_REPO}"
+set api_key "${GEMINI_API_KEY}"
 
 puts "\n🚀 Развертывание с серверным прокси для Gemini API...\n"
 

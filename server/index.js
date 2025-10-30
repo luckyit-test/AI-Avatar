@@ -5,10 +5,80 @@ import { GoogleGenAI, Modality } from '@google/genai';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Безопасная конфигурация CORS - только с разрешенных доменов
+const allowedOrigins = process.env.ALLOWED_ORIGINS 
+  ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
+  : ['http://localhost:3000', 'http://localhost:5173']; // По умолчанию только локальные для разработки
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Разрешаем запросы без origin (например, от мобильных приложений или Postman)
+    if (!origin) {
+      return callback(null, true);
+    }
+    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Не разрешено политикой CORS'));
+    }
+  },
+  credentials: true,
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
 // Middleware
-app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(cors(corsOptions));
+app.use(express.json({ limit: '10mb' })); // Уменьшено с 50mb для безопасности
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Rate limiting middleware (простая реализация)
+const rateLimitStore = new Map();
+const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 минут
+const RATE_LIMIT_MAX_REQUESTS = 30; // Максимум 30 запросов за окно
+
+function rateLimit(req, res, next) {
+  const clientId = req.ip || req.connection.remoteAddress;
+  const now = Date.now();
+  
+  if (!rateLimitStore.has(clientId)) {
+    rateLimitStore.set(clientId, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+    return next();
+  }
+  
+  const clientData = rateLimitStore.get(clientId);
+  
+  if (now > clientData.resetTime) {
+    // Окно истекло, сбрасываем счетчик
+    clientData.count = 1;
+    clientData.resetTime = now + RATE_LIMIT_WINDOW;
+    return next();
+  }
+  
+  if (clientData.count >= RATE_LIMIT_MAX_REQUESTS) {
+    return res.status(429).json({ 
+      error: 'Превышен лимит запросов. Попробуйте позже.' 
+    });
+  }
+  
+  clientData.count++;
+  next();
+}
+
+// Очистка старых записей rate limit (каждые 5 минут)
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of rateLimitStore.entries()) {
+    if (now > value.resetTime) {
+      rateLimitStore.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
+
+// Применяем rate limiting ко всем API эндпоинтам
+app.use('/generate-image', rateLimit);
+app.use('/detect-gender', rateLimit);
 
 // Получаем API ключ из переменных окружения
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -21,26 +91,92 @@ if (!GEMINI_API_KEY) {
 // Инициализируем клиент Gemini
 const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
+// Валидация размера base64 изображения
+function validateImageData(imageData) {
+  if (!imageData || typeof imageData !== 'string') {
+    return { valid: false, error: 'imageData должен быть строкой' };
+  }
+  
+  const match = imageData.match(/^data:(image\/\w+);base64,(.*)$/);
+  if (!match) {
+    return { valid: false, error: 'Неверный формат imageData. Ожидается data:image/...;base64,...' };
+  }
+  
+  const [, mimeType, base64Data] = match;
+  
+  // Проверяем поддерживаемые форматы
+  const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  if (!allowedMimeTypes.includes(mimeType.toLowerCase())) {
+    return { valid: false, error: `Неподдерживаемый формат изображения: ${mimeType}` };
+  }
+  
+  // Проверяем размер (base64 примерно на 33% больше оригинала)
+  const sizeInBytes = (base64Data.length * 3) / 4;
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  
+  if (sizeInBytes > maxSize) {
+    return { valid: false, error: 'Размер изображения превышает 5MB' };
+  }
+  
+  return { valid: true, mimeType, base64Data };
+}
+
+// Валидация промпта
+function validatePrompt(prompt) {
+  if (!prompt || typeof prompt !== 'string') {
+    return { valid: false, error: 'prompt должен быть строкой' };
+  }
+  
+  if (prompt.length > 5000) {
+    return { valid: false, error: 'Промпт слишком длинный (максимум 5000 символов)' };
+  }
+  
+  if (prompt.length < 10) {
+    return { valid: false, error: 'Промпт слишком короткий (минимум 10 символов)' };
+  }
+  
+  return { valid: true };
+}
+
+// Безопасное логирование (без секретов)
+function safeLog(message, data = {}) {
+  const sanitizedData = { ...data };
+  if (sanitizedData.apiKey) delete sanitizedData.apiKey;
+  if (sanitizedData.imageData) {
+    sanitizedData.imageData = sanitizedData.imageData.substring(0, 50) + '...';
+  }
+  console.log(`[${new Date().toISOString()}] ${message}`, sanitizedData);
+}
+
 // Эндпоинт для генерации изображения
 app.post('/generate-image', async (req, res) => {
+  const startTime = Date.now();
+  const clientIp = req.ip || req.connection.remoteAddress;
+  
   try {
     const { imageData, prompt } = req.body;
 
+    // Валидация входных данных
     if (!imageData || !prompt) {
+      safeLog('Validation failed: missing parameters', { clientIp });
       return res.status(400).json({ 
         error: 'Отсутствуют обязательные параметры: imageData и prompt' 
       });
     }
 
-    // Извлекаем mimeType и base64 данные из data URL
-    const match = imageData.match(/^data:(image\/\w+);base64,(.*)$/);
-    if (!match) {
-      return res.status(400).json({ 
-        error: 'Неверный формат imageData. Ожидается data:image/...;base64,...' 
-      });
+    const imageValidation = validateImageData(imageData);
+    if (!imageValidation.valid) {
+      safeLog('Validation failed: invalid image', { clientIp, error: imageValidation.error });
+      return res.status(400).json({ error: imageValidation.error });
     }
 
-    const [, mimeType, base64Data] = match;
+    const promptValidation = validatePrompt(prompt);
+    if (!promptValidation.valid) {
+      safeLog('Validation failed: invalid prompt', { clientIp, error: promptValidation.error });
+      return res.status(400).json({ error: promptValidation.error });
+    }
+
+    const { mimeType, base64Data } = imageValidation;
 
     const imagePart = {
       inlineData: { mimeType, data: base64Data },
@@ -70,6 +206,8 @@ app.post('/generate-image', async (req, res) => {
         if (imagePartFromResponse?.inlineData) {
           const { mimeType: responseMimeType, data: responseData } = imagePartFromResponse.inlineData;
           const imageDataUrl = `data:${responseMimeType};base64,${responseData}`;
+          const duration = Date.now() - startTime;
+          safeLog('Image generated successfully', { clientIp, attempt, duration });
           return res.json({ imageDataUrl });
         }
 
@@ -101,7 +239,7 @@ app.post('/generate-image', async (req, res) => {
           const backoff = 1000 * Math.pow(2, attempt - 1);
           const jitter = backoff * (0.5 + Math.random());
           const delay = Math.min(backoff + jitter, 15000);
-          console.log(`Повторная попытка ${attempt}/${maxRetries} через ${Math.round(delay)}ms...`);
+          safeLog(`Retry attempt ${attempt}/${maxRetries}`, { clientIp, delay });
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
@@ -127,10 +265,12 @@ app.post('/generate-image', async (req, res) => {
               if (fallbackImagePart?.inlineData) {
                 const { mimeType: responseMimeType, data: responseData } = fallbackImagePart.inlineData;
                 const imageDataUrl = `data:${responseMimeType};base64,${responseData}`;
+                const duration = Date.now() - startTime;
+                safeLog('Image generated with fallback prompt', { clientIp, duration });
                 return res.json({ imageDataUrl });
               }
             } catch (fallbackError) {
-              console.error('Fallback промпт также не сработал:', fallbackError);
+              safeLog('Fallback prompt failed', { clientIp, error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError) });
             }
           }
         }
@@ -142,33 +282,39 @@ app.post('/generate-image', async (req, res) => {
     throw lastError || new Error('Превышено максимальное количество попыток');
 
   } catch (error) {
-    console.error('Ошибка при генерации изображения:', error);
+    const duration = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : String(error);
+    safeLog('Image generation failed', { clientIp, error: errorMessage, duration });
+    
+    // Не раскрываем детали ошибок клиенту
     res.status(500).json({ 
-      error: `Модель ИИ не смогла сгенерировать изображение. Детали: ${errorMessage}` 
+      error: 'Не удалось сгенерировать изображение. Попробуйте позже.' 
     });
   }
 });
 
 // Эндпоинт для определения пола
 app.post('/detect-gender', async (req, res) => {
+  const startTime = Date.now();
+  const clientIp = req.ip || req.connection.remoteAddress;
+  
   try {
     const { imageData } = req.body;
 
     if (!imageData) {
+      safeLog('Gender detection failed: missing imageData', { clientIp });
       return res.status(400).json({ 
         error: 'Отсутствует обязательный параметр: imageData' 
       });
     }
 
-    const match = imageData.match(/^data:(image\/\w+);base64,(.*)$/);
-    if (!match) {
-      return res.status(400).json({ 
-        error: 'Неверный формат imageData' 
-      });
+    const imageValidation = validateImageData(imageData);
+    if (!imageValidation.valid) {
+      safeLog('Gender detection failed: invalid image', { clientIp, error: imageValidation.error });
+      return res.status(400).json({ error: imageValidation.error });
     }
 
-    const [, mimeType, base64Data] = match;
+    const { mimeType, base64Data } = imageValidation;
 
     const imagePart = {
       inlineData: { mimeType, data: base64Data },
@@ -205,34 +351,41 @@ app.post('/detect-gender', async (req, res) => {
 
       if (parsed && (parsed.gender === 'male' || parsed.gender === 'female' || parsed.gender === 'unknown')) {
         const confidence = Math.max(0, Math.min(1, Number(parsed.confidence) || 0));
+        const duration = Date.now() - startTime;
+        safeLog('Gender detected successfully', { clientIp, gender: parsed.gender, confidence, duration });
         return res.json({ gender: parsed.gender, confidence });
       }
 
       // Fallback: пытаемся определить по тексту
       const text = raw.trim().toLowerCase();
+      let result = { gender: 'unknown', confidence: 0 };
       if (text.includes('male') || text.includes('муж')) {
-        return res.json({ gender: 'male', confidence: 0.5 });
+        result = { gender: 'male', confidence: 0.5 };
+      } else if (text.includes('female') || text.includes('жен')) {
+        result = { gender: 'female', confidence: 0.5 };
       }
-      if (text.includes('female') || text.includes('жен')) {
-        return res.json({ gender: 'female', confidence: 0.5 });
-      }
-
-      return res.json({ gender: 'unknown', confidence: 0 });
+      
+      const duration = Date.now() - startTime;
+      safeLog('Gender detected with fallback', { clientIp, result, duration });
+      return res.json(result);
 
     } catch (error) {
-      console.warn('Ошибка определения пола:', error);
+      const duration = Date.now() - startTime;
+      safeLog('Gender detection error', { clientIp, error: error instanceof Error ? error.message : String(error), duration });
       return res.json({ gender: 'unknown', confidence: 0 });
     }
 
   } catch (error) {
-    console.error('Ошибка при определении пола:', error);
+    const duration = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    safeLog('Gender detection failed', { clientIp, error: errorMessage, duration });
     res.status(500).json({ 
       error: 'Не удалось определить пол' 
     });
   }
 });
 
-// Health check
+// Health check (без логирования для снижения нагрузки)
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
@@ -240,5 +393,5 @@ app.get('/health', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Сервер запущен на порту ${PORT}`);
   console.log(`📡 API доступен по адресу: http://0.0.0.0:${PORT}`);
+  console.log(`🔒 CORS разрешен для: ${allowedOrigins.join(', ')}`);
 });
-
