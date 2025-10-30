@@ -136,9 +136,9 @@ function describeCompany(company: string): string {
 }
 
 function attireByContext(gender: DetectedGender, role: string, company: string): string {
-    const femaleNote = 'Subtle natural makeup allowed.';
+    const femaleNote = 'If no makeup in original: apply moderate professional business makeup. If makeup exists: enhance subtly to professional standard.';
     const baseFemale = 'No facial hair. No beard. No mustache. ' + femaleNote;
-    const baseMale = 'Grooming neat and professional.';
+    const baseMale = 'Preserve facial hair exactly as in original. If no facial hair in original, do not add any. Do not remove facial hair if present. Grooming neat and professional.';
 
     const isFormalCompany = company === 'Enterprise' || company === 'Госкомпания' || company === 'Аутсорс/консалтинг';
     const isModernCompany = company === 'Стартап' || company === 'Продуктовая компания' || company === 'Финтех';
@@ -299,8 +299,8 @@ function buildPromptsByContext(
     naturalLook: boolean,
 ): Record<string, string> {
     const constraints = gender === 'female'
-        ? 'No facial hair. No beard. No mustache. Feminine grooming and makeup allowed but subtle and natural.'
-        : 'Grooming should be neat and professional.';
+        ? 'No facial hair. No beard. No mustache. If the original photo shows no makeup, apply moderate professional business makeup suitable for corporate settings. If makeup is already present in the original, enhance it subtly to a professional business standard. Keep makeup natural, moderate, and appropriate for business - not heavy or dramatic.'
+        : 'Preserve facial hair exactly as shown in the original photo. If there is no facial hair (no beard, no mustache) in the original photo, do not add any facial hair. Do not remove facial hair if it exists in the original. Grooming should be neat and professional, maintaining the original facial hair pattern.';
     const roleDesc = describeRole(role);
     const companyDesc = describeCompany(company);
     const attire = attireByContext(gender, role, company);
