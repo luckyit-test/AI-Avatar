@@ -1,0 +1,17 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Копируем package.json и устанавливаем зависимости
+COPY package.json package-lock.json* ./
+RUN if [ -f package-lock.json ]; then npm ci --production; else npm install --production; fi
+
+# Копируем код сервера
+COPY server/ ./server/
+
+# Открываем порт для бэкенда
+EXPOSE 3001
+
+# Запускаем сервер
+CMD ["node", "server/index.js"]
+

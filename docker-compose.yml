@@ -1,6 +1,19 @@
 version: "3.9"
 
 services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    image: newava-backend:latest
+    container_name: newava_backend
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - PORT=3001
+    restart: unless-stopped
+    networks:
+      - newava_network
+
   app:
     build: .
     image: newava:latest
@@ -8,12 +21,15 @@ services:
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
     restart: unless-stopped
+    networks:
+      - newava_network
 
   nginx:
     image: nginx:1.27-alpine
     container_name: newava_nginx
     depends_on:
       - app
+      - backend
     ports:
       - "80:80"
       - "443:443"
@@ -22,6 +38,8 @@ services:
       - ./deploy/certbot/www:/var/www/certbot
       - ./deploy/certbot/conf:/etc/letsencrypt
     restart: unless-stopped
+    networks:
+      - newava_network
 
   certbot:
     image: certbot/certbot:latest
@@ -31,3 +49,7 @@ services:
       - ./deploy/certbot/www:/var/www/certbot
     entrypoint: /bin/sh -c
     command: "trap exit TERM; while :; do sleep 6h & wait $${!}; certbot renew --webroot -w /var/www/certbot --quiet --deploy-hook 'nginx -s reload'; done"
+
+networks:
+  newava_network:
+    driver: bridge
