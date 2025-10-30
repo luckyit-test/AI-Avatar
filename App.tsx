@@ -136,8 +136,7 @@ function describeCompany(company: string): string {
 }
 
 function attireByContext(gender: DetectedGender, role: string, company: string): string {
-    const femaleNote = 'If no makeup in original: apply moderate professional business makeup. If makeup exists: enhance subtly to professional standard.';
-    const baseFemale = 'No facial hair. No beard. No mustache. ' + femaleNote;
+    const baseFemale = 'No facial hair. No beard. No mustache.';
     const baseMale = 'Preserve facial hair exactly as in original. If no facial hair in original, do not add any. Do not remove facial hair if present. Grooming neat and professional.';
 
     const isFormalCompany = company === 'Enterprise' || company === 'Госкомпания' || company === 'Аутсорс/консалтинг';
@@ -299,17 +298,20 @@ function buildPromptsByContext(
     naturalLook: boolean,
 ): Record<string, string> {
     const constraints = gender === 'female'
-        ? 'No facial hair. No beard. No mustache. If the original photo shows no makeup, apply moderate professional business makeup suitable for corporate settings. If makeup is already present in the original, enhance it subtly to a professional business standard. Keep makeup natural, moderate, and appropriate for business - not heavy or dramatic.'
+        ? 'No facial hair. No beard. No mustache.'
         : 'Preserve facial hair exactly as shown in the original photo. If there is no facial hair (no beard, no mustache) in the original photo, do not add any facial hair. Do not remove facial hair if it exists in the original. Grooming should be neat and professional, maintaining the original facial hair pattern.';
     const roleDesc = describeRole(role);
     const companyDesc = describeCompany(company);
     const attire = attireByContext(gender, role, company);
     const naturality = naturalLook
-        ? 'Photorealistic and authentic. Preserve identity and facial features. Natural skin texture, no plastic skin, no over-smoothing, no AI artifacts.'
+        ? 'Photorealistic and authentic. Preserve identity and facial features EXACTLY as in the original photo. The person must look like themselves - maintain the same face shape, bone structure, eye shape, nose, mouth, and all distinctive features. Natural skin texture with visible pores, fine lines, wrinkles, freckles, moles, and all natural skin variations. No plastic skin, no airbrushing, no over-smoothing, no AI artifacts. The skin must look completely real and natural, as if photographed with a professional camera. Preserve ALL natural skin imperfections, texture variations, and facial details. Avoid any digital smoothing, retouching, or artificial enhancement that makes skin look plastic, fake, or changes the person\'s appearance. The generated portrait must be recognizable as the same person from the original photo.'
         : '';
     const base = (tone: string) => {
         const v = buildVariations(variability); // new random per style call
-        return `Create a professional, high-resolution ${gender === 'female' ? 'female ' : gender === 'male' ? 'male ' : ''}business portrait of the person in the photo, suitable for a LinkedIn profile. The style should be ${tone}. ${constraints} Attire: ${attire}. Lighting: ${v.lighting}. Lens & crop: ${v.lens}. Background: ${v.background}. Color grade: ${v.grade}. Pose: ${v.pose}. ${naturality} Each image in this batch must show a distinct outfit and feel; avoid repeating garments across images. Context: ${roleDesc}; ${companyDesc}.`;
+        const skinDetail = gender === 'female' 
+            ? 'Preserve realistic skin texture EXACTLY as shown in the original - natural pores, fine lines, wrinkles, freckles, moles, and all skin variations. The skin must look like real human skin photographed naturally - no smoothing, no airbrushing, no plastic or doll-like appearance. Natural skin imperfections MUST be preserved. Do not alter the person\'s natural appearance or skin texture.'
+            : 'Preserve realistic skin texture EXACTLY as shown in the original - natural pores, fine lines, wrinkles, and all skin variations. The skin must look like real human skin photographed naturally - no smoothing, no airbrushing. Natural skin imperfections MUST be preserved.';
+        return `Create a professional, high-resolution ${gender === 'female' ? 'female ' : gender === 'male' ? 'male ' : ''}business portrait of the person in the photo, suitable for a LinkedIn profile. The style should be ${tone}. ${constraints} Attire: ${attire}. Lighting: ${v.lighting}. Lens & crop: ${v.lens}. Background: ${v.background}. Color grade: ${v.grade}. Pose: ${v.pose}. ${naturality} ${skinDetail} Each image in this batch must show a distinct outfit and feel; avoid repeating garments across images. Context: ${roleDesc}; ${companyDesc}.`;
     };
     return {
         'Классический': base('classic and formal, with traditional corporate lighting and attire against a simple, neutral background'),
