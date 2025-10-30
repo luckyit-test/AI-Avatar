@@ -340,8 +340,9 @@ function App() {
     const [genderOverride, setGenderOverride] = useState<'male' | 'female'>('female');
     const [selectedRole, setSelectedRole] = useState<typeof IT_ROLES[number]>('Разработчик');
     const [selectedCompany, setSelectedCompany] = useState<typeof COMPANY_TYPES[number]>('Стартап');
-    const [variability, setVariability] = useState<VariabilityLevel>('medium');
-    const [naturalLook, setNaturalLook] = useState<boolean>(true);
+    // Fixed settings per request: always High variability and maximum naturalness
+    const variability: VariabilityLevel = 'high';
+    const naturalLook: boolean = true;
 
     const getEffectiveGender = (): DetectedGender => genderOverride;
 
@@ -578,27 +579,7 @@ function App() {
                                             ))}
                                         </select>
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Вариативность</label>
-                                        <select
-                                            className="w-full border border-gray-200 rounded-md px-3 py-2 bg-white text-gray-800"
-                                            value={variability}
-                                            onChange={(e) => setVariability(e.target.value as VariabilityLevel)}
-                                        >
-                                            <option value="low">Низкая</option>
-                                            <option value="medium">Средняя</option>
-                                            <option value="high">Высокая</option>
-                                        </select>
-                                    </div>
-                                    <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-                                        <input
-                                            type="checkbox"
-                                            className="h-4 w-4 rounded border-gray-300"
-                                            checked={naturalLook}
-                                            onChange={(e) => setNaturalLook(e.target.checked)}
-                                        />
-                                        Максимальная естественность (минимум ИИ‑артефактов)
-                                    </label>
+                                    {/* Вариативность и естественность зафиксированы в коде (Высокая, включено) */}
                                 </div>
                                 <h2 className="text-lg font-semibold text-gray-900 mb-1">2. Сгенерируйте портреты</h2>
                                 <p className="text-sm text-gray-500 mb-4">Мы создадим 6 профессиональных портретов в разных стилях.</p>

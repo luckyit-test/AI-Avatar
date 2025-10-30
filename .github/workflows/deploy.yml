@@ -1,0 +1,62 @@
+name: deploy
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy to VPS over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || '22' }}
+          script: |
+            set -e
+            APP_DIR="${{ secrets.APP_DIR || '/opt/newava' }}"
+            DOMAIN="${{ secrets.DOMAIN || '' }}"
+            EMAIL="${{ secrets.SSL_EMAIL || '' }}"
+            REPO_URL="https://github.com/${{ github.repository }}.git"
+
+            sudo mkdir -p "$APP_DIR"
+            cd "$APP_DIR"
+
+            if [ ! -d .git ]; then
+              sudo git clone "$REPO_URL" .
+            else
+              sudo git fetch origin main
+              sudo git reset --hard origin/main
+            fi
+
+            # env and folders
+            echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" | sudo tee .env >/dev/null
+            sudo mkdir -p deploy/certbot/www deploy/certbot/conf
+
+            # start http-only proxy and app
+            sudo docker compose down || true
+            sudo docker compose up -d --build app nginx
+
+            # issue/renew certificate if domain provided
+            if [ -n "$DOMAIN" ]; then
+              sudo docker run --rm \
+                -v "$APP_DIR/deploy/certbot/conf:/etc/letsencrypt" \
+                -v "$APP_DIR/deploy/certbot/www:/var/www/certbot" \
+                certbot/certbot:latest certonly --webroot \
+                -w /var/www/certbot -d "$DOMAIN" \
+                -m "$EMAIL" --agree-tos --no-eff-email || true
+
+              sudo docker compose exec -T nginx nginx -t
+              sudo docker compose exec -T nginx nginx -s reload
+            fi

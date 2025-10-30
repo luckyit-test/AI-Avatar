@@ -38,3 +38,23 @@ docker build -t newava:latest .
 Notes:
 - The frontend reads the key at runtime via `window.GEMINI_API_KEY` (see `services/geminiService.ts`).
 - If you later rotate the key, just update the container env and restart — no rebuild required.
+
+## CI/CD (GitHub Actions → VPS over SSH)
+
+Workflow: `.github/workflows/deploy.yml` (runs on push to `main`). It SSHs into VPS and:
+- clones/updates repo in `$APP_DIR` (default `/opt/newava`),
+- writes `.env` with `GEMINI_API_KEY`,
+- `docker compose up -d --build app nginx`,
+- (optional) issues/renews Let’s Encrypt cert for `$DOMAIN` and reloads nginx.
+
+Create GitHub Secrets in repo settings:
+- `VPS_HOST` — IP/FQDN VPS
+- `VPS_USER` — SSH user (например, `root`)
+- `VPS_SSH_KEY` — приватный SSH‑ключ (PEM), имеющий доступ к VPS
+- `VPS_PORT` — порт SSH (необязательно, по умолчанию 22)
+- `APP_DIR` — путь на сервере (необязательно, по умолчанию `/opt/newava`)
+- `DOMAIN` — домен (необязательно; если указан — выпуск/обновление SSL)
+- `SSL_EMAIL` — email для Let’s Encrypt (нужно если указан DOMAIN)
+- `GEMINI_API_KEY` — ключ Gemini (обязательно)
+
+Запуск вручную: Actions → `deploy` → `Run workflow`.
