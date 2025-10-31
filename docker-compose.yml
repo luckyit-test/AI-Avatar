@@ -7,8 +7,11 @@ services:
       dockerfile: Dockerfile.backend
     image: newava-backend:latest
     container_name: newava_backend
+    env_file:
+      - .env
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_API_KEY_ANALYSIS=${GEMINI_API_KEY_ANALYSIS}
       - PORT=3001
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
     restart: unless-stopped
