@@ -4,12 +4,13 @@
 */
 import React, { useState, ChangeEvent, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { generateImage, detectGender, type DetectedGender, type GenderDetectionResult } from './services/geminiService';
+import { generateImage, evaluateImage, type DetectedGender, type QueueStatus, type ImageEvaluationResult } from './services/geminiService';
 import { createAlbumPage } from './lib/albumUtils';
 import Footer from './components/Footer';
 import Uploader from './components/Uploader';
 import ImageCard from './components/ImageCard';
 import { Icons } from './components/Icons';
+import { CustomSelect } from './components/CustomSelect';
 import { cn } from './lib/utils';
 
 const STYLES = ['Классический', 'Современный', 'Креативный', 'Технологичный', 'Дружелюбный', 'Уверенный'];
@@ -291,12 +292,17 @@ function buildVariations(variability: VariabilityLevel) {
 }
 
 function buildPromptsByContext(
-    gender: DetectedGender,
+    gender: DetectedGender | null,
     role: string,
     company: string,
     variability: VariabilityLevel,
     naturalLook: boolean,
 ): Record<string, string> {
+    // Если пол не указан, выбрасываем ошибку
+    if (!gender || (gender !== 'male' && gender !== 'female')) {
+        throw new Error('Пол должен быть выбран перед генерацией');
+    }
+    
     const constraints = gender === 'female'
         ? 'No facial hair. No beard. No mustache.'
         : 'Preserve facial hair exactly as shown in the original photo. If there is no facial hair (no beard, no mustache) in the original photo, do not add any facial hair. Do not remove facial hair if it exists in the original. Grooming should be neat and professional, maintaining the original facial hair pattern.';
@@ -311,7 +317,14 @@ function buildPromptsByContext(
         const skinDetail = gender === 'female' 
             ? 'Preserve realistic skin texture EXACTLY as shown in the original - natural pores, fine lines, wrinkles, freckles, moles, and all skin variations. The skin must look like real human skin photographed naturally - no smoothing, no airbrushing, no plastic or doll-like appearance. Natural skin imperfections MUST be preserved. Do not alter the person\'s natural appearance or skin texture.'
             : 'Preserve realistic skin texture EXACTLY as shown in the original - natural pores, fine lines, wrinkles, and all skin variations. The skin must look like real human skin photographed naturally - no smoothing, no airbrushing. Natural skin imperfections MUST be preserved.';
-        return `Create a professional, high-resolution ${gender === 'female' ? 'female ' : gender === 'male' ? 'male ' : ''}business portrait of the person in the photo, suitable for a LinkedIn profile. The style should be ${tone}. ${constraints} Attire: ${attire}. Lighting: ${v.lighting}. Lens & crop: ${v.lens}. Background: ${v.background}. Color grade: ${v.grade}. Pose: ${v.pose}. ${naturality} ${skinDetail} Each image in this batch must show a distinct outfit and feel; avoid repeating garments across images. Context: ${roleDesc}; ${companyDesc}.`;
+        // Явно указываем пол в промпте для избежания ошибок
+        const genderInstruction = gender === 'male' 
+            ? 'CRITICAL: This is a MALE person. Generate a MALE portrait. The person must be clearly male with masculine features. Do NOT generate a female portrait.'
+            : gender === 'female'
+            ? 'CRITICAL: This is a FEMALE person. Generate a FEMALE portrait. The person must be clearly female with feminine features. Do NOT generate a male portrait.'
+            : '';
+        
+        return `Create a professional, high-resolution ${gender === 'female' ? 'female ' : gender === 'male' ? 'male ' : ''}business portrait of the person in the photo, suitable for a LinkedIn profile. ${genderInstruction} The style should be ${tone}. ${constraints} Attire: ${attire}. Lighting: ${v.lighting}. Lens & crop: ${v.lens}. Background: ${v.background}. Color grade: ${v.grade}. Pose: ${v.pose}. ${naturality} ${skinDetail} Each image in this batch must show a distinct outfit and feel; avoid repeating garments across images. Context: ${roleDesc}; ${companyDesc}.`;
     };
     return {
         'Классический': base('classic and formal, with traditional corporate lighting and attire against a simple, neutral background'),
@@ -323,49 +336,126 @@ function buildPromptsByContext(
     };
 }
 
-type ImageStatus = 'pending' | 'done' | 'error';
+type ImageStatus = 'pending' | 'queued' | 'processing' | 'done' | 'error';
 interface GeneratedImage {
     status: ImageStatus;
     url?: string;
     error?: string;
+    queuePosition?: number;
+    estimatedWaitTime?: number;
 }
 
 type AppState = 'idle' | 'image-uploaded' | 'generating' | 'results-shown';
 
 function App() {
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+    const [imageValidationError, setImageValidationError] = useState<string | null>(null);
+    const [isValidatingImage, setIsValidatingImage] = useState<boolean>(false);
+    const [validationTimer, setValidationTimer] = useState<number>(0);
     const [generatedImages, setGeneratedImages] = useState<Record<string, GeneratedImage>>({});
     const [isDownloading, setIsDownloading] = useState<boolean>(false);
     const [appState, setAppState] = useState<AppState>('idle');
     const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
     const [detectedGender, setDetectedGender] = useState<DetectedGender>('unknown');
-    const [genderOverride, setGenderOverride] = useState<'male' | 'female'>('female');
+    const [genderOverride, setGenderOverride] = useState<'male' | 'female' | null>(null);
     const [selectedRole, setSelectedRole] = useState<typeof IT_ROLES[number]>('Разработчик');
     const [selectedCompany, setSelectedCompany] = useState<typeof COMPANY_TYPES[number]>('Стартап');
     // Fixed settings per request: always High variability and maximum naturalness
     const variability: VariabilityLevel = 'high';
     const naturalLook: boolean = true;
 
-    const getEffectiveGender = (): DetectedGender => genderOverride;
+    const getEffectiveGender = (): DetectedGender | null => {
+        // Возвращаем выбранный пол (автоматически или вручную)
+        // Если null - пол не выбран, генерация недоступна
+        return genderOverride;
+    };
+
+    // Таймер для оценки изображения
+    useEffect(() => {
+        let intervalId: NodeJS.Timeout | null = null;
+        if (isValidatingImage) {
+            setValidationTimer(0);
+            intervalId = setInterval(() => {
+                setValidationTimer(prev => prev + 1);
+            }, 1000);
+        } else {
+            setValidationTimer(0);
+        }
+        return () => {
+            if (intervalId) {
+                clearInterval(intervalId);
+            }
+        };
+    }, [isValidatingImage]);
 
     const handleImageUpload = (file: File) => {
         const reader = new FileReader();
         reader.onloadend = () => {
-            setUploadedImage(reader.result as string);
-            setAppState('image-uploaded');
-            setGeneratedImages({}); // Clear previous results
-            // Detect gender immediately after upload (best-effort)
             const dataUrl = reader.result as string;
+            
+            // НЕ показываем изображение сразу - сначала анализируем
+            setUploadedImage(null);
+            setAppState('idle');
+            setGeneratedImages({}); // Clear previous results
+            setGenderOverride(null);
+            setDetectedGender('unknown');
+            setImageValidationError(null);
+            
+            // Запускаем анализ
+            setIsValidatingImage(true);
+            const analysisStartedAt = Date.now();
+            const MIN_ANALYSIS_MS = 1200; // гарантируем видимость статуса хотя бы 1.2с
+            
             (async () => {
                 try {
-                    const detection: GenderDetectionResult = await detectGender(dataUrl);
-                    setDetectedGender(detection.gender);
-                    // Auto-apply only if high confidence >= 0.9 and only if user не переключал вручную после этого
-                    if ((detection.gender === 'male' || detection.gender === 'female') && detection.confidence >= 0.9) {
-                        setGenderOverride(detection.gender);
+                    // Единая оценка изображения (валидация + определение пола)
+                    const evaluation: ImageEvaluationResult = await evaluateImage(dataUrl);
+                    
+                    console.log('Image evaluation result:', evaluation);
+                    
+                    if (!evaluation.isValid) {
+                        // Изображение не прошло валидацию - показываем ошибку
+                        setImageValidationError(evaluation.errorMessage);
+                        // Держим статус хотя бы MIN_ANALYSIS_MS
+                        const elapsed = Date.now() - analysisStartedAt;
+                        const delay = Math.max(0, MIN_ANALYSIS_MS - elapsed);
+                        if (delay > 0) await new Promise(r => setTimeout(r, delay));
+                        setIsValidatingImage(false);
+                        return;
                     }
-                } catch {
-                    // ignore
+                    // Изображение валидно - ТЕПЕРЬ показываем его (после минимальной задержки)
+                    {
+                        const elapsed = Date.now() - analysisStartedAt;
+                        const delay = Math.max(0, MIN_ANALYSIS_MS - elapsed);
+                        if (delay > 0) await new Promise(r => setTimeout(r, delay));
+                    }
+                    setUploadedImage(dataUrl);
+                    setAppState('image-uploaded');
+                    setIsValidatingImage(false);
+                    
+                    // Устанавливаем определенный пол
+                    setDetectedGender(evaluation.gender);
+                    console.log('Detected gender:', evaluation.gender, 'confidence:', evaluation.confidence);
+                    
+                    // Автоматически выбираем пол если уверенность >= 0.7
+                    if ((evaluation.gender === 'male' || evaluation.gender === 'female') && evaluation.confidence >= 0.7) {
+                        setGenderOverride(evaluation.gender);
+                        console.log('Auto-selected gender:', evaluation.gender, 'confidence:', evaluation.confidence);
+                    } else {
+                        // Если уверенность низкая или пол не определен - сбрасываем выбор
+                        setGenderOverride(null);
+                        console.log('Gender not auto-selected, user must choose. Gender:', evaluation.gender, 'confidence:', evaluation.confidence);
+                    }
+                } catch (error) {
+                    console.error('Error evaluating image:', error);
+                    // Держим статус хотя бы MIN_ANALYSIS_MS
+                    const elapsed = Date.now() - analysisStartedAt;
+                    const delay = Math.max(0, MIN_ANALYSIS_MS - elapsed);
+                    if (delay > 0) await new Promise(r => setTimeout(r, delay));
+                    setIsValidatingImage(false);
+                    // При ошибке оценки показываем ошибку
+                    setImageValidationError('Не удалось оценить изображение. Пожалуйста, попробуйте другое изображение.');
                 }
             })();
         };
@@ -374,6 +464,13 @@ function App() {
 
     const handleGenerateClick = async () => {
         if (!uploadedImage) return;
+        
+        // Проверяем, что пол выбран
+        const effectiveGender = getEffectiveGender();
+        if (!effectiveGender || (effectiveGender !== 'male' && effectiveGender !== 'female')) {
+            alert('Пожалуйста, выберите пол перед генерацией портретов.');
+            return;
+        }
 
         setAppState('generating');
         
@@ -383,14 +480,40 @@ function App() {
         });
         setGeneratedImages(initialImages);
 
-        const concurrencyLimit = 1;
-        const stylesQueue = [...STYLES];
-
+        // Генерируем все 6 стилей параллельно
+        const prompts = buildPromptsByContext(getEffectiveGender(), selectedRole, selectedCompany, variability, naturalLook);
+        
         const processStyle = async (style: string) => {
             try {
-                const prompts = buildPromptsByContext(getEffectiveGender(), selectedRole, selectedCompany, variability, naturalLook);
                 const prompt = prompts[style];
-                const resultUrl = await generateImage(uploadedImage, prompt);
+                
+                // Callback для обновления статуса в реальном времени
+                const onStatusUpdate = (status: QueueStatus) => {
+                    setGeneratedImages(prev => {
+                        if (status.status === 'queued') {
+                            return {
+                                ...prev,
+                                [style]: {
+                                    status: 'queued',
+                                    queuePosition: status.position,
+                                    estimatedWaitTime: status.estimatedWaitTime,
+                                },
+                            };
+                        } else if (status.status === 'processing') {
+                            return {
+                                ...prev,
+                                [style]: {
+                                    status: 'processing',
+                                    queuePosition: 0,
+                                    estimatedWaitTime: status.estimatedWaitTime,
+                                },
+                            };
+                        }
+                        return prev;
+                    });
+                };
+                
+                const resultUrl = await generateImage(uploadedImage, prompt, onStatusUpdate);
                 setGeneratedImages(prev => ({
                     ...prev,
                     [style]: { status: 'done', url: resultUrl },
@@ -405,28 +528,47 @@ function App() {
             }
         };
 
-        const workers = Array(concurrencyLimit).fill(null).map(async () => {
-            while (stylesQueue.length > 0) {
-                const style = stylesQueue.shift();
-                if (style) {
-                    await processStyle(style);
-                }
-            }
-        });
-
-        await Promise.all(workers);
+        // Запускаем все 6 генераций одновременно
+        await Promise.all(STYLES.map(style => processStyle(style)));
         setAppState('results-shown');
     };
 
     const handleRegenerateStyle = async (style: string) => {
-        if (!uploadedImage || generatedImages[style]?.status === 'pending') return;
+        if (!uploadedImage || generatedImages[style]?.status === 'pending' || generatedImages[style]?.status === 'queued' || generatedImages[style]?.status === 'processing') return;
         
         setGeneratedImages(prev => ({ ...prev, [style]: { status: 'pending' } }));
 
         try {
             const prompts = buildPromptsByContext(getEffectiveGender(), selectedRole, selectedCompany, variability, naturalLook);
             const prompt = prompts[style];
-            const resultUrl = await generateImage(uploadedImage, prompt);
+            
+            // Callback для обновления статуса в реальном времени
+            const onStatusUpdate = (status: QueueStatus) => {
+                setGeneratedImages(prev => {
+                    if (status.status === 'queued') {
+                        return {
+                            ...prev,
+                            [style]: {
+                                status: 'queued',
+                                queuePosition: status.position,
+                                estimatedWaitTime: status.estimatedWaitTime,
+                            },
+                        };
+                    } else if (status.status === 'processing') {
+                        return {
+                            ...prev,
+                            [style]: {
+                                status: 'processing',
+                                queuePosition: 0,
+                                estimatedWaitTime: status.estimatedWaitTime,
+                            },
+                        };
+                    }
+                    return prev;
+                });
+            };
+            
+            const resultUrl = await generateImage(uploadedImage, prompt, onStatusUpdate);
             setGeneratedImages(prev => ({ ...prev, [style]: { status: 'done', url: resultUrl } }));
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : "Произошла неизвестная ошибка.";
@@ -437,8 +579,12 @@ function App() {
     
     const handleReset = () => {
         setUploadedImage(null);
+        setImageValidationError(null);
+        setIsValidatingImage(false);
         setGeneratedImages({});
         setAppState('idle');
+        setGenderOverride(null);
+        setDetectedGender('unknown');
     };
 
     const handleDownloadIndividualImage = (style: string) => {
@@ -499,13 +645,80 @@ function App() {
     }, []);
 
     return (
-        <div className="min-h-screen w-full bg-gray-50 text-gray-800 flex flex-col">
-            <header className="bg-white border-b border-gray-200">
+        <div 
+            className="min-h-screen w-full text-gray-800 flex flex-col"
+            style={{
+                background: '#f8f9fa',
+            }}
+        >
+            <header 
+                className="border-b sticky top-0 z-50"
+                style={{
+                    background: 'rgba(255, 255, 255, 0.98)',
+                    backdropFilter: 'blur(16px)',
+                    borderColor: 'rgba(226, 232, 240, 0.6)',
+                    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.05)',
+                }}
+            >
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-center py-4">
-                        <div className="flex items-center gap-2">
-                           <Icons.logo className="h-8 w-8 text-blue-600" />
-                            <h1 className="text-xl font-semibold text-gray-900">newava.pro</h1>
+                    <div className="flex justify-between items-center py-5">
+                        <div className="flex items-center gap-4">
+                           {/* Логотип с градиентом и улучшенным дизайном */}
+                           <div 
+                               className="relative flex items-center justify-center logo-container cursor-pointer"
+                               style={{
+                                   width: '44px',
+                                   height: '44px',
+                               }}
+                           >
+                               <div 
+                                   className="absolute inset-0 rounded-xl transition-all duration-300"
+                                   style={{
+                                       background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
+                                       boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)',
+                                   }}
+                               />
+                               <div className="relative z-10 p-2.5">
+                                   <Icons.career className="h-5 w-5 text-white transition-transform duration-300" strokeWidth={2} />
+                               </div>
+                           </div>
+                           
+                           {/* Текстовая часть с улучшенной типографикой */}
+                           <div className="flex flex-col gap-0.5">
+                                <h1 className="flex items-baseline gap-1.5">
+                                    <span 
+                                        className="text-2xl font-bold tracking-tight"
+                                        style={{
+                                            background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+                                            WebkitBackgroundClip: 'text',
+                                            WebkitTextFillColor: 'transparent',
+                                            backgroundClip: 'text',
+                                        }}
+                                    >
+                                        newava
+                                    </span>
+                                    <span 
+                                        className="text-lg font-semibold px-1.5 py-0.5 rounded"
+                                        style={{
+                                            background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
+                                            color: 'white',
+                                            fontSize: '0.875rem',
+                                            lineHeight: '1.25rem',
+                                        }}
+                                    >
+                                        .pro
+                                    </span>
+                                </h1>
+                                <p 
+                                    className="text-xs font-medium tracking-wide"
+                                    style={{
+                                        color: '#64748b',
+                                        letterSpacing: '0.025em',
+                                    }}
+                                >
+                                    Твое идеальное фото для новой карьеры
+                                </p>
+                           </div>
                         </div>
                         {/* Removed external attribution link */}
                     </div>
@@ -516,17 +729,70 @@ function App() {
                 <div className="flex flex-col lg:flex-row gap-8">
                     {/* --- Left Column: Controls --- */}
                     <aside className="w-full lg:w-1/3 lg:max-w-sm flex-shrink-0">
-                        <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm sticky top-8">
+                        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm sticky top-8 transition-shadow duration-300 hover:shadow-md">
                             <h2 className="text-lg font-semibold text-gray-900 mb-1">1. Загрузите ваше фото</h2>
                             <p className="text-sm text-gray-500 mb-4">Выберите четкое изображение лица анфас.</p>
                             
+                            {/* Скрытый input для кнопки ошибки - всегда в DOM */}
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                className="hidden"
+                                accept="image/png, image/jpeg, image/webp"
+                                onChange={(e) => {
+                                    const files = e.target.files;
+                                    if (files && files.length > 0) {
+                                        handleImageUpload(files[0]);
+                                    }
+                                }}
+                            />
+                            
                             <AnimatePresence mode="wait">
-                                {appState === 'idle' && (
+                                {appState === 'idle' && !imageValidationError && !isValidatingImage && (
                                     <motion.div key="uploader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                                         <Uploader onImageUpload={handleImageUpload} />
                                     </motion.div>
                                 )}
-                                {(appState !== 'idle') && uploadedImage && (
+                                {isValidatingImage && (
+                                    <motion.div 
+                                        key="analyzing" 
+                                        initial={{ opacity: 0 }} 
+                                        animate={{ opacity: 1 }} 
+                                        exit={{ opacity: 0 }}
+                                        className="w-full aspect-square rounded-md border-2 border-dashed border-blue-200 bg-blue-50 flex flex-col items-center justify-center p-6"
+                                    >
+                                        <Icons.spinner className="w-12 h-12 text-blue-600 animate-spin mb-4" />
+                                        <p className="text-sm font-medium text-gray-700 mb-1">Идет анализ</p>
+                                        <p className="text-xs text-gray-500">{validationTimer} сек</p>
+                                    </motion.div>
+                                )}
+                                {imageValidationError && (
+                                    <motion.div 
+                                        key="error" 
+                                        initial={{ opacity: 0 }} 
+                                        animate={{ opacity: 1 }} 
+                                        exit={{ opacity: 0 }}
+                                        className="w-full aspect-square rounded-md border-2 border-red-300 bg-gradient-to-br from-red-50 to-orange-50 flex flex-col items-center justify-center p-6 text-center"
+                                    >
+                                        <Icons.xCircle className="w-12 h-12 text-red-600 mb-4" />
+                                        <p className="text-sm font-medium text-red-800 mb-2">Ошибка загрузки</p>
+                                        <p className="text-xs text-red-700 leading-relaxed">{imageValidationError}</p>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                // Открываем файловый диалог сразу, без задержек
+                                                if (fileInputRef.current) {
+                                                    fileInputRef.current.value = ''; // Сбрасываем предыдущий выбор
+                                                    fileInputRef.current.click();
+                                                }
+                                            }}
+                                            className="mt-4 px-4 py-2 text-sm font-medium text-white bg-gray-700 rounded-lg hover:bg-gray-800 transition-all duration-200 shadow-sm hover:shadow-md"
+                                        >
+                                            Выбрать другое изображение
+                                        </button>
+                                    </motion.div>
+                                )}
+                                {uploadedImage && (appState === 'image-uploaded' || appState === 'generating' || appState === 'results-shown') && !imageValidationError && !isValidatingImage && (
                                      <motion.div key="preview" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                                         <img src={uploadedImage} alt="Uploaded preview" className="w-full rounded-md object-cover aspect-square" />
                                     </motion.div>
@@ -534,20 +800,48 @@ function App() {
                             </AnimatePresence>
                             
                             <div className="mt-6">
-                                {uploadedImage && (
+                                {!isValidatingImage && !imageValidationError && uploadedImage && (appState === 'image-uploaded' || appState === 'generating' || appState === 'results-shown') && (
                                     <div className="mb-6">
                                         <h2 className="text-lg font-semibold text-gray-900 mb-1">Пол</h2>
-                                        <p className="text-sm text-gray-500 mb-3">Выберите пол (автоопределение применяется только при высокой уверенности).</p>
+                                        <p className="text-sm text-gray-500 mb-3">
+                                            {genderOverride === null 
+                                                ? 'Выберите пол для генерации портретов' 
+                                                : genderOverride === 'male'
+                                                ? 'Выбран: Мужской'
+                                                : 'Выбран: Женский'}
+                                        </p>
                                         <div className="grid grid-cols-2 gap-2">
                                             <button
-                                                className={cn('px-3 py-2 text-sm rounded-md border', genderOverride === 'male' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-gray-200 text-gray-700')}
-                                                onClick={() => setGenderOverride('male')}
+                                                className={cn(
+                                                    'px-3 py-2 text-sm rounded-lg border transition-all duration-200',
+                                                    genderOverride === 'male'
+                                                        ? 'bg-blue-50 border-blue-300 text-blue-700 shadow-sm font-medium' 
+                                                        : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300',
+                                                    (appState === 'generating' || appState === 'results-shown') && 'opacity-60 cursor-not-allowed'
+                                                )}
+                                                onClick={() => {
+                                                    if (appState === 'image-uploaded') {
+                                                        setGenderOverride('male');
+                                                    }
+                                                }}
+                                                disabled={appState === 'generating' || appState === 'results-shown'}
                                             >
                                                 Мужской
                                             </button>
                                             <button
-                                                className={cn('px-3 py-2 text-sm rounded-md border', genderOverride === 'female' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-gray-200 text-gray-700')}
-                                                onClick={() => setGenderOverride('female')}
+                                                className={cn(
+                                                    'px-3 py-2 text-sm rounded-lg border transition-all duration-200',
+                                                    genderOverride === 'female'
+                                                        ? 'bg-blue-50 border-blue-300 text-blue-700 shadow-sm font-medium' 
+                                                        : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300',
+                                                    (appState === 'generating' || appState === 'results-shown') && 'opacity-60 cursor-not-allowed'
+                                                )}
+                                                onClick={() => {
+                                                    if (appState === 'image-uploaded') {
+                                                        setGenderOverride('female');
+                                                    }
+                                                }}
+                                                disabled={appState === 'generating' || appState === 'results-shown'}
                                             >
                                                 Женский
                                             </button>
@@ -557,59 +851,117 @@ function App() {
 
                                 {/* Role & Company selectors */}
                                 <div className="mb-6 grid grid-cols-1 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Должность в ИТ</label>
-                                        <select
-                                            className="w-full border border-gray-200 rounded-md px-3 py-2 bg-white text-gray-800"
-                                            value={selectedRole}
-                                            onChange={(e) => setSelectedRole(e.target.value as typeof IT_ROLES[number])}
-                                        >
-                                            {IT_ROLES.map((r) => (
-                                                <option key={r} value={r}>{r}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Тип компании</label>
-                                        <select
-                                            className="w-full border border-gray-200 rounded-md px-3 py-2 bg-white text-gray-800"
-                                            value={selectedCompany}
-                                            onChange={(e) => setSelectedCompany(e.target.value as typeof COMPANY_TYPES[number])}
-                                        >
-                                            {COMPANY_TYPES.map((c) => (
-                                                <option key={c} value={c}>{c}</option>
-                                            ))}
-                                        </select>
-                                    </div>
+                                    <CustomSelect
+                                        label="Должность в ИТ"
+                                        options={IT_ROLES}
+                                        value={selectedRole}
+                                        onChange={(value) => setSelectedRole(value as typeof IT_ROLES[number])}
+                                        placeholder="Выберите должность"
+                                    />
+                                    <CustomSelect
+                                        label="Тип компании"
+                                        options={COMPANY_TYPES}
+                                        value={selectedCompany}
+                                        onChange={(value) => setSelectedCompany(value as typeof COMPANY_TYPES[number])}
+                                        placeholder="Выберите тип компании"
+                                    />
                                     {/* Вариативность и естественность зафиксированы в коде (Высокая, включено) */}
                                 </div>
                                 <h2 className="text-lg font-semibold text-gray-900 mb-1">2. Сгенерируйте портреты</h2>
                                 <p className="text-sm text-gray-500 mb-4">Мы создадим 6 профессиональных портретов в разных стилях.</p>
                                 {appState === 'image-uploaded' && (
-                                    <button onClick={handleGenerateClick} className="enterprise-button-primary w-full">
-                                        <Icons.sparkles className="w-4 h-4 mr-2" />
-                                        Сгенерировать
-                                    </button>
+                                    <div className="flex items-center gap-3">
+                                        <button 
+                                            onClick={handleReset} 
+                                            className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 flex-1 h-10 py-2 px-4 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm hover:shadow-md active:scale-[0.98]"
+                                        >
+                                            <Icons.reset className="w-4 h-4 mr-2" />
+                                            Сбросить
+                                        </button>
+                                        <button 
+                                            onClick={handleGenerateClick} 
+                                            disabled={!getEffectiveGender() || (getEffectiveGender() !== 'male' && getEffectiveGender() !== 'female')}
+                                            className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 flex-1 h-10 py-2 px-4 text-white disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed"
+                                            style={{
+                                                background: getEffectiveGender() && (getEffectiveGender() === 'male' || getEffectiveGender() === 'female')
+                                                    ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)'
+                                                    : 'linear-gradient(135deg, #9ca3af 0%, #6b7280 100%)',
+                                                boxShadow: getEffectiveGender() && (getEffectiveGender() === 'male' || getEffectiveGender() === 'female')
+                                                    ? '0 10px 15px -3px rgba(99, 102, 241, 0.3), 0 4px 6px -4px rgba(99, 102, 241, 0.3)'
+                                                    : '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (getEffectiveGender() && (getEffectiveGender() === 'male' || getEffectiveGender() === 'female')) {
+                                                    e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(99, 102, 241, 0.4), 0 10px 10px -5px rgba(99, 102, 241, 0.4)';
+                                                    e.currentTarget.style.transform = 'scale(1.02)';
+                                                }
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (getEffectiveGender() && (getEffectiveGender() === 'male' || getEffectiveGender() === 'female')) {
+                                                    e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(99, 102, 241, 0.3), 0 4px 6px -4px rgba(99, 102, 241, 0.3)';
+                                                    e.currentTarget.style.transform = 'scale(1)';
+                                                }
+                                            }}
+                                        >
+                                            <Icons.sparkles className="w-4 h-4 mr-2" />
+                                            {getEffectiveGender() && (getEffectiveGender() === 'male' || getEffectiveGender() === 'female') 
+                                                ? 'Сгенерировать' 
+                                                : 'Выберите пол'}
+                                        </button>
+                                    </div>
                                 )}
                                  {appState === 'generating' && (
-                                    <button disabled className="enterprise-button-primary w-full opacity-70 cursor-not-allowed">
+                                    <button 
+                                        disabled 
+                                        className="inline-flex items-center justify-center rounded-lg text-sm font-medium w-full h-10 py-2 px-4 text-white opacity-70 cursor-not-allowed"
+                                        style={{
+                                            background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                                            boxShadow: '0 10px 15px -3px rgba(99, 102, 241, 0.3), 0 4px 6px -4px rgba(99, 102, 241, 0.3)',
+                                        }}
+                                    >
                                         <Icons.spinner className="w-4 h-4 mr-2 animate-spin" />
                                         Генерация...
                                     </button>
                                 )}
                                 {appState === 'results-shown' && (
-                                     <div className="grid grid-cols-2 gap-3">
-                                        <button onClick={handleReset} className="enterprise-button-secondary w-full">
+                                     <div className="flex items-center gap-3">
+                                        <button 
+                                            onClick={handleReset} 
+                                            className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 flex-1 h-10 py-2 px-4 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm hover:shadow-md active:scale-[0.98]"
+                                        >
                                             <Icons.reset className="w-4 h-4 mr-2" />
                                             Сбросить
                                         </button>
-                                        <button onClick={handleDownloadAlbum} disabled={isDownloading} className="enterprise-button-primary w-full">
+                                        <button 
+                                            onClick={handleDownloadAlbum} 
+                                            disabled={isDownloading} 
+                                            className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 flex-1 h-10 py-2 px-4 text-white disabled:opacity-50 disabled:pointer-events-none"
+                                            style={{
+                                                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                                                boxShadow: '0 10px 15px -3px rgba(99, 102, 241, 0.3), 0 4px 6px -4px rgba(99, 102, 241, 0.3)',
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (!isDownloading) {
+                                                    e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(99, 102, 241, 0.4), 0 10px 10px -5px rgba(99, 102, 241, 0.4)';
+                                                    e.currentTarget.style.transform = 'scale(1.02)';
+                                                }
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(99, 102, 241, 0.3), 0 4px 6px -4px rgba(99, 102, 241, 0.3)';
+                                                e.currentTarget.style.transform = 'scale(1)';
+                                            }}
+                                        >
                                             {isDownloading ? (
-                                                <Icons.spinner className="w-4 h-4 mr-2 animate-spin" />
+                                                <>
+                                                    <Icons.spinner className="w-4 h-4 mr-2 animate-spin" />
+                                                    Альбом
+                                                </>
                                             ) : (
-                                                <Icons.download className="w-4 h-4 mr-2" />
+                                                <>
+                                                    <Icons.download className="w-4 h-4 mr-2" />
+                                                    Альбом
+                                                </>
                                             )}
-                                            Альбом
                                         </button>
                                     </div>
                                 )}
@@ -648,6 +1000,8 @@ function App() {
                                         <ImageCard
                                             caption={style}
                                             status={generatedImages[style]?.status || 'pending'}
+                                            queuePosition={generatedImages[style]?.queuePosition}
+                                            estimatedWaitTime={generatedImages[style]?.estimatedWaitTime}
                                             imageUrl={generatedImages[style]?.url}
                                             error={generatedImages[style]?.error}
                                             onRegenerate={() => handleRegenerateStyle(style)}
