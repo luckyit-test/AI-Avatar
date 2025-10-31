@@ -798,21 +798,16 @@ app.post(`${API_PREFIX}/evaluate-image`, rateLimit);
 
 // Получаем API ключи из переменных окружения
 const GEMINI_API_KEY_GENERATION = process.env.GEMINI_API_KEY; // Основной ключ для генерации
-const GEMINI_API_KEY_ANALYSIS = process.env.GEMINI_API_KEY_ANALYSIS; // Ключ для анализа изображений
+const GEMINI_API_KEY_ANALYSIS = process.env.GEMINI_API_KEY_ANALYSIS || GEMINI_API_KEY_GENERATION; // Ключ для анализа (используем основной если не указан отдельный)
 
 if (!GEMINI_API_KEY_GENERATION) {
   console.error('ERROR: GEMINI_API_KEY не установлен в переменных окружения');
   process.exit(1);
 }
 
-if (!GEMINI_API_KEY_ANALYSIS) {
-  console.error('ERROR: GEMINI_API_KEY_ANALYSIS не установлен в переменных окружения');
-  process.exit(1);
-}
-
 // Инициализируем два клиента Gemini
 const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY_GENERATION }); // Для генерации
-const genAIAnalysis = new GoogleGenAI({ apiKey: GEMINI_API_KEY_ANALYSIS }); // Для анализа
+const genAIAnalysis = new GoogleGenAI({ apiKey: GEMINI_API_KEY_ANALYSIS }); // Для анализа (может быть тем же ключом)
 
 // Валидация размера base64 изображения
 function validateImageData(imageData) {
