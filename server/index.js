@@ -282,12 +282,14 @@ async function waitForGeminiRateLimit() {
   const requestsInCurrentSecond = geminiRequestsPerSecond.get(currentSecond) || 0;
   
   // Если в текущую секунду уже 6 запросов - ждем 1 секунду
+  // Это гарантирует что не более 6 запросов отправляется в секунду
   if (requestsInCurrentSecond >= MAX_REQUESTS_PER_SECOND) {
     const waitTime = SECOND_DELAY_ON_LIMIT;
     safeLog('Rate limit (generation): waiting 1 second - limit reached in current second', { 
       requestsInCurrentSecond, 
       currentSecond,
-      waitTime 
+      waitTime,
+      activeJobs: activeJobs.size
     });
     await new Promise(resolve => setTimeout(resolve, waitTime));
     // После задержки обновляем счетчик для следующей секунды
@@ -315,7 +317,7 @@ async function waitForGeminiRateLimit() {
     }
   }
   
-  // Регистрируем запрос
+  // Регистрируем запрос только после всех проверок
   const finalSecond = Math.floor(Date.now() / 1000);
   geminiRequestsPerSecond.set(finalSecond, (geminiRequestsPerSecond.get(finalSecond) || 0) + 1);
   geminiRequestTimestamps.push(Date.now());
