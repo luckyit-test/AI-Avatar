@@ -21,17 +21,22 @@ const MAX_QUEUE_SIZE = parseInt(process.env.MAX_QUEUE_SIZE || '100'); // Мак�
 const MAX_CONCURRENT_GENERATIONS = parseInt(process.env.MAX_CONCURRENT_GENERATIONS || '6'); // Максимум параллельных генераций
 
 // Настройки rate limiting для Gemini API (Tier 1)
-// Консервативные значения для бесплатного Tier 1: 15 запросов в минуту
-const GEMINI_RPM_LIMIT = parseInt(process.env.GEMINI_RPM_LIMIT || '15'); // Requests Per Minute для генерации
+// Для генерации: максимум 6 одновременных запросов, задержка 1 секунда при превышении лимита в текущую секунду
+const GEMINI_RPM_LIMIT = parseInt(process.env.GEMINI_RPM_LIMIT || '15'); // Requests Per Minute для генерации (для sliding window)
 const GEMINI_MIN_INTERVAL = Math.ceil(60000 / GEMINI_RPM_LIMIT); // Минимальный интервал между запросами генерации в мс
 
 // Отдельные настройки для анализа - Tier 1: 500 RPM (8.3 запроса в секунду)
 const GEMINI_ANALYSIS_RPM_LIMIT = parseInt(process.env.GEMINI_ANALYSIS_RPM_LIMIT || '500'); // Requests Per Minute для анализа (Tier 1)
 const GEMINI_ANALYSIS_MIN_INTERVAL = Math.ceil(60000 / GEMINI_ANALYSIS_RPM_LIMIT); // Минимальный интервал между запросами анализа в мс (~120 мс)
 
-// Система отслеживания запросов к Gemini API для генерации (sliding window)
+// Система отслеживания запросов к Gemini API для генерации (sliding window по минутам)
 const geminiRequestTimestamps = [];
 const GEMINI_WINDOW_SIZE = 60000; // Окно в 1 минуту
+
+// Система отслеживания запросов в текущую секунду для генерации (не более 6 за секунду)
+const geminiRequestsPerSecond = new Map(); // Ключ: timestamp в секундах, значение: количество запросов
+const MAX_REQUESTS_PER_SECOND = 6; // Максимум 6 запросов в секунду
+const SECOND_DELAY_ON_LIMIT = 1000; // Задержка 1 секунда при превышении лимита
 
 // Система отслеживания запросов к Gemini API для анализа (отдельный трекер)
 const geminiAnalysisRequestTimestamps = [];
