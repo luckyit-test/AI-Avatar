@@ -36,7 +36,7 @@ const GEMINI_WINDOW_SIZE = 60000; // Окно в 1 минуту
 // Система отслеживания запросов в текущую секунду для генерации (не более 6 за секунду)
 const geminiRequestsPerSecond = new Map(); // Ключ: timestamp в секундах, значение: количество запросов
 const MAX_REQUESTS_PER_SECOND = 6; // Максимум 6 запросов в секунду
-const SECOND_DELAY_ON_LIMIT = 1000; // Задержка 1 секунда при превышении лимита
+const SECOND_DELAY_ON_LIMIT = 2000; // Задержка 2 секунды при превышении лимита
 
 // Система отслеживания запросов к Gemini API для анализа (отдельный трекер)
 const geminiAnalysisRequestTimestamps = [];
@@ -281,11 +281,11 @@ async function waitForGeminiRateLimit() {
   // Проверяем количество запросов в текущую секунду
   const requestsInCurrentSecond = geminiRequestsPerSecond.get(currentSecond) || 0;
   
-  // Если в текущую секунду уже 6 запросов - ждем 1 секунду
+  // Если в текущую секунду уже 6 запросов - ждем 2 секунды
   // Это гарантирует что не более 6 запросов отправляется в секунду
   if (requestsInCurrentSecond >= MAX_REQUESTS_PER_SECOND) {
     const waitTime = SECOND_DELAY_ON_LIMIT;
-    safeLog('Rate limit (generation): waiting 1 second - limit reached in current second', { 
+    safeLog('Rate limit (generation): waiting 2 seconds - limit reached in current second', { 
       requestsInCurrentSecond, 
       currentSecond,
       waitTime,
