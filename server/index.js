@@ -22,8 +22,12 @@ const MAX_CONCURRENT_GENERATIONS = parseInt(process.env.MAX_CONCURRENT_GENERATIO
 
 // Настройки rate limiting для Gemini API (Tier 1)
 // Консервативные значения для бесплатного Tier 1: 15 запросов в минуту
-const GEMINI_RPM_LIMIT = parseInt(process.env.GEMINI_RPM_LIMIT || '15'); // Requests Per Minute
-const GEMINI_MIN_INTERVAL = Math.ceil(60000 / GEMINI_RPM_LIMIT); // Минимальный интервал между запросами в мс
+const GEMINI_RPM_LIMIT = parseInt(process.env.GEMINI_RPM_LIMIT || '15'); // Requests Per Minute для генерации
+const GEMINI_MIN_INTERVAL = Math.ceil(60000 / GEMINI_RPM_LIMIT); // Минимальный интервал между запросами генерации в мс
+
+// Отдельные настройки для анализа - более мягкие, т.к. анализ быстрее и требует меньше ресурсов
+const GEMINI_ANALYSIS_RPM_LIMIT = parseInt(process.env.GEMINI_ANALYSIS_RPM_LIMIT || '30'); // Requests Per Minute для анализа (в 2 раза больше)
+const GEMINI_ANALYSIS_MIN_INTERVAL = Math.ceil(60000 / GEMINI_ANALYSIS_RPM_LIMIT); // Минимальный интервал между запросами анализа в мс (~2 секунды)
 
 // Система отслеживания запросов к Gemini API для генерации (sliding window)
 const geminiRequestTimestamps = [];
@@ -279,7 +283,7 @@ async function waitForGeminiAnalysisRateLimit() {
   const now = Date.now();
   
   // Если достигнут лимит запросов в минуту, ждем
-  if (geminiAnalysisRequestTimestamps.length >= GEMINI_RPM_LIMIT) {
+  if (geminiAnalysisRequestTimestamps.length >= GEMINI_ANALYSIS_RPM_LIMIT) {
     const oldestRequest = geminiAnalysisRequestTimestamps[0];
     const waitTime = GEMINI_WINDOW_SIZE - (now - oldestRequest) + 100; // +100 мс для безопасности
     if (waitTime > 0) {
@@ -289,12 +293,12 @@ async function waitForGeminiAnalysisRateLimit() {
     }
   }
   
-  // Добавляем минимальный интервал между запросами
+  // Добавляем минимальный интервал между запросами анализа (более мягкий чем для генерации)
   if (geminiAnalysisRequestTimestamps.length > 0) {
     const lastRequest = geminiAnalysisRequestTimestamps[geminiAnalysisRequestTimestamps.length - 1];
     const timeSinceLastRequest = now - lastRequest;
-    if (timeSinceLastRequest < GEMINI_MIN_INTERVAL) {
-      const waitTime = GEMINI_MIN_INTERVAL - timeSinceLastRequest;
+    if (timeSinceLastRequest < GEMINI_ANALYSIS_MIN_INTERVAL) {
+      const waitTime = GEMINI_ANALYSIS_MIN_INTERVAL - timeSinceLastRequest;
       await new Promise(resolve => setTimeout(resolve, waitTime));
     }
   }
