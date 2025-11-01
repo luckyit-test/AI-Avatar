@@ -353,6 +353,7 @@ function App() {
     const [imageValidationError, setImageValidationError] = useState<string | null>(null);
     const [isValidatingImage, setIsValidatingImage] = useState<boolean>(false);
     const [validationTimer, setValidationTimer] = useState<number>(0);
+    const [validationStatusMessage, setValidationStatusMessage] = useState<string>('Анализируем изображение...');
     const [generatedImages, setGeneratedImages] = useState<Record<string, GeneratedImage>>({});
     const [isDownloading, setIsDownloading] = useState<boolean>(false);
     const [appState, setAppState] = useState<AppState>('idle');
@@ -404,13 +405,25 @@ function App() {
             
             // Запускаем анализ
             setIsValidatingImage(true);
+            setValidationStatusMessage('Анализируем изображение...');
+            setValidationTimer(0);
             const analysisStartedAt = Date.now();
             const MIN_ANALYSIS_MS = 1200; // гарантируем видимость статуса хотя бы 1.2с
             
             (async () => {
                 try {
-                    // Единая оценка изображения (валидация + определение пола)
-                    const evaluation: ImageEvaluationResult = await evaluateImage(dataUrl);
+                    // Единая оценка изображения (валидация + определение пола) с callback для статуса
+                    const evaluation: ImageEvaluationResult = await evaluateImage(dataUrl, (status) => {
+                        // Обновляем статусное сообщение
+                        if (status.statusMessage) {
+                            setValidationStatusMessage(status.statusMessage);
+                        }
+                        // Обновляем таймер на основе remainingTime
+                        if (status.remainingTime !== undefined) {
+                            const remainingSeconds = Math.ceil(status.remainingTime / 1000);
+                            setValidationTimer(remainingSeconds);
+                        }
+                    });
                     
                     console.log('Image evaluation result:', evaluation);
                     
@@ -422,6 +435,7 @@ function App() {
                         const delay = Math.max(0, MIN_ANALYSIS_MS - elapsed);
                         if (delay > 0) await new Promise(r => setTimeout(r, delay));
                         setIsValidatingImage(false);
+                        setValidationStatusMessage('Анализируем изображение...');
                         return;
                     }
                     // Изображение валидно - ТЕПЕРЬ показываем его (после минимальной задержки)
@@ -433,6 +447,7 @@ function App() {
                     setUploadedImage(dataUrl);
                     setAppState('image-uploaded');
                     setIsValidatingImage(false);
+                    setValidationStatusMessage('Анализируем изображение...');
                     
                     // Устанавливаем определенный пол
                     setDetectedGender(evaluation.gender);
@@ -454,6 +469,7 @@ function App() {
                     const delay = Math.max(0, MIN_ANALYSIS_MS - elapsed);
                     if (delay > 0) await new Promise(r => setTimeout(r, delay));
                     setIsValidatingImage(false);
+                    setValidationStatusMessage('Анализируем изображение...');
                     // При ошибке оценки показываем ошибку
                     setImageValidationError('Не удалось оценить изображение. Пожалуйста, попробуйте другое изображение.');
                 }
@@ -762,8 +778,10 @@ function App() {
                                         className="w-full aspect-square rounded-md border-2 border-dashed border-blue-200 bg-blue-50 flex flex-col items-center justify-center p-6"
                                     >
                                         <Icons.spinner className="w-12 h-12 text-blue-600 animate-spin mb-4" />
-                                        <p className="text-sm font-medium text-gray-700 mb-1">Идет анализ</p>
-                                        <p className="text-xs text-gray-500">{validationTimer} сек</p>
+                                        <p className="text-sm font-medium text-gray-700 mb-1">{validationStatusMessage}</p>
+                                        {validationTimer > 0 && (
+                                            <p className="text-xs text-gray-500">Осталось: ~{validationTimer} сек</p>
+                                        )}
                                     </motion.div>
                                 )}
                                 {imageValidationError && (

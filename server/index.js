@@ -25,9 +25,9 @@ const MAX_CONCURRENT_GENERATIONS = parseInt(process.env.MAX_CONCURRENT_GENERATIO
 const GEMINI_RPM_LIMIT = parseInt(process.env.GEMINI_RPM_LIMIT || '15'); // Requests Per Minute для генерации
 const GEMINI_MIN_INTERVAL = Math.ceil(60000 / GEMINI_RPM_LIMIT); // Минимальный интервал между запросами генерации в мс
 
-// Отдельные настройки для анализа - более мягкие, т.к. анализ быстрее и требует меньше ресурсов
-const GEMINI_ANALYSIS_RPM_LIMIT = parseInt(process.env.GEMINI_ANALYSIS_RPM_LIMIT || '30'); // Requests Per Minute для анализа (в 2 раза больше)
-const GEMINI_ANALYSIS_MIN_INTERVAL = Math.ceil(60000 / GEMINI_ANALYSIS_RPM_LIMIT); // Минимальный интервал между запросами анализа в мс (~2 секунды)
+// Отдельные настройки для анализа - Tier 1: 500 RPM (8.3 запроса в секунду)
+const GEMINI_ANALYSIS_RPM_LIMIT = parseInt(process.env.GEMINI_ANALYSIS_RPM_LIMIT || '500'); // Requests Per Minute для анализа (Tier 1)
+const GEMINI_ANALYSIS_MIN_INTERVAL = Math.ceil(60000 / GEMINI_ANALYSIS_RPM_LIMIT); // Минимальный интервал между запросами анализа в мс (~120 мс)
 
 // Система отслеживания запросов к Gemini API для генерации (sliding window)
 const geminiRequestTimestamps = [];
@@ -44,7 +44,10 @@ let currentJobIds = []; // Массив ID активных задач (для �
 // Очередь анализа изображений (отдельная от генерации)
 const analysisQueue = [];
 const activeAnalysisJobs = new Set(); // Множество активных задач анализа
-const MAX_CONCURRENT_ANALYSIS = parseInt(process.env.MAX_CONCURRENT_ANALYSIS || '3'); // Максимум параллельных анализов
+const MAX_CONCURRENT_ANALYSIS = parseInt(process.env.MAX_CONCURRENT_ANALYSIS || '15'); // Максимум параллельных анализов (500 RPM позволяет до 15 одновременно)
+
+// Среднее время анализа изображения (в мс)
+const AVERAGE_ANALYSIS_TIME = 10000; // 10 секунд на анализ
 
 // Хранилище результатов завершенных задач (храним 100 последних)
 const completedJobs = new Map();
@@ -130,15 +133,20 @@ class AnalysisJob {
     const position = this.getPosition();
     if (position <= 0) return 0; // Уже обрабатывается или завершена
     
-    // Простое вычисление: среднее время анализа * позиция в очереди
-    const avgAnalysisTime = 2000; // ~2 секунды на анализ
     const jobsBeforeThis = position - 1;
     const activeCount = activeAnalysisJobs.size;
+    const availableSlots = MAX_CONCURRENT_ANALYSIS - activeCount;
     
-    // Учитываем rate limit для анализа (15 RPM = 4 секунды между запросами)
-    const rateLimitDelay = Math.max(0, (activeCount + jobsBeforeThis) * 4000 - (Date.now() % 4000));
+    // Если есть свободные слоты и мы в начале очереди - начнем почти сразу
+    if (availableSlots > 0 && jobsBeforeThis < availableSlots) {
+      return 0; // Начнется сразу
+    }
     
-    return (jobsBeforeThis * avgAnalysisTime) + rateLimitDelay;
+    // Рассчитываем время ожидания: (сколько задач нужно обработать до этой) / параллельность * среднее время
+    const batchesBeforeThis = Math.ceil(jobsBeforeThis / MAX_CONCURRENT_ANALYSIS);
+    const estimatedTime = batchesBeforeThis * AVERAGE_ANALYSIS_TIME;
+    
+    return estimatedTime;
   }
   
   setResult(result) {
@@ -278,11 +286,12 @@ async function waitForGeminiRateLimit() {
 }
 
 // Проверка и ожидание перед запросом к Gemini API (для анализа)
+// С Tier 1: 500 RPM = ~8.3 запросов/сек - минимальная задержка нужна только для защиты от перегрузки
 async function waitForGeminiAnalysisRateLimit() {
   cleanupGeminiAnalysisRequestTimestamps();
   const now = Date.now();
   
-  // Если достигнут лимит запросов в минуту, ждем
+  // Если достигнут лимит запросов в минуту (500), ждем
   if (geminiAnalysisRequestTimestamps.length >= GEMINI_ANALYSIS_RPM_LIMIT) {
     const oldestRequest = geminiAnalysisRequestTimestamps[0];
     const waitTime = GEMINI_WINDOW_SIZE - (now - oldestRequest) + 100; // +100 мс для безопасности
@@ -293,12 +302,14 @@ async function waitForGeminiAnalysisRateLimit() {
     }
   }
   
-  // Добавляем минимальный интервал между запросами анализа (более мягкий чем для генерации)
+  // Минимальный интервал очень маленький (~120 мс) - почти не влияет на скорость
+  // Но защищает от одновременных запросов
   if (geminiAnalysisRequestTimestamps.length > 0) {
     const lastRequest = geminiAnalysisRequestTimestamps[geminiAnalysisRequestTimestamps.length - 1];
     const timeSinceLastRequest = now - lastRequest;
     if (timeSinceLastRequest < GEMINI_ANALYSIS_MIN_INTERVAL) {
       const waitTime = GEMINI_ANALYSIS_MIN_INTERVAL - timeSinceLastRequest;
+      // Не логируем эту маленькую задержку - она несущественна
       await new Promise(resolve => setTimeout(resolve, waitTime));
     }
   }
@@ -591,6 +602,35 @@ async function performImageAnalysis(imageData, type) {
   }
 }
 
+// Получение статусного сообщения для анализа (с юмором в корпоративном стиле)
+function getAnalysisStatusMessage(status, remainingTimeMs) {
+  const remainingSeconds = Math.ceil(remainingTimeMs / 1000);
+  
+  if (status === 'processing') {
+    if (remainingSeconds <= 0) {
+      return 'Почти закончили...';
+    } else if (remainingSeconds <= 3) {
+      return 'Еще буквально 3 секунды';
+    } else if (remainingSeconds <= 5) {
+      return 'Почти готово, осталось несколько секунд';
+    } else if (remainingSeconds <= 8) {
+      return 'Завершаем анализ вашего фото';
+    } else {
+      return 'Анализируем изображение...';
+    }
+  } else if (status === 'queued') {
+    if (remainingSeconds <= 0) {
+      return 'Обработка начнется с минуты на минуту';
+    } else if (remainingSeconds <= 5) {
+      return 'Скоро начнем обработку';
+    } else {
+      return `Ожидание в очереди: ~${remainingSeconds} сек`;
+    }
+  }
+  
+  return 'Обработка изображения...';
+}
+
 // Обработка одной задачи анализа
 async function processAnalysisJob(job) {
   activeAnalysisJobs.add(job.id);
@@ -681,18 +721,32 @@ function getAnalysisJobStatus(jobId) {
   // Проверяем очередь и активные задачи
   const queueJob = analysisQueue.find(job => job.id === jobId);
   if (queueJob) {
+    const estimatedWaitTime = queueJob.getEstimatedWaitTime();
+    const elapsedTime = Date.now() - queueJob.createdAt;
+    const remainingTime = Math.max(0, estimatedWaitTime - elapsedTime);
+    
     return {
       status: 'queued',
       position: queueJob.getPosition(),
-      estimatedWaitTime: queueJob.getEstimatedWaitTime(),
+      estimatedWaitTime: estimatedWaitTime,
+      remainingTime: remainingTime,
+      statusMessage: getAnalysisStatusMessage('queued', remainingTime),
     };
   }
   
   if (activeAnalysisJobs.has(jobId)) {
+    // Задача обрабатывается - показываем оставшееся время
+    // Ищем задачу в активных задачах
+    const activeJob = Array.from(analysisQueue).find(j => j.id === jobId && j.startedAt);
+    const elapsedTime = activeJob && activeJob.startedAt ? Date.now() - activeJob.startedAt : 0;
+    const remainingTime = Math.max(0, AVERAGE_ANALYSIS_TIME - elapsedTime);
+    
     return {
       status: 'processing',
       position: 0,
       estimatedWaitTime: 0,
+      remainingTime: remainingTime,
+      statusMessage: getAnalysisStatusMessage('processing', remainingTime),
     };
   }
   
@@ -967,6 +1021,71 @@ app.post(`${API_PREFIX}/generate-image`, async (req, res) => {
   }
 });
 
+// Эндпоинт для получения статуса задачи анализа
+app.get(`${API_PREFIX}/analysis/:jobId`, (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const status = getAnalysisJobStatus(jobId);
+    
+    if (!status) {
+      return res.status(404).json({ 
+        error: 'Задача анализа не найдена' 
+      });
+    }
+    
+    // Если задача завершена, возвращаем результат в формате для evaluate-image
+    if (status.status === 'completed') {
+      const parsed = status.result;
+      const d = parsed.details || {};
+      let postIsValid = parsed.isValid === true && parsed.errorType !== 'prohibited_content';
+      let postErrorType = postIsValid ? 'none' : (parsed.errorType === 'prohibited_content' ? 'prohibited_content' : 'not_single_person');
+      
+      let errorMessage = '';
+      if (!postIsValid) {
+        if (postErrorType === 'prohibited_content') {
+          errorMessage = 'Вы загрузили изображение с социально неприемлемым контентом. Выберите другое изображение.';
+        } else if (postErrorType === 'not_single_person') {
+          if (d?.hasMultiplePeople) {
+            errorMessage = 'На изображении несколько человек. Пожалуйста, загрузите изображение с одним человеком (селфи или портрет).';
+          } else if (d?.hasAnimals) {
+            errorMessage = 'На изображении есть животные. Пожалуйста, загрузите изображение с одним человеком (мужчина или женщина).';
+          } else if (d?.hasLandscape) {
+            errorMessage = 'Это изображение пейзажа. Пожалуйста, загрузите изображение с одним человеком (селфи или портрет).';
+          } else if (d?.hasOtherObjects && !d?.hasSinglePerson) {
+            errorMessage = 'На изображении нет человека. Пожалуйста, загрузите изображение с одним человеком (мужчина или женщина).';
+          } else if (d?.isPhotographOfRealPerson === false) {
+            errorMessage = 'Это не фотография реального человека (рисунок/иллюстрация/рендер). Загрузите фото человека.';
+          } else if (d?.isFaceClearlyVisible === false) {
+            errorMessage = 'Лицо плохо видно. Пожалуйста, загрузите фото анфас с хорошо видимым лицом.';
+          } else {
+            errorMessage = 'Пожалуйста, загрузите изображение с одним человеком в кадре (мужчина или женщина).';
+          }
+        } else if (postErrorType === 'license_violation') {
+          errorMessage = 'Изображение содержит защищенный авторским правом контент. Выберите другое изображение.';
+        }
+      }
+      
+      return res.json({
+        status: 'completed',
+        isValid: postIsValid,
+        errorType: postErrorType || 'none',
+        errorMessage: errorMessage,
+        gender: parsed.gender || 'unknown',
+        confidence: Math.max(0, Math.min(1, parsed.confidence || 0)),
+        details: d
+      });
+    }
+    
+    res.json(status);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    safeLog('Failed to get analysis status', { jobId: req.params.jobId, error: errorMessage });
+    res.status(500).json({ 
+      error: 'Не удалось получить статус задачи анализа' 
+    });
+  }
+});
+
 // Эндпоинт для проверки статуса генерации
 app.get(`${API_PREFIX}/generate-image/:jobId`, async (req, res) => {
   const { jobId } = req.params;
@@ -1033,131 +1152,12 @@ app.post(`${API_PREFIX}/evaluate-image`, async (req, res) => {
     const queueResult = addToAnalysisQueue(imageData, 'evaluate');
     const jobId = queueResult.jobId;
     
-    // Ждем завершения задачи (максимум 30 секунд)
-    const timeout = 30000;
-    const startWait = Date.now();
-    
-    while (Date.now() - startWait < timeout) {
-      const status = getAnalysisJobStatus(jobId);
-      
-      if (!status) {
-        return res.status(500).json({ 
-          error: 'Задача анализа не найдена' 
-        });
-      }
-      
-      if (status.status === 'completed') {
-        const parsed = status.result;
-        const duration = Date.now() - startTime;
-        safeLog('Image evaluation completed', { 
-          clientIp, 
-          isValid: parsed.isValid, 
-          errorType: parsed.errorType,
-          gender: parsed.gender,
-          confidence: parsed.confidence,
-          duration 
-        });
-        const d = parsed.details || {};
-        // Упрощенная логика: доверяем ответу модели
-        // Если модель вернула isValid: true - принимаем (если не запрещенный контент)
-        let postIsValid = parsed.isValid === true && parsed.errorType !== 'prohibited_content';
-        let postErrorType = postIsValid ? 'none' : (parsed.errorType === 'prohibited_content' ? 'prohibited_content' : 'not_single_person');
-
-        if (postIsValid) {
-          // Определяем сообщение об ошибке на русском если нужно
-          let errorMessage = '';
-          
-          if (postErrorType === 'prohibited_content') {
-            errorMessage = 'Вы загрузили изображение с социально неприемлемым контентом. Выберите другое изображение.';
-          } else if (postErrorType === 'not_single_person') {
-            if (d?.hasMultiplePeople) {
-              errorMessage = 'На изображении несколько человек. Пожалуйста, загрузите изображение с одним человеком (селфи или портрет).';
-            } else if (d?.hasAnimals) {
-              errorMessage = 'На изображении есть животные. Пожалуйста, загрузите изображение с одним человеком (мужчина или женщина).';
-            } else if (d?.hasLandscape) {
-              errorMessage = 'Это изображение пейзажа. Пожалуйста, загрузите изображение с одним человеком (селфи или портрет).';
-            } else if (d?.hasOtherObjects && !d?.hasSinglePerson) {
-              errorMessage = 'На изображении нет человека. Пожалуйста, загрузите изображение с одним человеком (мужчина или женщина).';
-            } else if (d?.isPhotographOfRealPerson === false) {
-              errorMessage = 'Это не фотография реального человека (рисунок/иллюстрация/рендер). Загрузите фото человека.';
-            } else if (d?.isFaceClearlyVisible === false) {
-              errorMessage = 'Лицо плохо видно. Пожалуйста, загрузите фото анфас с хорошо видимым лицом.';
-            } else {
-              errorMessage = 'Пожалуйста, загрузите изображение с одним человеком в кадре (мужчина или женщина).';
-            }
-          } else if (postErrorType === 'license_violation') {
-            errorMessage = 'Изображение содержит защищенный авторским правом контент. Выберите другое изображение.';
-          }
-          
-          return res.json({ 
-            isValid: postIsValid,
-            errorType: postErrorType || 'none',
-            errorMessage: errorMessage,
-            gender: parsed.gender || 'unknown',
-            confidence: Math.max(0, Math.min(1, parsed.confidence || 0)),
-            details: d
-          });
-        } else {
-          // Изображение невалидно
-          let errorMessage = parsed.errorMessage || 'Изображение не соответствует требованиям';
-          
-          if (parsed.errorType === 'prohibited_content') {
-            errorMessage = 'Вы загрузили изображение с социально неприемлемым контентом. Выберите другое изображение.';
-          } else if (parsed.errorType === 'not_single_person') {
-            if (d?.hasMultiplePeople) {
-              errorMessage = 'На изображении несколько человек. Пожалуйста, загрузите изображение с одним человеком (селфи или портрет).';
-            } else if (d?.hasAnimals) {
-              errorMessage = 'На изображении есть животные. Пожалуйста, загрузите изображение с одним человеком (мужчина или женщина).';
-            } else if (d?.hasLandscape) {
-              errorMessage = 'Это изображение пейзажа. Пожалуйста, загрузите изображение с одним человеком (селфи или портрет).';
-            } else if (d?.hasOtherObjects && !d?.hasSinglePerson) {
-              errorMessage = 'На изображении нет человека. Пожалуйста, загрузите изображение с одним человеком (мужчина или женщина).';
-            } else if (d?.isPhotographOfRealPerson === false) {
-              errorMessage = 'Это не фотография реального человека (рисунок/иллюстрация/рендер). Загрузите фото человека.';
-            } else if (d?.isFaceClearlyVisible === false) {
-              errorMessage = 'Лицо плохо видно. Пожалуйста, загрузите фото анфас с хорошо видимым лицом.';
-            } else {
-              errorMessage = 'Пожалуйста, загрузите изображение с одним человеком в кадре (мужчина или женщина).';
-            }
-          } else if (parsed.errorType === 'license_violation') {
-            errorMessage = 'Изображение содержит защищенный авторским правом контент. Выберите другое изображение.';
-          }
-          
-          return res.json({
-            isValid: false,
-            errorType: parsed.errorType,
-            errorMessage: errorMessage,
-            gender: 'unknown',
-            confidence: 0,
-            details: parsed.details || {}
-          });
-        }
-      }
-      
-      if (status.status === 'error') {
-        const duration = Date.now() - startTime;
-        safeLog('Image evaluation failed', { clientIp, error: status.error, duration });
-        
-        if (status.error.includes('rate limit') || status.error.includes('429')) {
-          return res.status(503).json({ 
-            error: 'Сервис временно перегружен. Попробуйте через несколько секунд.' 
-          });
-        }
-        
-        return res.status(500).json({ 
-          error: 'Не удалось обработать изображение. Попробуйте еще раз.' 
-        });
-      }
-      
-      // Ждем перед следующей проверкой
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    
-    // Timeout
-    const duration = Date.now() - startTime;
-    safeLog('Image evaluation timeout', { clientIp, jobId, duration });
-    return res.status(504).json({ 
-      error: 'Превышено время ожидания анализа изображения. Попробуйте еще раз.' 
+    // Возвращаем jobId для polling статуса
+    return res.json({
+      jobId: jobId,
+      status: 'queued',
+      position: queueResult.position,
+      estimatedWaitTime: queueResult.estimatedWaitTime,
     });
 
   } catch (error) {

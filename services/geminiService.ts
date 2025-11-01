@@ -45,11 +45,28 @@ export interface ImageEvaluationResult {
   };
 }
 
+export interface AnalysisStatus {
+  status: 'queued' | 'processing' | 'completed' | 'error';
+  position?: number;
+  estimatedWaitTime?: number;
+  remainingTime?: number;
+  statusMessage?: string;
+  isValid?: boolean;
+  errorType?: ValidationErrorType;
+  errorMessage?: string;
+  gender?: DetectedGender;
+  confidence?: number;
+  details?: any;
+  result?: any;
+  error?: string;
+}
+
 /**
- * Оценивает изображение (валидация + определение пола) за один запрос
+ * Оценивает изображение (валидация + определение пола) за один запрос с polling статуса
  */
-export async function evaluateImage(imageDataUrl: string): Promise<ImageEvaluationResult> {
+export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (status: AnalysisStatus) => void): Promise<ImageEvaluationResult> {
   try {
+    // Добавляем задачу в очередь
     const response = await fetch(`${API_BASE_URL}/evaluate-image`, {
       method: 'POST',
       headers: {
@@ -59,60 +76,62 @@ export async function evaluateImage(imageDataUrl: string): Promise<ImageEvaluati
     });
 
     if (!response.ok) {
-      // Пробуем получить JSON с ошибкой
-      try {
-        const errorData = await response.json();
-        // Если сервер вернул структурированную ошибку - используем её
-        if (errorData.isValid === false && errorData.errorMessage) {
-          return {
-            isValid: false,
-            errorType: errorData.errorType || 'not_single_person',
-            errorMessage: errorData.errorMessage,
-            gender: 'unknown',
-            confidence: 0,
-            details: errorData.details || {}
-          };
-        }
-      } catch {
-        // Не удалось распарсить JSON ошибки
-      }
-      
-      // При ошибке HTTP — отклоняем
-      console.warn('Ошибка оценки изображения (HTTP):', response.status, response.statusText);
-      return {
-        isValid: false,
-        errorType: 'not_single_person',
-        errorMessage: 'Не удалось проверить изображение. Загрузите другое изображение с одним человеком.',
-        gender: 'unknown',
-        confidence: 0,
-        details: {}
-      };
+      const errorData = await response.json().catch(() => ({ error: 'Неизвестная ошибка' }));
+      throw new Error(errorData.error || `HTTP ${response.status}`);
     }
 
-    const result = await response.json();
+    const queueResult = await response.json();
+    const jobId = queueResult.jobId;
     
-    // Проверяем, что результат валидный
-    if (result && typeof result.isValid === 'boolean') {
-      return {
-        isValid: result.isValid,
-        errorType: result.errorType || (result.isValid ? 'none' : 'not_single_person'),
-        errorMessage: result.errorMessage || '',
-        gender: result.gender || 'unknown',
-        confidence: Math.max(0, Math.min(1, result.confidence || 0)),
-        details: result.details || {}
-      };
+    // Polling статуса задачи
+    const pollInterval = 500; // Проверяем каждые 500 мс
+    const maxWaitTime = 30000; // Максимум 30 секунд
+    const startTime = Date.now();
+    
+    while (Date.now() - startTime < maxWaitTime) {
+      const statusResponse = await fetch(`${API_BASE_URL}/analysis/${jobId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!statusResponse.ok) {
+        if (statusResponse.status === 404) {
+          throw new Error('Задача анализа не найдена');
+        }
+        const errorData = await statusResponse.json().catch(() => ({ error: 'Неизвестная ошибка' }));
+        throw new Error(errorData.error || `HTTP ${statusResponse.status}`);
+      }
+
+      const status: AnalysisStatus = await statusResponse.json();
+      
+      // Вызываем callback для обновления UI
+      if (onStatusUpdate) {
+        onStatusUpdate(status);
+      }
+      
+      if (status.status === 'completed') {
+        // Возвращаем результат в формате ImageEvaluationResult
+        return {
+          isValid: status.isValid ?? false,
+          errorType: status.errorType || (status.isValid ? 'none' : 'not_single_person'),
+          errorMessage: status.errorMessage || '',
+          gender: status.gender || 'unknown',
+          confidence: Math.max(0, Math.min(1, status.confidence || 0)),
+          details: status.details || {}
+        };
+      }
+      
+      if (status.status === 'error') {
+        throw new Error(status.error || 'Ошибка анализа');
+      }
+      
+      // Ждем перед следующей проверкой
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
     }
     
-    // Если структура неожиданная — отклоняем
-    console.warn('Неожиданная структура ответа оценки изображения:', result);
-    return {
-      isValid: false,
-      errorType: 'not_single_person',
-      errorMessage: 'Не удалось подтвердить, что это фотография одного человека. Загрузите другое изображение.',
-      gender: 'unknown',
-      confidence: 0,
-      details: {}
-    };
+    throw new Error('Таймаут ожидания анализа');
   } catch (error) {
     // При любой ошибке (сеть, таймаут и т.д.) — отклоняем
     console.warn('Ошибка оценки изображения (catch):', error);
