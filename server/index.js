@@ -259,23 +259,53 @@ function cleanupGeminiAnalysisRequestTimestamps() {
   }
 }
 
+// Очистка старых записей по секундам (храним только последние 10 секунд)
+function cleanupGeminiRequestsPerSecond() {
+  const now = Math.floor(Date.now() / 1000);
+  const cutoff = now - 10; // Храним только последние 10 секунд
+  for (const [timestamp, _] of geminiRequestsPerSecond.entries()) {
+    if (timestamp < cutoff) {
+      geminiRequestsPerSecond.delete(timestamp);
+    }
+  }
+}
+
 // Проверка и ожидание перед запросом к Gemini API (для генерации)
 async function waitForGeminiRateLimit() {
   cleanupGeminiRequestTimestamps();
-  const now = Date.now();
+  cleanupGeminiRequestsPerSecond();
   
-  // Если достигнут лимит запросов в минуту, ждем
+  const now = Date.now();
+  const currentSecond = Math.floor(now / 1000);
+  
+  // Проверяем количество запросов в текущую секунду
+  const requestsInCurrentSecond = geminiRequestsPerSecond.get(currentSecond) || 0;
+  
+  // Если в текущую секунду уже 6 запросов - ждем 1 секунду
+  if (requestsInCurrentSecond >= MAX_REQUESTS_PER_SECOND) {
+    const waitTime = SECOND_DELAY_ON_LIMIT;
+    safeLog('Rate limit (generation): waiting 1 second - limit reached in current second', { 
+      requestsInCurrentSecond, 
+      currentSecond,
+      waitTime 
+    });
+    await new Promise(resolve => setTimeout(resolve, waitTime));
+    // После задержки обновляем счетчик для следующей секунды
+    cleanupGeminiRequestsPerSecond();
+  }
+  
+  // Проверяем лимит запросов в минуту (sliding window)
   if (geminiRequestTimestamps.length >= GEMINI_RPM_LIMIT) {
     const oldestRequest = geminiRequestTimestamps[0];
     const waitTime = GEMINI_WINDOW_SIZE - (now - oldestRequest) + 100; // +100 мс для безопасности
     if (waitTime > 0) {
-      safeLog('Rate limit (generation): waiting before Gemini API request', { waitTime, currentRequests: geminiRequestTimestamps.length });
+      safeLog('Rate limit (generation): waiting before Gemini API request (RPM limit)', { waitTime, currentRequests: geminiRequestTimestamps.length });
       await new Promise(resolve => setTimeout(resolve, waitTime));
       cleanupGeminiRequestTimestamps();
     }
   }
   
-  // Добавляем минимальный интервал между запросами
+  // Добавляем минимальный интервал между запросами (для RPM лимита)
   if (geminiRequestTimestamps.length > 0) {
     const lastRequest = geminiRequestTimestamps[geminiRequestTimestamps.length - 1];
     const timeSinceLastRequest = now - lastRequest;
@@ -286,8 +316,11 @@ async function waitForGeminiRateLimit() {
   }
   
   // Регистрируем запрос
+  const finalSecond = Math.floor(Date.now() / 1000);
+  geminiRequestsPerSecond.set(finalSecond, (geminiRequestsPerSecond.get(finalSecond) || 0) + 1);
   geminiRequestTimestamps.push(Date.now());
   cleanupGeminiRequestTimestamps();
+  cleanupGeminiRequestsPerSecond();
 }
 
 // Проверка и ожидание перед запросом к Gemini API (для анализа)
