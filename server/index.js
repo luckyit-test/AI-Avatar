@@ -336,9 +336,21 @@ async function processJob(job) {
           },
         });
         
-        const imagePartFromResponse = response.candidates?.[0]?.content?.parts?.find(
-          part => part.inlineData
-        );
+        // Детальное логирование ответа для отладки
+        const responseParts = response.candidates?.[0]?.content?.parts || [];
+        const hasImagePart = responseParts.some(part => part.inlineData);
+        const hasTextPart = responseParts.some(part => part.text);
+        
+        safeLog('Gemini API response received', { 
+          jobId: job.id,
+          hasImagePart,
+          hasTextPart,
+          partsCount: responseParts.length,
+          partsTypes: responseParts.map(p => Object.keys(p).join(',')),
+          candidateFinishReason: response.candidates?.[0]?.finishReason
+        });
+        
+        const imagePartFromResponse = responseParts.find(part => part.inlineData);
         
         if (imagePartFromResponse?.inlineData) {
           const { mimeType: responseMimeType, data: responseData } = imagePartFromResponse.inlineData;
@@ -369,8 +381,20 @@ async function processJob(job) {
           return;
         }
         
-        const textResponse = response.text;
-        throw new Error(`Модель ИИ ответила текстом вместо изображения: "${textResponse || 'Текстовый ответ не получен.'}"`);
+        // Если нет изображения, пытаемся найти причину
+        const textResponse = response.text || responseParts.find(p => p.text)?.text || '';
+        const finishReason = response.candidates?.[0]?.finishReason || 'unknown';
+        const errorMessage = `Модель ИИ ответила текстом вместо изображения. Finish reason: ${finishReason}. Text: "${textResponse.substring(0, 200)}"`;
+        
+        safeLog('Image generation failed - text response instead of image', { 
+          jobId: job.id,
+          finishReason,
+          textResponse: textResponse.substring(0, 200),
+          hasImagePart,
+          hasTextPart
+        });
+        
+        throw new Error(errorMessage);
         
       } catch (error) {
         lastError = error;
