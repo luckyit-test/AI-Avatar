@@ -42,6 +42,11 @@ const SECOND_DELAY_ON_LIMIT = 2000; // Задержка 2 секунды при 
 let lastBatchSendTime = 0; // Время последней отправки порции из 6 запросов
 const BATCH_SIZE = 6; // Размер порции (6 стилей от одного пользователя)
 
+// Группировка задач по порциям: отслеживаем задачи, которые пришли почти одновременно
+// Ключ: timestamp начала порции (округленный до секунды), значение: массив задач
+const pendingBatchGroups = new Map();
+const BATCH_GROUPING_WINDOW = 100; // Окно группировки: 100 мс (задачи пришедшие в течение 100 мс считаются одной порцией)
+
 // Система отслеживания запросов к Gemini API для анализа (отдельный трекер)
 const geminiAnalysisRequestTimestamps = [];
 
@@ -488,44 +493,11 @@ async function processJob(job) {
   }
 }
 
-// Обработчик очереди (запускает пакетами по 6 задач одновременно)
-// Rate limiting проверяется здесь - при запуске пакетов задач, а не при их завершении
+// Обработчик очереди (запускает порции по 6 задач одновременно)
+// Rate limiting уже проверен в addToQueue при создании группы
 async function processQueue() {
-  // Обрабатываем пакетами по 6 задач
   while (generationQueue.length > 0 && activeJobs.size < MAX_CONCURRENT_GENERATIONS) {
-    const now = Date.now();
-    const currentSecond = Math.floor(now / 1000);
-    
-    // Проверяем количество запросов в текущую секунду
-    const requestsInCurrentSecond = geminiRequestsPerSecond.get(currentSecond) || 0;
-    
-    // Если в текущую секунду уже 6+ запросов - ждем 2 секунды
-    if (requestsInCurrentSecond >= MAX_REQUESTS_PER_SECOND) {
-      const waitTime = SECOND_DELAY_ON_LIMIT;
-      safeLog('Rate limit: waiting 2 seconds before sending next batch', { 
-        requestsInCurrentSecond, 
-        currentSecond,
-        waitTime,
-        queueSize: generationQueue.length,
-        activeJobs: activeJobs.size
-      });
-      await new Promise(resolve => setTimeout(resolve, waitTime));
-      cleanupGeminiRequestsPerSecond();
-    }
-    
-    // Проверяем RPM лимит
-    cleanupGeminiRequestTimestamps();
-    if (geminiRequestTimestamps.length >= GEMINI_RPM_LIMIT) {
-      const oldestRequest = geminiRequestTimestamps[0];
-      const waitTime = GEMINI_WINDOW_SIZE - (Date.now() - oldestRequest) + 100;
-      if (waitTime > 0) {
-        safeLog('Rate limit (RPM): waiting before sending batch', { waitTime, currentRequests: geminiRequestTimestamps.length });
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-        cleanupGeminiRequestTimestamps();
-      }
-    }
-    
-    // Отправляем пакет из до 6 задач одновременно
+    // Берем пакет из до 6 задач (или сколько осталось)
     const batchSize = Math.min(BATCH_SIZE, generationQueue.length, MAX_CONCURRENT_GENERATIONS - activeJobs.size);
     const batchJobs = [];
     
@@ -536,21 +508,20 @@ async function processQueue() {
     
     if (batchJobs.length === 0) break;
     
-    // Резервируем слоты для всех задач в пакете
-    const finalSecond = Math.floor(Date.now() / 1000);
+    // Регистрируем запросы в трекерах
+    const currentSecond = Math.floor(Date.now() / 1000);
     for (let i = 0; i < batchJobs.length; i++) {
-      geminiRequestsPerSecond.set(finalSecond, (geminiRequestsPerSecond.get(finalSecond) || 0) + 1);
+      geminiRequestsPerSecond.set(currentSecond, (geminiRequestsPerSecond.get(currentSecond) || 0) + 1);
       geminiRequestTimestamps.push(Date.now());
     }
-    
-    lastBatchSendTime = Date.now();
     
     safeLog('Starting batch of jobs', { 
       batchSize: batchJobs.length,
       queueSize: generationQueue.length, 
       activeJobs: activeJobs.size,
-      requestsInSecond: geminiRequestsPerSecond.get(finalSecond),
-      totalRequestsInMinute: geminiRequestTimestamps.length
+      requestsInSecond: geminiRequestsPerSecond.get(currentSecond),
+      totalRequestsInMinute: geminiRequestTimestamps.length,
+      lastBatchSendTime
     });
     
     // Запускаем все задачи из пакета одновременно (без await)
@@ -565,6 +536,11 @@ async function processQueue() {
     
     cleanupGeminiRequestTimestamps();
     cleanupGeminiRequestsPerSecond();
+    
+    // Небольшая задержка перед следующей порцией (если очередь не пуста)
+    if (generationQueue.length > 0) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
   }
   
   if (generationQueue.length > 0 && activeJobs.size >= MAX_CONCURRENT_GENERATIONS) {
@@ -576,38 +552,84 @@ async function processQueue() {
 }
 
 // Добавление задачи в очередь генерации
-// Rate limiting работает на уровне порций: проверяем время последней отправки порции
+// Rate limiting работает на уровне порций: группируем задачи по времени добавления
 async function addToQueue(imageData, prompt) {
   if (generationQueue.length >= MAX_QUEUE_SIZE) {
     throw new Error('Очередь переполнена. Попробуйте позже.');
   }
   
   const now = Date.now();
+  const currentSecond = Math.floor(now / 1000);
   
-  // Проверяем, прошло ли 2 секунды с момента последней отправки порции
-  const timeSinceLastBatch = now - lastBatchSendTime;
+  // Проверяем, есть ли уже группа задач для этой секунды
+  let batchGroup = pendingBatchGroups.get(currentSecond);
   
-  if (timeSinceLastBatch < SECOND_DELAY_ON_LIMIT && lastBatchSendTime > 0) {
-    // Нужно подождать перед добавлением в очередь
-    const waitTime = SECOND_DELAY_ON_LIMIT - timeSinceLastBatch;
-    safeLog('Rate limit: waiting before adding to queue', { 
-      waitTime, 
-      timeSinceLastBatch,
-      lastBatchSendTime 
+  if (!batchGroup) {
+    // Создаем новую группу - проверяем rate limit ДО создания группы
+    const timeSinceLastBatch = now - lastBatchSendTime;
+    
+    if (timeSinceLastBatch < SECOND_DELAY_ON_LIMIT && lastBatchSendTime > 0) {
+      // Нужно подождать перед созданием новой группы
+      const waitTime = SECOND_DELAY_ON_LIMIT - timeSinceLastBatch;
+      safeLog('Rate limit: waiting before creating new batch group', { 
+        waitTime, 
+        timeSinceLastBatch,
+        lastBatchSendTime 
+      });
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+    
+    // Создаем новую группу и резервируем время отправки порции
+    batchGroup = {
+      tasks: [],
+      createdAt: Date.now(),
+      batchReserved: true
+    };
+    pendingBatchGroups.set(currentSecond, batchGroup);
+    
+    // Резервируем время отправки порции
+    lastBatchSendTime = batchGroup.createdAt;
+    
+    safeLog('New batch group created', { 
+      currentSecond,
+      lastBatchSendTime
     });
-    await new Promise(resolve => setTimeout(resolve, waitTime));
+    
+    // Очищаем старые группы (старше 5 секунд)
+    setTimeout(() => {
+      pendingBatchGroups.delete(currentSecond);
+    }, 5000);
   }
   
-  // После ожидания резервируем время отправки порции
-  // Это время будет использовано когда эта задача попадет в пакет из 6
+  // Добавляем задачу в группу
   const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const job = new GenerationJob(jobId, imageData, prompt);
-  generationQueue.push(job);
+  batchGroup.tasks.push(job);
   
-  safeLog('Job added to queue', { jobId, queueSize: generationQueue.length, position: job.getPosition() });
+  safeLog('Job added to batch group', { 
+    jobId, 
+    batchGroupSize: batchGroup.tasks.length,
+    currentSecond
+  });
   
-  // Запускаем обработку очереди, если она не запущена
-  processQueue();
+  // Если группа заполнилась (6 задач) или прошло окно группировки - добавляем все задачи в очередь
+  if (batchGroup.tasks.length >= BATCH_SIZE || (Date.now() - batchGroup.createdAt >= BATCH_GROUPING_WINDOW && batchGroup.tasks.length > 0)) {
+    // Добавляем все задачи из группы в очередь
+    batchGroup.tasks.forEach(task => {
+      generationQueue.push(task);
+    });
+    
+    safeLog('Batch group added to queue', { 
+      batchSize: batchGroup.tasks.length,
+      queueSize: generationQueue.length
+    });
+    
+    // Удаляем группу
+    pendingBatchGroups.delete(currentSecond);
+    
+    // Запускаем обработку очереди
+    processQueue();
+  }
   
   // Возвращаем jobId для отслеживания статуса
   return { jobId, position: job.getPosition(), estimatedWaitTime: job.getEstimatedWaitTime() };
