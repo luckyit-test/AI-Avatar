@@ -882,6 +882,17 @@ function getJobStatus(jobId) {
     };
   }
   
+  // Проверяем обрабатываемую задачу
+  if (activeJobs.has(jobId)) {
+    const avgGenTime = calculateAverageGenerationTime();
+    return {
+      status: 'processing',
+      position: 0,
+      estimatedWaitTime: avgGenTime,
+      estimatedStartTime: Date.now(), // Уже началась
+    };
+  }
+  
   // Проверяем очередь
   const queuedJob = generationQueue.find(j => j.id === jobId);
   if (queuedJob) {
@@ -895,15 +906,30 @@ function getJobStatus(jobId) {
     };
   }
   
-  // Проверяем обрабатываемую задачу
-  if (activeJobs.has(jobId)) {
-    const avgGenTime = calculateAverageGenerationTime();
-    return {
-      status: 'processing',
-      position: 0,
-      estimatedWaitTime: avgGenTime,
-      estimatedStartTime: Date.now(), // Уже началась
-    };
+  // Проверяем задачи в pendingBatchGroups (группировка перед добавлением в очередь)
+  for (const [second, batchGroup] of pendingBatchGroups.entries()) {
+    const jobInGroup = batchGroup.tasks.find(j => j.id === jobId);
+    if (jobInGroup) {
+      // Вычисляем позицию: задачи в очереди + задачи в группах до этой
+      let position = generationQueue.length;
+      for (const [groupSecond, group] of pendingBatchGroups.entries()) {
+        if (groupSecond < second) {
+          position += group.tasks.length;
+        } else if (groupSecond === second) {
+          position += batchGroup.tasks.indexOf(jobInGroup) + 1;
+          break;
+        }
+      }
+      
+      const estimatedWaitTime = jobInGroup.getEstimatedWaitTime();
+      return {
+        status: 'queued',
+        position: position,
+        estimatedWaitTime: estimatedWaitTime,
+        estimatedStartTime: Date.now() + estimatedWaitTime,
+        createdAt: jobInGroup.createdAt,
+      };
+    }
   }
   
   return null; // Задача не найдена
