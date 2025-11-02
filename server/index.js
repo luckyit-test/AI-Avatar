@@ -38,6 +38,10 @@ const geminiRequestsPerSecond = new Map(); // Ключ: timestamp в секун�
 const MAX_REQUESTS_PER_SECOND = 6; // Максимум 6 запросов в секунду
 const SECOND_DELAY_ON_LIMIT = 2000; // Задержка 2 секунды при превышении лимита
 
+// Отслеживание времени последней отправки порции (6 запросов)
+let lastBatchSendTime = 0; // Время последней отправки порции из 6 запросов
+const BATCH_SIZE = 6; // Размер порции (6 стилей от одного пользователя)
+
 // Система отслеживания запросов к Gemini API для анализа (отдельный трекер)
 const geminiAnalysisRequestTimestamps = [];
 
@@ -572,11 +576,30 @@ async function processQueue() {
 }
 
 // Добавление задачи в очередь генерации
-function addToQueue(imageData, prompt) {
+// Rate limiting работает на уровне порций: проверяем время последней отправки порции
+async function addToQueue(imageData, prompt) {
   if (generationQueue.length >= MAX_QUEUE_SIZE) {
     throw new Error('Очередь переполнена. Попробуйте позже.');
   }
   
+  const now = Date.now();
+  
+  // Проверяем, прошло ли 2 секунды с момента последней отправки порции
+  const timeSinceLastBatch = now - lastBatchSendTime;
+  
+  if (timeSinceLastBatch < SECOND_DELAY_ON_LIMIT && lastBatchSendTime > 0) {
+    // Нужно подождать перед добавлением в очередь
+    const waitTime = SECOND_DELAY_ON_LIMIT - timeSinceLastBatch;
+    safeLog('Rate limit: waiting before adding to queue', { 
+      waitTime, 
+      timeSinceLastBatch,
+      lastBatchSendTime 
+    });
+    await new Promise(resolve => setTimeout(resolve, waitTime));
+  }
+  
+  // После ожидания резервируем время отправки порции
+  // Это время будет использовано когда эта задача попадет в пакет из 6
   const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const job = new GenerationJob(jobId, imageData, prompt);
   generationQueue.push(job);
