@@ -1269,14 +1269,36 @@ app.get(`${API_PREFIX}/generate-image/:jobId`, async (req, res) => {
   const { jobId } = req.params;
   
   try {
+    safeLog('Checking job status', { 
+      jobId,
+      queueSize: generationQueue.length,
+      activeJobsCount: activeJobs.size,
+      completedJobsCount: completedJobs.size,
+      pendingBatchGroupsCount: pendingBatchGroups.size
+    });
+    
     const status = getJobStatus(jobId);
     
     if (!status) {
+      // Дополнительное логирование для отладки
+      safeLog('Job not found', { 
+        jobId,
+        queueJobIds: generationQueue.map(j => j.id).slice(0, 10),
+        activeJobIds: Array.from(activeJobs).slice(0, 10),
+        completedJobIds: Array.from(completedJobs.keys()).slice(0, 10),
+        pendingBatchGroupsDetails: Array.from(pendingBatchGroups.entries()).map(([sec, group]) => ({
+          second: sec,
+          taskCount: group.tasks.length,
+          taskIds: group.tasks.map(t => t.id)
+        }))
+      });
+      
       return res.status(404).json({ 
         error: 'Задача не найдена или уже завершена' 
       });
     }
     
+    safeLog('Job status found', { jobId, status: status.status });
     res.json(status);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
