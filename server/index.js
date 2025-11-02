@@ -923,7 +923,24 @@ function getJobStatus(jobId) {
   }
   
   // Проверяем обрабатываемую задачу
+  // activeJobs содержит только ID, нужно найти задачу в completedJobs или по другому способу
   if (activeJobs.has(jobId)) {
+    // Ищем задачу в завершенных (может быть уже завершена)
+    const completedJob = completedJobs.get(jobId);
+    if (completedJob) {
+      if (completedJob.error) {
+        return {
+          status: 'error',
+          error: completedJob.error.message || 'Ошибка генерации',
+        };
+      }
+      return {
+        status: 'completed',
+        result: completedJob.result,
+      };
+    }
+    
+    // Задача активна, но еще не завершена
     const avgGenTime = calculateAverageGenerationTime();
     return {
       status: 'processing',
@@ -1167,8 +1184,8 @@ app.post(`${API_PREFIX}/generate-image`, async (req, res) => {
       return res.status(400).json({ error: promptValidation.error });
     }
 
-    // Добавляем задачу в очередь
-    const queueResult = addToQueue(imageData, prompt);
+    // Добавляем задачу в очередь (async функция - нужен await!)
+    const queueResult = await addToQueue(imageData, prompt);
     
     // Рассчитываем точное время начала генерации
     const estimatedStartTime = Date.now() + queueResult.estimatedWaitTime;
