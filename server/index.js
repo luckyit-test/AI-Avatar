@@ -868,7 +868,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Rate limiting middleware (простая реализация)
 const rateLimitStore = new Map();
 const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 минут
-const RATE_LIMIT_MAX_REQUESTS = 30; // Максимум 30 запросов за окно
+const RATE_LIMIT_MAX_REQUESTS = 200; // Максимум 200 запросов за окно (увеличено для тестирования и генерации множества изображений)
 
 function rateLimit(req, res, next) {
   const clientId = req.ip || req.connection.remoteAddress;
