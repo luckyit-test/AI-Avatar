@@ -270,70 +270,8 @@ function cleanupGeminiRequestsPerSecond() {
   }
 }
 
-// Проверка и ожидание перед запросом к Gemini API (для генерации)
-// Вызывается ПЕРЕД запуском задачи в processQueue(), чтобы контролировать момент отправки запросов
-async function waitForGeminiRateLimit() {
-  cleanupGeminiRequestTimestamps();
-  cleanupGeminiRequestsPerSecond();
-  
-  const now = Date.now();
-  const currentSecond = Math.floor(now / 1000);
-  
-  // Сначала резервируем слот для запроса (увеличиваем счетчик)
-  // Это гарантирует что параллельные задачи будут правильно учитываться
-  const currentCount = geminiRequestsPerSecond.get(currentSecond) || 0;
-  
-  // Если в текущую секунду уже 6+ запросов - ждем 2 секунды
-  if (currentCount >= MAX_REQUESTS_PER_SECOND) {
-    const waitTime = SECOND_DELAY_ON_LIMIT;
-    safeLog('Rate limit (generation): waiting 2 seconds - limit reached in current second', { 
-      requestsInCurrentSecond: currentCount, 
-      currentSecond,
-      waitTime,
-      activeJobs: activeJobs.size
-    });
-    await new Promise(resolve => setTimeout(resolve, waitTime));
-    // После задержки обновляем счетчик для следующей секунды
-    cleanupGeminiRequestsPerSecond();
-  }
-  
-  // Резервируем слот после проверки
-  const finalSecond = Math.floor(Date.now() / 1000);
-  geminiRequestsPerSecond.set(finalSecond, (geminiRequestsPerSecond.get(finalSecond) || 0) + 1);
-  
-  // Проверяем лимит запросов в минуту (sliding window)
-  cleanupGeminiRequestTimestamps();
-  if (geminiRequestTimestamps.length >= GEMINI_RPM_LIMIT) {
-    const oldestRequest = geminiRequestTimestamps[0];
-    const waitTime = GEMINI_WINDOW_SIZE - (Date.now() - oldestRequest) + 100; // +100 мс для безопасности
-    if (waitTime > 0) {
-      safeLog('Rate limit (generation): waiting before Gemini API request (RPM limit)', { waitTime, currentRequests: geminiRequestTimestamps.length });
-      await new Promise(resolve => setTimeout(resolve, waitTime));
-      cleanupGeminiRequestTimestamps();
-    }
-  }
-  
-  // Добавляем минимальный интервал между запросами (для RPM лимита)
-  if (geminiRequestTimestamps.length > 0) {
-    const lastRequest = geminiRequestTimestamps[geminiRequestTimestamps.length - 1];
-    const timeSinceLastRequest = Date.now() - lastRequest;
-    if (timeSinceLastRequest < GEMINI_MIN_INTERVAL) {
-      const waitTime = GEMINI_MIN_INTERVAL - timeSinceLastRequest;
-      await new Promise(resolve => setTimeout(resolve, waitTime));
-    }
-  }
-  
-  // Регистрируем запрос в минутном трекере
-  geminiRequestTimestamps.push(Date.now());
-  cleanupGeminiRequestTimestamps();
-  cleanupGeminiRequestsPerSecond();
-  
-  safeLog('Request slot reserved in rate limit tracker', {
-    second: finalSecond,
-    requestsInSecond: geminiRequestsPerSecond.get(finalSecond),
-    totalRequestsInMinute: geminiRequestTimestamps.length
-  });
-}
+// Функция waitForGeminiRateLimit больше не используется для генерации
+// Rate limiting теперь обрабатывается в processQueue() для пакетов задач
 
 // Проверка и ожидание перед запросом к Gemini API (для анализа)
 // С Tier 1: 500 RPM = ~8.3 запросов/сек - минимальная задержка нужна только для защиты от перегрузки
@@ -546,35 +484,83 @@ async function processJob(job) {
   }
 }
 
-// Обработчик очереди (запускает до MAX_CONCURRENT_GENERATIONS задач параллельно)
-// Rate limiting проверяется здесь - при запуске задач, а не при их завершении
+// Обработчик очереди (запускает пакетами по 6 задач одновременно)
+// Rate limiting проверяется здесь - при запуске пакетов задач, а не при их завершении
 async function processQueue() {
-  // Запускаем новые задачи, пока не достигнут лимит параллельных генераций
-  while (activeJobs.size < MAX_CONCURRENT_GENERATIONS && generationQueue.length > 0) {
-    const job = generationQueue.shift();
+  // Обрабатываем пакетами по 6 задач
+  while (generationQueue.length > 0 && activeJobs.size < MAX_CONCURRENT_GENERATIONS) {
+    const now = Date.now();
+    const currentSecond = Math.floor(now / 1000);
     
-    // Проверяем rate limit ПЕРЕД запуском задачи (в момент отправки запросов)
-    // Это гарантирует что не более 6 запросов отправляется в секунду
-    await waitForGeminiRateLimit();
+    // Проверяем количество запросов в текущую секунду
+    const requestsInCurrentSecond = geminiRequestsPerSecond.get(currentSecond) || 0;
     
-    safeLog('Starting job from queue', { 
-      jobId: job.id, 
+    // Если в текущую секунду уже 6+ запросов - ждем 2 секунды
+    if (requestsInCurrentSecond >= MAX_REQUESTS_PER_SECOND) {
+      const waitTime = SECOND_DELAY_ON_LIMIT;
+      safeLog('Rate limit: waiting 2 seconds before sending next batch', { 
+        requestsInCurrentSecond, 
+        currentSecond,
+        waitTime,
+        queueSize: generationQueue.length,
+        activeJobs: activeJobs.size
+      });
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+      cleanupGeminiRequestsPerSecond();
+    }
+    
+    // Проверяем RPM лимит
+    cleanupGeminiRequestTimestamps();
+    if (geminiRequestTimestamps.length >= GEMINI_RPM_LIMIT) {
+      const oldestRequest = geminiRequestTimestamps[0];
+      const waitTime = GEMINI_WINDOW_SIZE - (Date.now() - oldestRequest) + 100;
+      if (waitTime > 0) {
+        safeLog('Rate limit (RPM): waiting before sending batch', { waitTime, currentRequests: geminiRequestTimestamps.length });
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        cleanupGeminiRequestTimestamps();
+      }
+    }
+    
+    // Отправляем пакет из до 6 задач одновременно
+    const batchSize = Math.min(BATCH_SIZE, generationQueue.length, MAX_CONCURRENT_GENERATIONS - activeJobs.size);
+    const batchJobs = [];
+    
+    for (let i = 0; i < batchSize; i++) {
+      if (generationQueue.length === 0) break;
+      batchJobs.push(generationQueue.shift());
+    }
+    
+    if (batchJobs.length === 0) break;
+    
+    // Резервируем слоты для всех задач в пакете
+    const finalSecond = Math.floor(Date.now() / 1000);
+    for (let i = 0; i < batchJobs.length; i++) {
+      geminiRequestsPerSecond.set(finalSecond, (geminiRequestsPerSecond.get(finalSecond) || 0) + 1);
+      geminiRequestTimestamps.push(Date.now());
+    }
+    
+    lastBatchSendTime = Date.now();
+    
+    safeLog('Starting batch of jobs', { 
+      batchSize: batchJobs.length,
       queueSize: generationQueue.length, 
       activeJobs: activeJobs.size,
-      maxConcurrent: MAX_CONCURRENT_GENERATIONS
+      requestsInSecond: geminiRequestsPerSecond.get(finalSecond),
+      totalRequestsInMinute: geminiRequestTimestamps.length
     });
     
-    // Запускаем задачу асинхронно (не ждем завершения)
-    // Теперь задача запускается уже после проверки rate limit
-    processJob(job).catch(err => {
-      console.error('Unexpected error in processJob:', err);
-      activeJobs.delete(job.id);
-      currentJobIds = currentJobIds.filter(id => id !== job.id);
-      processQueue(); // Запускаем следующую задачу после ошибки
+    // Запускаем все задачи из пакета одновременно (без await)
+    batchJobs.forEach(job => {
+      processJob(job).catch(err => {
+        console.error('Unexpected error in processJob:', err);
+        activeJobs.delete(job.id);
+        currentJobIds = currentJobIds.filter(id => id !== job.id);
+        processQueue(); // Запускаем следующую задачу после ошибки
+      });
     });
     
-    // Небольшая задержка между запусками для снижения нагрузки
-    await new Promise(resolve => setTimeout(resolve, 100));
+    cleanupGeminiRequestTimestamps();
+    cleanupGeminiRequestsPerSecond();
   }
   
   if (generationQueue.length > 0 && activeJobs.size >= MAX_CONCURRENT_GENERATIONS) {
