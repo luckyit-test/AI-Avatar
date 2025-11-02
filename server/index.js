@@ -583,7 +583,8 @@ async function addToQueue(imageData, prompt) {
     batchGroup = {
       tasks: [],
       createdAt: Date.now(),
-      batchReserved: true
+      batchReserved: true,
+      flushTimer: null
     };
     pendingBatchGroups.set(currentSecond, batchGroup);
     
@@ -612,15 +613,31 @@ async function addToQueue(imageData, prompt) {
     currentSecond
   });
   
-  // Если группа заполнилась (6 задач) или прошло окно группировки - добавляем все задачи в очередь
-  if (batchGroup.tasks.length >= BATCH_SIZE || (Date.now() - batchGroup.createdAt >= BATCH_GROUPING_WINDOW && batchGroup.tasks.length > 0)) {
+  // Проверяем, нужно ли добавить группу в очередь
+  const shouldFlushGroup = () => {
+    // Если группа заполнилась (6 задач) - добавляем в очередь
+    if (batchGroup.tasks.length >= BATCH_SIZE) {
+      return true;
+    }
+    // Если прошло окно группировки и есть задачи - добавляем в очередь
+    if (Date.now() - batchGroup.createdAt >= BATCH_GROUPING_WINDOW && batchGroup.tasks.length > 0) {
+      return true;
+    }
+    return false;
+  };
+  
+  // Если группа готова - добавляем в очередь
+  if (shouldFlushGroup()) {
+    // Делаем копию задач, чтобы избежать race condition
+    const tasksToAdd = [...batchGroup.tasks];
+    
     // Добавляем все задачи из группы в очередь
-    batchGroup.tasks.forEach(task => {
+    tasksToAdd.forEach(task => {
       generationQueue.push(task);
     });
     
     safeLog('Batch group added to queue', { 
-      batchSize: batchGroup.tasks.length,
+      batchSize: tasksToAdd.length,
       queueSize: generationQueue.length
     });
     
@@ -629,6 +646,29 @@ async function addToQueue(imageData, prompt) {
     
     // Запускаем обработку очереди
     processQueue();
+  } else {
+    // Если группа еще не готова, запускаем таймер для проверки через BATCH_GROUPING_WINDOW
+    if (!batchGroup.flushTimer) {
+      batchGroup.flushTimer = setTimeout(() => {
+        // Проверяем, что группа еще существует и не была уже обработана
+        const existingGroup = pendingBatchGroups.get(currentSecond);
+        if (existingGroup && existingGroup === batchGroup && existingGroup.tasks.length > 0) {
+          const tasksToAdd = [...existingGroup.tasks];
+          
+          tasksToAdd.forEach(task => {
+            generationQueue.push(task);
+          });
+          
+          safeLog('Batch group flushed by timer', { 
+            batchSize: tasksToAdd.length,
+            queueSize: generationQueue.length
+          });
+          
+          pendingBatchGroups.delete(currentSecond);
+          processQueue();
+        }
+      }, BATCH_GROUPING_WINDOW);
+    }
   }
   
   // Возвращаем jobId для отслеживания статуса
