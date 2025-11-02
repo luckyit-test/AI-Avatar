@@ -365,6 +365,12 @@ async function processJob(job) {
   currentJobIds.push(job.id);
   job.startedAt = Date.now();
   
+  safeLog('ProcessJob started', { 
+    jobId: job.id, 
+    activeJobs: activeJobs.size,
+    queueSize: generationQueue.length
+  });
+  
   const startTime = Date.now();
   
   try {
@@ -381,7 +387,17 @@ async function processJob(job) {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         // Ожидаем перед запросом, чтобы не превысить rate limits
+        safeLog('Waiting for rate limit before API call', { 
+          jobId: job.id, 
+          attempt,
+          activeJobs: activeJobs.size
+        });
         await waitForGeminiRateLimit();
+        
+        safeLog('Rate limit passed, calling Gemini API', { 
+          jobId: job.id, 
+          attempt 
+        });
         
         const response = await genAI.models.generateContent({
           model: 'gemini-2.5-flash-image',
@@ -532,15 +548,29 @@ async function processQueue() {
   // Запускаем новые задачи, пока не достигнут лимит параллельных генераций
   while (activeJobs.size < MAX_CONCURRENT_GENERATIONS && generationQueue.length > 0) {
     const job = generationQueue.shift();
+    safeLog('Starting job from queue', { 
+      jobId: job.id, 
+      queueSize: generationQueue.length, 
+      activeJobs: activeJobs.size,
+      maxConcurrent: MAX_CONCURRENT_GENERATIONS
+    });
     // Запускаем задачу асинхронно (не ждем завершения)
     processJob(job).catch(err => {
       console.error('Unexpected error in processJob:', err);
       activeJobs.delete(job.id);
       currentJobIds = currentJobIds.filter(id => id !== job.id);
+      processQueue(); // Запускаем следующую задачу после ошибки
     });
     
     // Небольшая задержка между запусками для снижения нагрузки
     await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  
+  if (generationQueue.length > 0 && activeJobs.size >= MAX_CONCURRENT_GENERATIONS) {
+    safeLog('Queue processing paused - max concurrent reached', { 
+      queueSize: generationQueue.length, 
+      activeJobs: activeJobs.size 
+    });
   }
 }
 
