@@ -911,12 +911,12 @@ setInterval(() => {
 // Префикс для всех API эндпоинтов
 const API_PREFIX = '/api';
 
-// Rate limiting только для POST запросов (создание задач), не для GET (проверка статуса)
-// Это позволяет polling работать без ограничений
-app.post(`${API_PREFIX}/generate-image`, rateLimit);
+// Rate limiting только для анализа (бесплатные эндпоинты), не для генерации (платные)
+// Генерация оплачивается, поэтому не ограничиваем запросы
 app.post(`${API_PREFIX}/detect-gender`, rateLimit);
 app.post(`${API_PREFIX}/validate-image`, rateLimit);
 app.post(`${API_PREFIX}/evaluate-image`, rateLimit);
+// app.post(`${API_PREFIX}/generate-image`, rateLimit); // Убрано - генерация платная, не ограничиваем
 
 // Получаем API ключи из переменных окружения
 const GEMINI_API_KEY_GENERATION = process.env.GEMINI_API_KEY; // Основной ключ для генерации
