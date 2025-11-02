@@ -271,6 +271,7 @@ function cleanupGeminiRequestsPerSecond() {
 }
 
 // Проверка и ожидание перед запросом к Gemini API (для генерации)
+// Вызывается ПЕРЕД запуском задачи в processQueue(), чтобы контролировать момент отправки запросов
 async function waitForGeminiRateLimit() {
   cleanupGeminiRequestTimestamps();
   cleanupGeminiRequestsPerSecond();
@@ -281,13 +282,12 @@ async function waitForGeminiRateLimit() {
   // Сначала резервируем слот для запроса (увеличиваем счетчик)
   // Это гарантирует что параллельные задачи будут правильно учитываться
   const currentCount = geminiRequestsPerSecond.get(currentSecond) || 0;
-  geminiRequestsPerSecond.set(currentSecond, currentCount + 1);
   
-  // Если в текущую секунду уже 6+ запросов (включая этот) - ждем 2 секунды
+  // Если в текущую секунду уже 6+ запросов - ждем 2 секунды
   if (currentCount >= MAX_REQUESTS_PER_SECOND) {
     const waitTime = SECOND_DELAY_ON_LIMIT;
     safeLog('Rate limit (generation): waiting 2 seconds - limit reached in current second', { 
-      requestsInCurrentSecond: currentCount + 1, 
+      requestsInCurrentSecond: currentCount, 
       currentSecond,
       waitTime,
       activeJobs: activeJobs.size
@@ -296,6 +296,10 @@ async function waitForGeminiRateLimit() {
     // После задержки обновляем счетчик для следующей секунды
     cleanupGeminiRequestsPerSecond();
   }
+  
+  // Резервируем слот после проверки
+  const finalSecond = Math.floor(Date.now() / 1000);
+  geminiRequestsPerSecond.set(finalSecond, (geminiRequestsPerSecond.get(finalSecond) || 0) + 1);
   
   // Проверяем лимит запросов в минуту (sliding window)
   cleanupGeminiRequestTimestamps();
@@ -324,9 +328,9 @@ async function waitForGeminiRateLimit() {
   cleanupGeminiRequestTimestamps();
   cleanupGeminiRequestsPerSecond();
   
-  safeLog('Request registered in rate limit tracker', {
-    second: currentSecond,
-    requestsInSecond: geminiRequestsPerSecond.get(currentSecond),
+  safeLog('Request slot reserved in rate limit tracker', {
+    second: finalSecond,
+    requestsInSecond: geminiRequestsPerSecond.get(finalSecond),
     totalRequestsInMinute: geminiRequestTimestamps.length
   });
 }
@@ -387,22 +391,15 @@ async function processJob(job) {
     const textPart = { text: job.prompt };
     
     // Вызываем Gemini API
+    // Rate limit уже проверен в processQueue() перед запуском этой задачи
     const maxRetries = 5;
     let lastError = null;
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        // Ожидаем перед запросом, чтобы не превысить rate limits
-        safeLog('Waiting for rate limit before API call', { 
+        safeLog('Calling Gemini API', { 
           jobId: job.id, 
-          attempt,
-          activeJobs: activeJobs.size
-        });
-        await waitForGeminiRateLimit();
-        
-        safeLog('Rate limit passed, calling Gemini API', { 
-          jobId: job.id, 
-          attempt 
+          attempt
         });
         
         const response = await genAI.models.generateContent({
@@ -550,17 +547,25 @@ async function processJob(job) {
 }
 
 // Обработчик очереди (запускает до MAX_CONCURRENT_GENERATIONS задач параллельно)
+// Rate limiting проверяется здесь - при запуске задач, а не при их завершении
 async function processQueue() {
   // Запускаем новые задачи, пока не достигнут лимит параллельных генераций
   while (activeJobs.size < MAX_CONCURRENT_GENERATIONS && generationQueue.length > 0) {
     const job = generationQueue.shift();
+    
+    // Проверяем rate limit ПЕРЕД запуском задачи (в момент отправки запросов)
+    // Это гарантирует что не более 6 запросов отправляется в секунду
+    await waitForGeminiRateLimit();
+    
     safeLog('Starting job from queue', { 
       jobId: job.id, 
       queueSize: generationQueue.length, 
       activeJobs: activeJobs.size,
       maxConcurrent: MAX_CONCURRENT_GENERATIONS
     });
+    
     // Запускаем задачу асинхронно (не ждем завершения)
+    // Теперь задача запускается уже после проверки rate limit
     processJob(job).catch(err => {
       console.error('Unexpected error in processJob:', err);
       activeJobs.delete(job.id);
