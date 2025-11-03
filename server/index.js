@@ -494,53 +494,91 @@ async function processJob(job) {
 }
 
 // Обработчик очереди (запускает порции по 6 задач одновременно)
-// Rate limiting уже проверен в addToQueue при создании группы
+// Rate limiting: отправляем порции по 6 задач с интервалом 2 секунды между порциями
+let isProcessingQueue = false; // Флаг для предотвращения параллельного запуска processQueue
+
 async function processQueue() {
-  while (generationQueue.length > 0 && activeJobs.size < MAX_CONCURRENT_GENERATIONS) {
-    // Берем пакет из до 6 задач (или сколько осталось)
-    const batchSize = Math.min(BATCH_SIZE, generationQueue.length, MAX_CONCURRENT_GENERATIONS - activeJobs.size);
-    const batchJobs = [];
-    
-    for (let i = 0; i < batchSize; i++) {
-      if (generationQueue.length === 0) break;
-      batchJobs.push(generationQueue.shift());
-    }
-    
-    if (batchJobs.length === 0) break;
-    
-    // Регистрируем запросы в трекерах
-    const currentSecond = Math.floor(Date.now() / 1000);
-    for (let i = 0; i < batchJobs.length; i++) {
-      geminiRequestsPerSecond.set(currentSecond, (geminiRequestsPerSecond.get(currentSecond) || 0) + 1);
-      geminiRequestTimestamps.push(Date.now());
-    }
-    
-    safeLog('Starting batch of jobs', { 
-      batchSize: batchJobs.length,
-      queueSize: generationQueue.length, 
-      activeJobs: activeJobs.size,
-      requestsInSecond: geminiRequestsPerSecond.get(currentSecond),
-      totalRequestsInMinute: geminiRequestTimestamps.length,
-      lastBatchSendTime
-    });
-    
-    // Запускаем все задачи из пакета одновременно (без await)
-    batchJobs.forEach(job => {
-      processJob(job).catch(err => {
-        console.error('Unexpected error in processJob:', err);
-        activeJobs.delete(job.id);
-        currentJobIds = currentJobIds.filter(id => id !== job.id);
-        processQueue(); // Запускаем следующую задачу после ошибки
+  // Если уже обрабатывается - выходим
+  if (isProcessingQueue) {
+    return;
+  }
+  
+  isProcessingQueue = true;
+  
+  try {
+    while (generationQueue.length > 0) {
+      // Проверяем, можем ли запустить следующую порцию (не более 6 активных одновременно)
+      const availableSlots = MAX_CONCURRENT_GENERATIONS - activeJobs.size;
+      if (availableSlots <= 0) {
+        // Все слоты заняты - ждем немного и проверяем снова
+        await new Promise(resolve => setTimeout(resolve, 100));
+        continue;
+      }
+      
+      // Проверяем rate limit: прошло ли 2 секунды с последней отправки порции
+      const now = Date.now();
+      const timeSinceLastBatch = now - lastBatchSendTime;
+      
+      if (timeSinceLastBatch < SECOND_DELAY_ON_LIMIT && lastBatchSendTime > 0) {
+        // Нужно подождать перед отправкой следующей порции
+        const waitTime = SECOND_DELAY_ON_LIMIT - timeSinceLastBatch;
+        safeLog('Rate limit: waiting before sending next batch', { 
+          waitTime,
+          timeSinceLastBatch,
+          queueSize: generationQueue.length,
+          activeJobs: activeJobs.size
+        });
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+      
+      // Берем порцию из до 6 задач (или сколько доступно слотов)
+      const batchSize = Math.min(BATCH_SIZE, generationQueue.length, availableSlots);
+      const batchJobs = [];
+      
+      for (let i = 0; i < batchSize; i++) {
+        if (generationQueue.length === 0) break;
+        batchJobs.push(generationQueue.shift());
+      }
+      
+      if (batchJobs.length === 0) break;
+      
+      // Обновляем время последней отправки порции
+      lastBatchSendTime = Date.now();
+      
+      // Регистрируем запросы в трекерах
+      const currentSecond = Math.floor(Date.now() / 1000);
+      for (let i = 0; i < batchJobs.length; i++) {
+        geminiRequestsPerSecond.set(currentSecond, (geminiRequestsPerSecond.get(currentSecond) || 0) + 1);
+        geminiRequestTimestamps.push(Date.now());
+      }
+      
+      safeLog('Starting batch of jobs', { 
+        batchSize: batchJobs.length,
+        queueSize: generationQueue.length, 
+        activeJobs: activeJobs.size,
+        requestsInSecond: geminiRequestsPerSecond.get(currentSecond),
+        totalRequestsInMinute: geminiRequestTimestamps.length
       });
-    });
-    
-    cleanupGeminiRequestTimestamps();
-    cleanupGeminiRequestsPerSecond();
-    
-    // Небольшая задержка перед следующей порцией (если очередь не пуста)
-    if (generationQueue.length > 0) {
-      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Запускаем все задачи из пакета одновременно (без await - не ждем завершения!)
+      batchJobs.forEach(job => {
+        processJob(job).catch(err => {
+          console.error('Unexpected error in processJob:', err);
+          activeJobs.delete(job.id);
+          currentJobIds = currentJobIds.filter(id => id !== job.id);
+          // Перезапускаем обработку очереди после ошибки
+          processQueue();
+        });
+      });
+      
+      cleanupGeminiRequestTimestamps();
+      cleanupGeminiRequestsPerSecond();
+      
+      // Небольшая задержка перед следующей проверкой (чтобы не загружать CPU)
+      await new Promise(resolve => setTimeout(resolve, 50));
     }
+  } finally {
+    isProcessingQueue = false;
   }
   
   if (generationQueue.length > 0 && activeJobs.size >= MAX_CONCURRENT_GENERATIONS) {
@@ -552,124 +590,24 @@ async function processQueue() {
 }
 
 // Добавление задачи в очередь генерации
-// Rate limiting работает на уровне порций: группируем задачи по времени добавления
-async function addToQueue(imageData, prompt) {
+// Упрощенная логика: задачи сразу добавляются в очередь, без группировки
+function addToQueue(imageData, prompt) {
   if (generationQueue.length >= MAX_QUEUE_SIZE) {
     throw new Error('Очередь переполнена. Попробуйте позже.');
   }
   
-  const now = Date.now();
-  const currentSecond = Math.floor(now / 1000);
-  
-  // Проверяем, есть ли уже группа задач для этой секунды
-  let batchGroup = pendingBatchGroups.get(currentSecond);
-  
-  if (!batchGroup) {
-    // Создаем новую группу - проверяем rate limit ДО создания группы
-    const timeSinceLastBatch = now - lastBatchSendTime;
-    
-    if (timeSinceLastBatch < SECOND_DELAY_ON_LIMIT && lastBatchSendTime > 0) {
-      // Нужно подождать перед созданием новой группы
-      const waitTime = SECOND_DELAY_ON_LIMIT - timeSinceLastBatch;
-      safeLog('Rate limit: waiting before creating new batch group', { 
-        waitTime, 
-        timeSinceLastBatch,
-        lastBatchSendTime 
-      });
-      await new Promise(resolve => setTimeout(resolve, waitTime));
-    }
-    
-    // Создаем новую группу и резервируем время отправки порции
-    batchGroup = {
-      tasks: [],
-      createdAt: Date.now(),
-      batchReserved: true,
-      flushTimer: null
-    };
-    pendingBatchGroups.set(currentSecond, batchGroup);
-    
-    // Резервируем время отправки порции
-    lastBatchSendTime = batchGroup.createdAt;
-    
-    safeLog('New batch group created', { 
-      currentSecond,
-      lastBatchSendTime
-    });
-    
-    // Очищаем старые группы (старше 5 секунд)
-    setTimeout(() => {
-      pendingBatchGroups.delete(currentSecond);
-    }, 5000);
-  }
-  
-  // Добавляем задачу в группу
   const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const job = new GenerationJob(jobId, imageData, prompt);
-  batchGroup.tasks.push(job);
+  generationQueue.push(job);
   
-  safeLog('Job added to batch group', { 
+  safeLog('Job added to queue', { 
     jobId, 
-    batchGroupSize: batchGroup.tasks.length,
-    currentSecond
+    queueSize: generationQueue.length,
+    position: job.getPosition()
   });
   
-  // Проверяем, нужно ли добавить группу в очередь
-  const shouldFlushGroup = () => {
-    // Если группа заполнилась (6 задач) - добавляем в очередь
-    if (batchGroup.tasks.length >= BATCH_SIZE) {
-      return true;
-    }
-    // Если прошло окно группировки и есть задачи - добавляем в очередь
-    if (Date.now() - batchGroup.createdAt >= BATCH_GROUPING_WINDOW && batchGroup.tasks.length > 0) {
-      return true;
-    }
-    return false;
-  };
-  
-  // Если группа готова - добавляем в очередь
-  if (shouldFlushGroup()) {
-    // Делаем копию задач, чтобы избежать race condition
-    const tasksToAdd = [...batchGroup.tasks];
-    
-    // Добавляем все задачи из группы в очередь
-    tasksToAdd.forEach(task => {
-      generationQueue.push(task);
-    });
-    
-    safeLog('Batch group added to queue', { 
-      batchSize: tasksToAdd.length,
-      queueSize: generationQueue.length
-    });
-    
-    // Удаляем группу
-    pendingBatchGroups.delete(currentSecond);
-    
-    // Запускаем обработку очереди
-    processQueue();
-  } else {
-    // Если группа еще не готова, запускаем таймер для проверки через BATCH_GROUPING_WINDOW
-    if (!batchGroup.flushTimer) {
-      batchGroup.flushTimer = setTimeout(() => {
-        // Проверяем, что группа еще существует и не была уже обработана
-        const existingGroup = pendingBatchGroups.get(currentSecond);
-        if (existingGroup && existingGroup === batchGroup && existingGroup.tasks.length > 0) {
-          const tasksToAdd = [...existingGroup.tasks];
-          
-          tasksToAdd.forEach(task => {
-            generationQueue.push(task);
-          });
-          
-          safeLog('Batch group flushed by timer', { 
-            batchSize: tasksToAdd.length,
-            queueSize: generationQueue.length
-          });
-          
-          pendingBatchGroups.delete(currentSecond);
-          processQueue();
-        }
-      }, BATCH_GROUPING_WINDOW);
-    }
-  }
+  // Запускаем обработку очереди асинхронно (не ждем)
+  processQueue();
   
   // Возвращаем jobId для отслеживания статуса
   return { jobId, position: job.getPosition(), estimatedWaitTime: job.getEstimatedWaitTime() };
@@ -1184,8 +1122,8 @@ app.post(`${API_PREFIX}/generate-image`, async (req, res) => {
       return res.status(400).json({ error: promptValidation.error });
     }
 
-    // Добавляем задачу в очередь (async функция - нужен await!)
-    const queueResult = await addToQueue(imageData, prompt);
+    // Добавляем задачу в очередь (теперь синхронная функция)
+    const queueResult = addToQueue(imageData, prompt);
     
     // Рассчитываем точное время начала генерации
     const estimatedStartTime = Date.now() + queueResult.estimatedWaitTime;
