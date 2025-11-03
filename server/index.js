@@ -490,6 +490,7 @@ async function processJob(job) {
 
 // Обработчик очереди (запускает порции по 6 задач одновременно)
 // Rate limiting: отправляем порции по 6 задач с интервалом 2 секунды между порциями
+// Активных задач может быть сколько угодно - ограничение только на скорость отправки (6 запросов в секунду)
 let isProcessingQueue = false; // Флаг для предотвращения параллельного запуска processQueue
 
 async function processQueue() {
@@ -502,14 +503,6 @@ async function processQueue() {
   
   try {
     while (generationQueue.length > 0) {
-      // Проверяем, можем ли запустить следующую порцию (не более 6 активных одновременно)
-      const availableSlots = MAX_CONCURRENT_GENERATIONS - activeJobs.size;
-      if (availableSlots <= 0) {
-        // Все слоты заняты - ждем немного и проверяем снова
-        await new Promise(resolve => setTimeout(resolve, 100));
-        continue;
-      }
-      
       // Проверяем rate limit: прошло ли 2 секунды с последней отправки порции
       const now = Date.now();
       const timeSinceLastBatch = now - lastBatchSendTime;
@@ -526,8 +519,8 @@ async function processQueue() {
         await new Promise(resolve => setTimeout(resolve, waitTime));
       }
       
-      // Берем порцию из до 6 задач (или сколько доступно слотов)
-      const batchSize = Math.min(BATCH_SIZE, generationQueue.length, availableSlots);
+      // Берем порцию из 6 задач (или сколько осталось в очереди)
+      const batchSize = Math.min(BATCH_SIZE, generationQueue.length);
       const batchJobs = [];
       
       for (let i = 0; i < batchSize; i++) {
@@ -574,13 +567,6 @@ async function processQueue() {
     }
   } finally {
     isProcessingQueue = false;
-  }
-  
-  if (generationQueue.length > 0 && activeJobs.size >= MAX_CONCURRENT_GENERATIONS) {
-    safeLog('Queue processing paused - max concurrent reached', { 
-      queueSize: generationQueue.length, 
-      activeJobs: activeJobs.size 
-    });
   }
 }
 
