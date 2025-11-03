@@ -347,49 +347,16 @@ async function processJob(job) {
       try {
         safeLog('Calling Gemini API', { 
           jobId: job.id, 
-          attempt,
-          activeJobs: activeJobs.size,
-          queueSize: generationQueue.length
+          attempt
         });
         
-        let response;
-        try {
-          // Добавляем таймаут для запроса к Gemini API (120 секунд)
-          const API_TIMEOUT = 120000; // 2 минуты
-          const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('API request timeout after 120 seconds')), API_TIMEOUT);
-          });
-          
-          const apiCallPromise = genAI.models.generateContent({
-            model: 'gemini-2.5-flash-image',
-            contents: { parts: [imagePart, textPart] },
-            config: {
-              responseModalities: [Modality.IMAGE],
-            },
-          });
-          
-          response = await Promise.race([apiCallPromise, timeoutPromise]);
-        } catch (apiError) {
-          // Логируем ошибку API отдельно для детального анализа
-          const apiErrorMessage = apiError instanceof Error ? apiError.message : String(apiError);
-          const apiErrorStack = apiError instanceof Error ? apiError.stack : undefined;
-          const apiErrorDetails = {
-            jobId: job.id,
-            attempt,
-            error: apiErrorMessage,
-            errorStack: apiErrorStack?.substring(0, 500),
-            errorCode: (apiError as any)?.code,
-            errorStatus: (apiError as any)?.status,
-            errorName: (apiError as any)?.name,
-            // Дополнительная информация об ошибке
-            isTimeout: apiErrorMessage.includes('timeout'),
-            isNetworkError: apiErrorMessage.toLowerCase().includes('network') || apiErrorMessage.toLowerCase().includes('fetch failed'),
-            isRateLimit: apiErrorMessage.toLowerCase().includes('rate_limit') || apiErrorMessage.toLowerCase().includes('429') || apiErrorMessage.toLowerCase().includes('quota'),
-          };
-          
-          safeLog('Gemini API call failed', apiErrorDetails);
-          throw apiError;
-        }
+        const response = await genAI.models.generateContent({
+          model: 'gemini-2.5-flash-image',
+          contents: { parts: [imagePart, textPart] },
+          config: {
+            responseModalities: [Modality.IMAGE],
+          },
+        });
         
         // Детальное логирование ответа для отладки
         const responseParts = response.candidates?.[0]?.content?.parts || [];
@@ -454,18 +421,6 @@ async function processJob(job) {
       } catch (error) {
         lastError = error;
         const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
-        const errorStack = error instanceof Error ? error.stack : undefined;
-        
-        // Логируем каждую ошибку перед retry
-        safeLog('Generation attempt failed', {
-          jobId: job.id,
-          attempt,
-          maxRetries,
-          error: errorMessage.substring(0, 200),
-          errorStack: errorStack?.substring(0, 300),
-          errorCode: (error as any)?.code,
-          errorStatus: (error as any)?.status
-        });
         
         // Проверяем, является ли ошибка связанной с rate limiting
         const isRateLimitError = (
@@ -522,23 +477,8 @@ async function processJob(job) {
   } catch (error) {
     const duration = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : String(error);
-    const errorStack = error instanceof Error ? error.stack : undefined;
-    
-    // Детальное логирование ошибки
-    safeLog('Image generation failed (queued)', { 
-      jobId: job.id, 
-      error: errorMessage,
-      errorStack: errorStack?.substring(0, 500),
-      duration,
-      attempts: maxRetries,
-      activeJobs: activeJobs.size,
-      queueSize: generationQueue.length
-    });
-    
-    // Сохраняем оригинальное сообщение об ошибке для отладки
-    const detailedError = new Error(`Не удалось сгенерировать изображение. Попробуйте позже.`);
-    detailedError.cause = error;
-    job.setError(detailedError);
+    safeLog('Image generation failed (queued)', { jobId: job.id, error: errorMessage, duration });
+    job.setError(new Error('Не удалось сгенерировать изображение. Попробуйте позже.'));
     
     // Сохраняем завершенную задачу с ошибкой
     completedJobs.set(job.id, job);
