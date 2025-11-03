@@ -99,17 +99,17 @@ class GenerationJob {
     const position = this.getPosition();
     if (position <= 0) return 0; // Уже обрабатывается или завершена
     
-    // Рассчитываем время ожидания на основе времени создания задачи
-    // Это гарантирует, что время ожидания не будет увеличиваться при добавлении новых задач
-    // Находим количество задач, созданных ДО этой задачи (в очереди и активных)
+    const now = Date.now();
+    const timeSinceCreation = now - this.createdAt;
+    
+    // Находим количество задач, созданных ДО этой задачи (в очереди)
     const jobsCreatedBefore = generationQueue.filter(j => 
       j.createdAt < this.createdAt || 
       (j.createdAt === this.createdAt && j.id < this.id)
     ).length;
     
     // Также учитываем активные задачи, созданные до этой
-    // Активные задачи уже начали обрабатываться, но мы их учитываем для расчета времени
-    // Считаем что все активные задачи были созданы до текущей
+    // Активные задачи уже начали обрабатываться
     const activeJobsCreatedBefore = activeJobs.size;
     
     const totalJobsBefore = jobsCreatedBefore + activeJobsCreatedBefore;
@@ -117,8 +117,27 @@ class GenerationJob {
     // Рассчитываем количество порций перед этой задачей
     const batchesBeforeThis = Math.floor(totalJobsBefore / BATCH_SIZE);
     
-    // Каждая порция отправляется с интервалом 2 секунды
-    let waitTime = batchesBeforeThis * SECOND_DELAY_ON_LIMIT;
+    // Рассчитываем время отправки порции для этой задачи
+    // Время отправки = время последней отправки + (количество порций * интервал)
+    // Но нужно учесть, что если уже прошло достаточно времени, порция может отправиться раньше
+    let timeUntilBatchSend = 0;
+    
+    if (lastBatchSendTime > 0) {
+      // Рассчитываем когда должна отправиться порция с этой задачей
+      const expectedBatchSendTime = lastBatchSendTime + (batchesBeforeThis * SECOND_DELAY_ON_LIMIT);
+      const timeUntilExpectedSend = expectedBatchSendTime - now;
+      
+      // Если уже прошло достаточно времени с момента создания задачи,
+      // и порция должна была отправиться, то время ожидания = 0
+      if (timeUntilExpectedSend <= 0) {
+        timeUntilBatchSend = 0;
+      } else {
+        timeUntilBatchSend = timeUntilExpectedSend;
+      }
+    } else {
+      // Если еще не было отправок - первая порция отправится сразу
+      timeUntilBatchSend = batchesBeforeThis * SECOND_DELAY_ON_LIMIT;
+    }
     
     // Учитываем текущее состояние rate limit
     cleanupGeminiRequestTimestamps();
@@ -126,13 +145,12 @@ class GenerationJob {
     
     // Если в текущем окне нет свободных слотов, нужно дождаться освобождения
     if (currentRequestsInWindow >= GEMINI_RPM_LIMIT && geminiRequestTimestamps.length > 0) {
-      const now = Date.now();
       const oldestRequest = geminiRequestTimestamps[0];
       const timeUntilOldestExpires = GEMINI_WINDOW_SIZE - (now - oldestRequest);
-      waitTime = Math.max(waitTime, timeUntilOldestExpires);
+      timeUntilBatchSend = Math.max(timeUntilBatchSend, timeUntilOldestExpires);
     }
     
-    return Math.max(0, Math.round(waitTime));
+    return Math.max(0, Math.round(timeUntilBatchSend));
   }
   
   setResult(result) {
