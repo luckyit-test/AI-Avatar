@@ -347,16 +347,34 @@ async function processJob(job) {
       try {
         safeLog('Calling Gemini API', { 
           jobId: job.id, 
-          attempt
+          attempt,
+          activeJobs: activeJobs.size,
+          queueSize: generationQueue.length
         });
         
-        const response = await genAI.models.generateContent({
-          model: 'gemini-2.5-flash-image',
-          contents: { parts: [imagePart, textPart] },
-          config: {
-            responseModalities: [Modality.IMAGE],
-          },
-        });
+        let response;
+        try {
+          response = await genAI.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: { parts: [imagePart, textPart] },
+            config: {
+              responseModalities: [Modality.IMAGE],
+            },
+          });
+        } catch (apiError) {
+          // Логируем ошибку API отдельно для детального анализа
+          const apiErrorMessage = apiError instanceof Error ? apiError.message : String(apiError);
+          const apiErrorStack = apiError instanceof Error ? apiError.stack : undefined;
+          safeLog('Gemini API call failed', {
+            jobId: job.id,
+            attempt,
+            error: apiErrorMessage,
+            errorStack: apiErrorStack?.substring(0, 500),
+            errorCode: (apiError as any)?.code,
+            errorStatus: (apiError as any)?.status
+          });
+          throw apiError;
+        }
         
         // Детальное логирование ответа для отладки
         const responseParts = response.candidates?.[0]?.content?.parts || [];
@@ -477,8 +495,23 @@ async function processJob(job) {
   } catch (error) {
     const duration = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : String(error);
-    safeLog('Image generation failed (queued)', { jobId: job.id, error: errorMessage, duration });
-    job.setError(new Error('Не удалось сгенерировать изображение. Попробуйте позже.'));
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    // Детальное логирование ошибки
+    safeLog('Image generation failed (queued)', { 
+      jobId: job.id, 
+      error: errorMessage,
+      errorStack: errorStack?.substring(0, 500),
+      duration,
+      attempts: maxRetries,
+      activeJobs: activeJobs.size,
+      queueSize: generationQueue.length
+    });
+    
+    // Сохраняем оригинальное сообщение об ошибке для отладки
+    const detailedError = new Error(`Не удалось сгенерировать изображение. Попробуйте позже.`);
+    detailedError.cause = error;
+    job.setError(detailedError);
     
     // Сохраняем завершенную задачу с ошибкой
     completedJobs.set(job.id, job);
