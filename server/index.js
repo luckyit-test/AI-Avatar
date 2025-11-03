@@ -207,38 +207,17 @@ function calculateEstimatedWaitTimeForJob(jobId, positionInQueue) {
   let waitTime = 0;
   
   // Если есть свободные слоты в текущем окне и задач немного
-  if (totalApiRequestsBefore < availableSlotsInWindow) {
-    // Задача начнет обрабатываться почти сразу
-    // Учитываем только время на освобождение параллельных слотов
-    if (activeCount >= MAX_CONCURRENT_GENERATIONS) {
-      // Все параллельные слоты заняты, ждем завершения одной задачи
-      waitTime = calculateAverageGenerationTime();
-    }
-    // Минимальный интервал между запросами уже учтен в waitForGeminiRateLimit
-  } else {
-    // Нужно ждать пока освободится место в rate limit окне
-    
-    // Время до освобождения самого старого запроса в окне
+  // Рассчитываем время ожидания на основе rate limit
+  // Порции отправляются каждые 2 секунды по 6 задач
+  const batchesBeforeThis = Math.floor(queuePosition / BATCH_SIZE);
+  waitTime = batchesBeforeThis * SECOND_DELAY_ON_LIMIT;
+  
+  // Если в текущем окне нет свободных слотов, нужно дождаться освобождения
+  if (totalApiRequestsBefore >= GEMINI_RPM_LIMIT) {
     if (geminiRequestTimestamps.length > 0) {
       const oldestRequest = geminiRequestTimestamps[0];
       const timeUntilOldestExpires = GEMINI_WINDOW_SIZE - (now - oldestRequest);
       waitTime = Math.max(waitTime, timeUntilOldestExpires);
-    }
-    
-    // После освобождения слота рассчитываем время для оставшихся запросов
-    const requestsThatNeedWait = totalApiRequestsBefore - availableSlotsInWindow;
-    if (requestsThatNeedWait > 0) {
-      // Каждый новый запрос требует минимум GEMINI_MIN_INTERVAL
-      // Но также нужно учитывать, пока освобождаются слоты в окне
-      const windowsNeeded = Math.ceil(requestsThatNeedWait / GEMINI_RPM_LIMIT);
-      const additionalWait = (windowsNeeded - 1) * GEMINI_WINDOW_SIZE;
-      waitTime += additionalWait;
-    }
-    
-    // Учитываем время генерации активных задач
-    if (activeCount >= MAX_CONCURRENT_GENERATIONS) {
-      const avgGenTime = calculateAverageGenerationTime();
-      waitTime = Math.max(waitTime, avgGenTime);
     }
   }
   
