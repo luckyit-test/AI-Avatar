@@ -372,23 +372,8 @@ function App() {
         return genderOverride;
     };
 
-    // Таймер для оценки изображения
-    useEffect(() => {
-        let intervalId: NodeJS.Timeout | null = null;
-        if (isValidatingImage) {
-            setValidationTimer(0);
-            intervalId = setInterval(() => {
-                setValidationTimer(prev => prev + 1);
-            }, 1000);
-        } else {
-            setValidationTimer(0);
-        }
-        return () => {
-            if (intervalId) {
-                clearInterval(intervalId);
-            }
-        };
-    }, [isValidatingImage]);
+    // Таймер для оценки изображения - не используем автоинкремент,
+    // значение берется только из статуса через callback
 
     const handleImageUpload = (file: File) => {
         const reader = new FileReader();
@@ -418,10 +403,12 @@ function App() {
                         if (status.statusMessage) {
                             setValidationStatusMessage(status.statusMessage);
                         }
-                        // Обновляем таймер на основе remainingTime
+                        // Обновляем таймер на основе remainingTime с округлением для стабильности
                         if (status.remainingTime !== undefined) {
-                            const remainingSeconds = Math.ceil(status.remainingTime / 1000);
-                            setValidationTimer(remainingSeconds);
+                            // Округляем до ближайших 5 секунд для стабильности отображения
+                            const remainingSeconds = Math.max(0, Math.ceil(status.remainingTime / 1000));
+                            const roundedSeconds = remainingSeconds > 5 ? Math.ceil(remainingSeconds / 5) * 5 : remainingSeconds;
+                            setValidationTimer(roundedSeconds);
                         }
                     });
                     
@@ -780,7 +767,7 @@ function App() {
                                         <Icons.spinner className="w-12 h-12 text-blue-600 animate-spin mb-4" />
                                         <p className="text-sm font-medium text-gray-700 mb-1">{validationStatusMessage}</p>
                                         {validationTimer > 0 && (
-                                            <p className="text-xs text-gray-500">Осталось: ~{validationTimer} сек</p>
+                                            <p className="text-xs text-gray-500">Осталось приблизительно {validationTimer} сек</p>
                                         )}
                                     </motion.div>
                                 )}
