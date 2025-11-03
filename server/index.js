@@ -859,7 +859,12 @@ function getAnalysisJobStatus(jobId) {
   if (queueJob) {
     const estimatedWaitTime = queueJob.getEstimatedWaitTime();
     const elapsedTime = Date.now() - queueJob.createdAt;
-    const remainingTime = Math.max(0, estimatedWaitTime - elapsedTime);
+    let remainingTime = Math.max(0, estimatedWaitTime - elapsedTime);
+    
+    // Округляем до ближайших 5 секунд для стабильности (если больше 5 секунд)
+    if (remainingTime > 5000) {
+      remainingTime = Math.ceil(remainingTime / 5000) * 5000;
+    }
     
     return {
       status: 'queued',
@@ -872,10 +877,19 @@ function getAnalysisJobStatus(jobId) {
   
   if (activeAnalysisJobs.has(jobId)) {
     // Задача обрабатывается - показываем оставшееся время
-    // Ищем задачу в активных задачах
-    const activeJob = Array.from(analysisQueue).find(j => j.id === jobId && j.startedAt);
+    // Ищем задачу в очереди (она, возможно, еще там, или уже в completedAnalysisJobs)
+    let activeJob = analysisQueue.find(j => j.id === jobId);
+    if (!activeJob) {
+      activeJob = completedAnalysisJobs.get(jobId);
+    }
+    
     const elapsedTime = activeJob && activeJob.startedAt ? Date.now() - activeJob.startedAt : 0;
-    const remainingTime = Math.max(0, AVERAGE_ANALYSIS_TIME - elapsedTime);
+    let remainingTime = Math.max(0, AVERAGE_ANALYSIS_TIME - elapsedTime);
+    
+    // Округляем до ближайших 5 секунд для стабильности (если больше 5 секунд)
+    if (remainingTime > 5000) {
+      remainingTime = Math.ceil(remainingTime / 5000) * 5000;
+    }
     
     return {
       status: 'processing',
