@@ -42,6 +42,10 @@ const SECOND_DELAY_ON_LIMIT = 2000; // Задержка 2 секунды при 
 let lastBatchSendTime = 0; // Время последней отправки порции из 6 запросов
 const BATCH_SIZE = 6; // Размер порции (6 стилей от одного пользователя)
 
+// Группировка задач по пользователям (задачи добавленные в течение 200мс считаются от одного пользователя)
+const userBatchGroups = new Map(); // Ключ: timestamp группы (округленный до 200мс), значение: массив задач
+const USER_BATCH_WINDOW = 200; // Окно группировки: 200 мс
+
 // Система отслеживания запросов к Gemini API для анализа (отдельный трекер)
 const geminiAnalysisRequestTimestamps = [];
 
@@ -497,12 +501,11 @@ async function processQueue() {
         await new Promise(resolve => setTimeout(resolve, waitTime));
       }
       
-      // Берем порцию из 6 задач (или сколько осталось в очереди)
-      const batchSize = Math.min(BATCH_SIZE, generationQueue.length);
+      // Берем ровно 6 задач (порция от одного пользователя)
+      // Если в очереди меньше 6 - берем сколько есть, но следующая порция будет ждать
       const batchJobs = [];
       
-      for (let i = 0; i < batchSize; i++) {
-        if (generationQueue.length === 0) break;
+      for (let i = 0; i < BATCH_SIZE && generationQueue.length > 0; i++) {
         batchJobs.push(generationQueue.shift());
       }
       
@@ -549,24 +552,84 @@ async function processQueue() {
 }
 
 // Добавление задачи в очередь генерации
-// Упрощенная логика: задачи сразу добавляются в очередь, без группировки
+// Группируем задачи по пользователям (задачи добавленные в течение 200мс - от одного пользователя)
 function addToQueue(imageData, prompt) {
   if (generationQueue.length >= MAX_QUEUE_SIZE) {
     throw new Error('Очередь переполнена. Попробуйте позже.');
   }
   
+  const now = Date.now();
+  const groupKey = Math.floor(now / USER_BATCH_WINDOW) * USER_BATCH_WINDOW;
+  
+  // Находим или создаем группу для этого пользователя
+  let userGroup = userBatchGroups.get(groupKey);
+  if (!userGroup) {
+    userGroup = {
+      tasks: [],
+      createdAt: now,
+      addedToQueue: false
+    };
+    userBatchGroups.set(groupKey, userGroup);
+    
+    // Очищаем группу через 1 секунду после создания
+    setTimeout(() => {
+      userBatchGroups.delete(groupKey);
+    }, 1000);
+  }
+  
   const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const job = new GenerationJob(jobId, imageData, prompt);
-  generationQueue.push(job);
+  userGroup.tasks.push(job);
   
-  safeLog('Job added to queue', { 
+  safeLog('Job added to user batch group', { 
     jobId, 
-    queueSize: generationQueue.length,
-    position: job.getPosition()
+    groupKey,
+    groupSize: userGroup.tasks.length,
+    totalGroups: userBatchGroups.size
   });
   
-  // Запускаем обработку очереди асинхронно (не ждем)
-  processQueue();
+  // Если группа заполнилась (6 задач) - добавляем все задачи в очередь сразу
+  if (userGroup.tasks.length >= BATCH_SIZE && !userGroup.addedToQueue) {
+    userGroup.addedToQueue = true;
+    
+    // Добавляем все задачи из группы в очередь
+    userGroup.tasks.forEach(task => {
+      generationQueue.push(task);
+    });
+    
+    safeLog('User batch group added to queue', { 
+      batchSize: userGroup.tasks.length,
+      queueSize: generationQueue.length
+    });
+    
+    // Удаляем группу
+    userBatchGroups.delete(groupKey);
+    
+    // Запускаем обработку очереди
+    processQueue();
+  } else if (!userGroup.addedToQueue) {
+    // Если группа еще не заполнилась, запускаем таймер для автоматического добавления через 200мс
+    if (!userGroup.flushTimer) {
+      userGroup.flushTimer = setTimeout(() => {
+        const existingGroup = userBatchGroups.get(groupKey);
+        if (existingGroup && existingGroup === userGroup && !existingGroup.addedToQueue && existingGroup.tasks.length > 0) {
+          existingGroup.addedToQueue = true;
+          
+          existingGroup.tasks.forEach(task => {
+            generationQueue.push(task);
+          });
+          
+          safeLog('User batch group flushed by timer', { 
+            batchSize: existingGroup.tasks.length,
+            queueSize: generationQueue.length
+          });
+          
+          userBatchGroups.delete(groupKey);
+          processQueue();
+        }
+      }, USER_BATCH_WINDOW);
+    }
+  }
   
   // Возвращаем jobId для отслеживания статуса
   return { jobId, position: job.getPosition(), estimatedWaitTime: job.getEstimatedWaitTime() };
@@ -858,6 +921,32 @@ function getJobStatus(jobId) {
       estimatedStartTime: Date.now() + estimatedWaitTime, // Абсолютное время начала
       createdAt: queuedJob.createdAt,
     };
+  }
+  
+  // Проверяем задачи в userBatchGroups (группировка перед добавлением в очередь)
+  for (const [groupKey, userGroup] of userBatchGroups.entries()) {
+    const jobInGroup = userGroup.tasks.find(j => j.id === jobId);
+    if (jobInGroup) {
+      // Вычисляем позицию: задачи в очереди + задачи в группах до этой
+      let position = generationQueue.length;
+      for (const [key, group] of userBatchGroups.entries()) {
+        if (key < groupKey) {
+          position += group.tasks.length;
+        } else if (key === groupKey) {
+          position += userGroup.tasks.indexOf(jobInGroup) + 1;
+          break;
+        }
+      }
+      
+      const estimatedWaitTime = jobInGroup.getEstimatedWaitTime();
+      return {
+        status: 'queued',
+        position: position,
+        estimatedWaitTime: estimatedWaitTime,
+        estimatedStartTime: Date.now() + estimatedWaitTime,
+        createdAt: jobInGroup.createdAt,
+      };
+    }
   }
   
   return null; // Задача не найдена
