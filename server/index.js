@@ -108,12 +108,9 @@ class GenerationJob {
     ).length;
     
     // Также учитываем активные задачи, созданные до этой
-    const activeJobsCreatedBefore = Array.from(activeJobs).filter(jobId => {
-      const job = completedJobs.get(jobId);
-      if (!job) return false;
-      return job.createdAt < this.createdAt || 
-             (job.createdAt === this.createdAt && job.id < this.id);
-    }).length;
+    // Активные задачи уже начали обрабатываться, но мы их учитываем для расчета времени
+    // Считаем что все активные задачи были созданы до текущей
+    const activeJobsCreatedBefore = activeJobs.size;
     
     const totalJobsBefore = jobsCreatedBefore + activeJobsCreatedBefore;
     
