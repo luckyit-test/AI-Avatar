@@ -42,11 +42,6 @@ const SECOND_DELAY_ON_LIMIT = 2000; // Задержка 2 секунды при 
 let lastBatchSendTime = 0; // Время последней отправки порции из 6 запросов
 const BATCH_SIZE = 6; // Размер порции (6 стилей от одного пользователя)
 
-// Группировка задач по порциям: отслеживаем задачи, которые пришли почти одновременно
-// Ключ: timestamp начала порции (округленный до секунды), значение: массив задач
-const pendingBatchGroups = new Map();
-const BATCH_GROUPING_WINDOW = 100; // Окно группировки: 100 мс (задачи пришедшие в течение 100 мс считаются одной порцией)
-
 // Система отслеживания запросов к Gemini API для анализа (отдельный трекер)
 const geminiAnalysisRequestTimestamps = [];
 
@@ -901,32 +896,6 @@ function getJobStatus(jobId) {
     };
   }
   
-  // Проверяем задачи в pendingBatchGroups (группировка перед добавлением в очередь)
-  for (const [second, batchGroup] of pendingBatchGroups.entries()) {
-    const jobInGroup = batchGroup.tasks.find(j => j.id === jobId);
-    if (jobInGroup) {
-      // Вычисляем позицию: задачи в очереди + задачи в группах до этой
-      let position = generationQueue.length;
-      for (const [groupSecond, group] of pendingBatchGroups.entries()) {
-        if (groupSecond < second) {
-          position += group.tasks.length;
-        } else if (groupSecond === second) {
-          position += batchGroup.tasks.indexOf(jobInGroup) + 1;
-          break;
-        }
-      }
-      
-      const estimatedWaitTime = jobInGroup.getEstimatedWaitTime();
-      return {
-        status: 'queued',
-        position: position,
-        estimatedWaitTime: estimatedWaitTime,
-        estimatedStartTime: Date.now() + estimatedWaitTime,
-        createdAt: jobInGroup.createdAt,
-      };
-    }
-  }
-  
   return null; // Задача не найдена
 }
 
@@ -1228,8 +1197,7 @@ app.get(`${API_PREFIX}/generate-image/:jobId`, async (req, res) => {
       jobId,
       queueSize: generationQueue.length,
       activeJobsCount: activeJobs.size,
-      completedJobsCount: completedJobs.size,
-      pendingBatchGroupsCount: pendingBatchGroups.size
+      completedJobsCount: completedJobs.size
     });
     
     const status = getJobStatus(jobId);
@@ -1240,12 +1208,7 @@ app.get(`${API_PREFIX}/generate-image/:jobId`, async (req, res) => {
         jobId,
         queueJobIds: generationQueue.map(j => j.id).slice(0, 10),
         activeJobIds: Array.from(activeJobs).slice(0, 10),
-        completedJobIds: Array.from(completedJobs.keys()).slice(0, 10),
-        pendingBatchGroupsDetails: Array.from(pendingBatchGroups.entries()).map(([sec, group]) => ({
-          second: sec,
-          taskCount: group.tasks.length,
-          taskIds: group.tasks.map(t => t.id)
-        }))
+        completedJobIds: Array.from(completedJobs.keys()).slice(0, 10)
       });
       
       return res.status(404).json({ 
