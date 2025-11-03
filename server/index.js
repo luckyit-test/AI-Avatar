@@ -206,14 +206,13 @@ function calculateEstimatedWaitTimeForJob(jobId, positionInQueue) {
   // Время ожидания до начала обработки этой задачи
   let waitTime = 0;
   
-  // Если есть свободные слоты в текущем окне и задач немного
   // Рассчитываем время ожидания на основе rate limit
   // Порции отправляются каждые 2 секунды по 6 задач
-  const batchesBeforeThis = Math.floor(queuePosition / BATCH_SIZE);
+  const batchesBeforeThis = Math.floor(jobsBeforeThis / BATCH_SIZE);
   waitTime = batchesBeforeThis * SECOND_DELAY_ON_LIMIT;
   
   // Если в текущем окне нет свободных слотов, нужно дождаться освобождения
-  if (totalApiRequestsBefore >= GEMINI_RPM_LIMIT) {
+  if (currentRequestsInWindow >= GEMINI_RPM_LIMIT) {
     if (geminiRequestTimestamps.length > 0) {
       const oldestRequest = geminiRequestTimestamps[0];
       const timeUntilOldestExpires = GEMINI_WINDOW_SIZE - (now - oldestRequest);
