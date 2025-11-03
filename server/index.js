@@ -99,8 +99,43 @@ class GenerationJob {
     const position = this.getPosition();
     if (position <= 0) return 0; // Уже обрабатывается или завершена
     
-    // Рассчитываем время ожидания с учетом rate limits Gemini API
-    return calculateEstimatedWaitTimeForJob(this.id, position);
+    // Рассчитываем время ожидания на основе времени создания задачи
+    // Это гарантирует, что время ожидания не будет увеличиваться при добавлении новых задач
+    // Находим количество задач, созданных ДО этой задачи (в очереди и активных)
+    const jobsCreatedBefore = generationQueue.filter(j => 
+      j.createdAt < this.createdAt || 
+      (j.createdAt === this.createdAt && j.id < this.id)
+    ).length;
+    
+    // Также учитываем активные задачи, созданные до этой
+    const activeJobsCreatedBefore = Array.from(activeJobs).filter(jobId => {
+      const job = completedJobs.get(jobId);
+      if (!job) return false;
+      return job.createdAt < this.createdAt || 
+             (job.createdAt === this.createdAt && job.id < this.id);
+    }).length;
+    
+    const totalJobsBefore = jobsCreatedBefore + activeJobsCreatedBefore;
+    
+    // Рассчитываем количество порций перед этой задачей
+    const batchesBeforeThis = Math.floor(totalJobsBefore / BATCH_SIZE);
+    
+    // Каждая порция отправляется с интервалом 2 секунды
+    let waitTime = batchesBeforeThis * SECOND_DELAY_ON_LIMIT;
+    
+    // Учитываем текущее состояние rate limit
+    cleanupGeminiRequestTimestamps();
+    const currentRequestsInWindow = geminiRequestTimestamps.length;
+    
+    // Если в текущем окне нет свободных слотов, нужно дождаться освобождения
+    if (currentRequestsInWindow >= GEMINI_RPM_LIMIT && geminiRequestTimestamps.length > 0) {
+      const now = Date.now();
+      const oldestRequest = geminiRequestTimestamps[0];
+      const timeUntilOldestExpires = GEMINI_WINDOW_SIZE - (now - oldestRequest);
+      waitTime = Math.max(waitTime, timeUntilOldestExpires);
+    }
+    
+    return Math.max(0, Math.round(waitTime));
   }
   
   setResult(result) {
@@ -188,43 +223,17 @@ function calculateAverageGenerationTime() {
   return Math.round(sum / generationTimes.length);
 }
 
-// Рассчитывает точное время ожидания для задачи с учетом rate limits Gemini API
+// Функция больше не используется - расчет времени ожидания теперь в getEstimatedWaitTime()
+// Оставлена для обратной совместимости если где-то используется
 function calculateEstimatedWaitTimeForJob(jobId, positionInQueue) {
-  cleanupGeminiRequestTimestamps();
-  const now = Date.now();
-  
-  // Количество задач перед этой в очереди
-  const jobsBeforeThis = positionInQueue - 1;
-  
-  // Активные задачи уже обрабатываются, их учитываем отдельно
-  const activeCount = activeJobs.size;
-  
-  // Общее количество API запросов, которые будут сделаны до этой задачи
-  // Это активные задачи + задачи в очереди перед этой
-  const totalApiRequestsBefore = activeCount + jobsBeforeThis;
-  
-  // Текущее состояние rate limit окна
-  const currentRequestsInWindow = geminiRequestTimestamps.length;
-  const availableSlotsInWindow = Math.max(0, GEMINI_RPM_LIMIT - currentRequestsInWindow);
-  
-  // Время ожидания до начала обработки этой задачи
-  let waitTime = 0;
-  
-  // Рассчитываем время ожидания на основе rate limit
-  // Порции отправляются каждые 2 секунды по 6 задач
-  const batchesBeforeThis = Math.floor(jobsBeforeThis / BATCH_SIZE);
-  waitTime = batchesBeforeThis * SECOND_DELAY_ON_LIMIT;
-  
-  // Если в текущем окне нет свободных слотов, нужно дождаться освобождения
-  if (currentRequestsInWindow >= GEMINI_RPM_LIMIT) {
-    if (geminiRequestTimestamps.length > 0) {
-      const oldestRequest = geminiRequestTimestamps[0];
-      const timeUntilOldestExpires = GEMINI_WINDOW_SIZE - (now - oldestRequest);
-      waitTime = Math.max(waitTime, timeUntilOldestExpires);
-    }
+  // Находим задачу по ID
+  const job = generationQueue.find(j => j.id === jobId);
+  if (job) {
+    return job.getEstimatedWaitTime();
   }
   
-  return Math.max(0, Math.round(waitTime));
+  // Если задача не найдена в очереди, возвращаем 0
+  return 0;
 }
 
 // Очистка старых записей из sliding window для Gemini API
