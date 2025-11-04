@@ -313,9 +313,17 @@ export async function checkGenerationStatus(jobId: string): Promise<QueueStatus>
       throw new Error(errorData.error || `HTTP ${response.status}`);
     }
 
-    return await response.json();
+    const status = await response.json();
+    
+    // Логируем статус для отладки проблем
+    if (status.status === 'error') {
+      console.warn('[checkGenerationStatus] Job error:', { jobId, error: status.error });
+    }
+    
+    return status;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[checkGenerationStatus] Fetch error:', { jobId, error: errorMessage });
     throw new Error(`Не удалось проверить статус: ${errorMessage}`);
   }
 }
