@@ -99,7 +99,8 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
     const jobId = queueResult.jobId;
     
     // Polling статуса задачи
-    const pollInterval = 500; // Проверяем каждые 500 мс
+    // Используем интервал 1 секунда - достаточно для обновления UI таймера
+    const pollInterval = 1000; // Проверяем каждую секунду (вместо 500 мс)
     const maxWaitTime = 30000; // Максимум 30 секунд
     const startTime = Date.now();
     
