@@ -1242,9 +1242,23 @@ app.post(`${API_PREFIX}/generate-image`, async (req, res) => {
 app.get(`${API_PREFIX}/analysis/:jobId`, (req, res) => {
   try {
     const { jobId } = req.params;
+    
+    console.log('[analysis-status] Request received', {
+      jobId,
+      timestamp: new Date().toISOString()
+    });
+    
     const status = getAnalysisJobStatus(jobId);
     
+    console.log('[analysis-status] Status result', {
+      jobId,
+      status: status ? status.status : 'null',
+      hasError: status?.error ? true : false,
+      errorMessage: status?.error || null
+    });
+    
     if (!status) {
+      console.error('[analysis-status] Job not found', { jobId });
       return res.status(404).json({ 
         error: 'Задача анализа не найдена' 
       });
