@@ -66,6 +66,11 @@ export interface AnalysisStatus {
  */
 export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (status: AnalysisStatus) => void): Promise<ImageEvaluationResult> {
   try {
+    console.log('[evaluateImage] Starting evaluation', {
+      apiBaseUrl: API_BASE_URL,
+      imageDataLength: imageDataUrl?.length || 0
+    });
+    
     // Добавляем задачу в очередь
     const response = await fetch(`${API_BASE_URL}/evaluate-image`, {
       method: 'POST',
@@ -75,8 +80,18 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
       body: JSON.stringify({ imageData: imageDataUrl }),
     });
 
+    console.log('[evaluateImage] Response received', {
+      ok: response.ok,
+      status: response.status,
+      statusText: response.statusText
+    });
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: 'Неизвестная ошибка' }));
+      console.error('[evaluateImage] Response error', {
+        status: response.status,
+        errorData
+      });
       throw new Error(errorData.error || `HTTP ${response.status}`);
     }
 
@@ -134,7 +149,12 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
     throw new Error('Таймаут ожидания анализа');
   } catch (error) {
     // При любой ошибке (сеть, таймаут и т.д.) — отклоняем
-    console.warn('Ошибка оценки изображения (catch):', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[evaluateImage] Error caught:', {
+      error: errorMessage,
+      errorType: error instanceof Error ? error.constructor.name : typeof error,
+      stack: error instanceof Error ? error.stack : undefined
+    });
     return {
       isValid: false,
       errorType: 'not_single_person',
