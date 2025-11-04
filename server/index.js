@@ -1797,7 +1797,19 @@ app.get('/health', (req, res) => {
 
 // Также доступен через /api/health для консистентности
 app.get(`${API_PREFIX}/health`, (req, res) => {
+  console.log('[health] Health check endpoint called');
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Обработчик для всех необработанных маршрутов (должен быть последним)
+app.use((req, res) => {
+  console.log('[404] Route not found:', {
+    method: req.method,
+    path: req.path,
+    url: req.url,
+    originalUrl: req.originalUrl
+  });
+  res.status(404).json({ error: `Route ${req.method} ${req.path} not found` });
 });
 
 app.listen(PORT, '0.0.0.0', () => {
