@@ -11,6 +11,7 @@ import Uploader from './components/Uploader';
 import ImageCard from './components/ImageCard';
 import { Icons } from './components/Icons';
 import { CustomSelect } from './components/CustomSelect';
+import { Onboarding, useOnboarding } from './components/Onboarding';
 import { cn } from './lib/utils';
 
 const STYLES = ['Классический', 'Современный', 'Креативный', 'Технологичный', 'Дружелюбный', 'Уверенный'];
@@ -348,6 +349,7 @@ interface GeneratedImage {
 type AppState = 'idle' | 'image-uploaded' | 'generating' | 'results-shown';
 
 function App() {
+    const onboarding = useOnboarding();
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [uploadedImage, setUploadedImage] = useState<string | null>(null);
     const [imageValidationError, setImageValidationError] = useState<string | null>(null);
@@ -747,8 +749,10 @@ function App() {
                     {/* --- Left Column: Controls --- */}
                     <aside className="w-full lg:w-1/3 lg:max-w-sm flex-shrink-0">
                         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm sticky top-8 transition-shadow duration-300 hover:shadow-md">
-                            <h2 className="text-lg font-semibold text-gray-900 mb-1">1. Загрузите ваше фото</h2>
-                            <p className="text-sm text-gray-500 mb-4">Выберите четкое изображение лица анфас.</p>
+                            <div data-onboarding="upload">
+                                <h2 className="text-lg font-semibold text-gray-900 mb-1">1. Загрузите ваше фото</h2>
+                                <p className="text-sm text-gray-500 mb-4">Выберите четкое изображение лица анфас.</p>
+                            </div>
                             
                             {/* Скрытый input для кнопки ошибки - всегда в DOM */}
                             <input
@@ -822,7 +826,7 @@ function App() {
                             
                             <div className="mt-6">
                                 {!isValidatingImage && !imageValidationError && uploadedImage && (appState === 'image-uploaded' || appState === 'generating' || appState === 'results-shown') && (
-                                    <div className="mb-6">
+                                    <div className="mb-6" data-onboarding="gender">
                                         <h2 className="text-lg font-semibold text-gray-900 mb-1">Пол</h2>
                                         <p className="text-sm text-gray-500 mb-3">
                                             {genderOverride === null 
@@ -872,24 +876,30 @@ function App() {
 
                                 {/* Role & Company selectors */}
                                 <div className="mb-6 grid grid-cols-1 gap-4">
-                                    <CustomSelect
-                                        label="Должность в ИТ"
-                                        options={IT_ROLES}
-                                        value={selectedRole}
-                                        onChange={(value) => setSelectedRole(value as typeof IT_ROLES[number])}
-                                        placeholder="Выберите должность"
-                                    />
-                                    <CustomSelect
-                                        label="Тип компании"
-                                        options={COMPANY_TYPES}
-                                        value={selectedCompany}
-                                        onChange={(value) => setSelectedCompany(value as typeof COMPANY_TYPES[number])}
-                                        placeholder="Выберите тип компании"
-                                    />
+                                    <div data-onboarding="role">
+                                        <CustomSelect
+                                            label="Должность в ИТ"
+                                            options={IT_ROLES}
+                                            value={selectedRole}
+                                            onChange={(value) => setSelectedRole(value as typeof IT_ROLES[number])}
+                                            placeholder="Выберите должность"
+                                        />
+                                    </div>
+                                    <div data-onboarding="company">
+                                        <CustomSelect
+                                            label="Тип компании"
+                                            options={COMPANY_TYPES}
+                                            value={selectedCompany}
+                                            onChange={(value) => setSelectedCompany(value as typeof COMPANY_TYPES[number])}
+                                            placeholder="Выберите тип компании"
+                                        />
+                                    </div>
                                     {/* Вариативность и естественность зафиксированы в коде (Высокая, включено) */}
                                 </div>
-                                <h2 className="text-lg font-semibold text-gray-900 mb-1">2. Сгенерируйте портреты</h2>
-                                <p className="text-sm text-gray-500 mb-4">Мы создадим 6 профессиональных портретов в разных стилях.</p>
+                                <div data-onboarding="generate">
+                                    <h2 className="text-lg font-semibold text-gray-900 mb-1">2. Сгенерируйте портреты</h2>
+                                    <p className="text-sm text-gray-500 mb-4">Мы создадим 6 профессиональных портретов в разных стилях.</p>
+                                </div>
                                 {appState === 'image-uploaded' && (
                                     <div className="flex items-center gap-3">
                                         <button 
@@ -1038,6 +1048,16 @@ function App() {
                 </div>
             </main>
             <Footer />
+            
+            {/* Onboarding */}
+            <Onboarding
+                isActive={onboarding.isActive}
+                currentStep={onboarding.currentStep}
+                steps={onboarding.steps}
+                onNext={onboarding.nextStep}
+                onPrev={onboarding.prevStep}
+                onSkip={onboarding.skip}
+            />
 
             {/* Lightbox */}
             <AnimatePresence>
