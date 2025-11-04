@@ -515,12 +515,24 @@ async function processJob(job) {
   } catch (error) {
     const duration = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : String(error);
-    safeLog('Image generation failed (queued)', { jobId: job.id, error: errorMessage, duration });
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    // Детальное логирование всех ошибок генерации
+    safeLog('Image generation failed (queued)', { 
+      jobId: job.id, 
+      error: errorMessage, 
+      duration,
+      errorStack: errorStack?.substring(0, 500),
+      attempts: maxRetries,
+      lastError: lastError ? (lastError instanceof Error ? lastError.message : String(lastError)) : null
+    });
     
     // Передаем более понятное сообщение об ошибке, если это ошибка API ключа
     let userFriendlyError = 'Не удалось сгенерировать изображение. Попробуйте позже.';
     if (errorMessage.includes('API ключа') || errorMessage.includes('api key') || errorMessage.includes('leaked')) {
       userFriendlyError = 'Ошибка конфигурации сервера. Обратитесь к администратору.';
+    } else if (errorMessage.includes('IMAGE_OTHER') || errorMessage.includes('finishReason')) {
+      userFriendlyError = 'Временная проблема с генерацией. Попробуйте снова.';
     }
     
     job.setError(new Error(userFriendlyError));
