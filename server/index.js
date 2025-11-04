@@ -406,6 +406,27 @@ async function processJob(job) {
         // Если нет изображения, пытаемся найти причину
         const textResponse = response.text || responseParts.find(p => p.text)?.text || '';
         const finishReason = response.candidates?.[0]?.finishReason || 'unknown';
+        
+        // IMAGE_OTHER может быть временной проблемой - пробуем повторить
+        const isRetriableFinishReason = (
+          finishReason === 'IMAGE_OTHER' ||
+          finishReason === 'OTHER' ||
+          finishReason === 'RECITATION'
+        );
+        
+        if (isRetriableFinishReason && attempt < maxRetries) {
+          safeLog('Image generation returned retriable finish reason, retrying', { 
+            jobId: job.id,
+            finishReason,
+            attempt,
+            textResponse: textResponse.substring(0, 100)
+          });
+          
+          // Небольшая задержка перед повтором
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          continue;
+        }
+        
         const errorMessage = `Модель ИИ ответила текстом вместо изображения. Finish reason: ${finishReason}. Text: "${textResponse.substring(0, 200)}"`;
         
         safeLog('Image generation failed - text response instead of image', { 
@@ -413,7 +434,8 @@ async function processJob(job) {
           finishReason,
           textResponse: textResponse.substring(0, 200),
           hasImagePart,
-          hasTextPart
+          hasTextPart,
+          attempt
         });
         
         throw new Error(errorMessage);
