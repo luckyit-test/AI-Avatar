@@ -1088,6 +1088,21 @@ setInterval(() => {
 // Префикс для всех API эндпоинтов
 const API_PREFIX = '/api';
 
+// Логирование всех запросов для диагностики
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`, {
+    url: req.url,
+    originalUrl: req.originalUrl,
+    baseUrl: req.baseUrl,
+    headers: {
+      host: req.headers.host,
+      'x-forwarded-for': req.headers['x-forwarded-for'],
+      'x-real-ip': req.headers['x-real-ip']
+    }
+  });
+  next();
+});
+
 // Rate limiting только для анализа (бесплатные эндпоинты), не для генерации (платные)
 // Генерация оплачивается, поэтому не ограничиваем запросы
 app.post(`${API_PREFIX}/detect-gender`, rateLimit);
