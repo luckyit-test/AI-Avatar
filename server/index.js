@@ -660,7 +660,7 @@ function addToQueue(imageData, prompt) {
 }
 
 // Выполнение анализа изображения (общая функция для всех типов анализа)
-async function performImageAnalysis(imageData, type) {
+async function performImageAnalysis(imageData, type, jobId = null) {
   const { mimeType, base64Data } = validateImageData(imageData);
   const imagePart = {
     inlineData: { mimeType, data: base64Data },
@@ -704,7 +704,7 @@ async function performImageAnalysis(imageData, type) {
     let response;
     try {
       safeLog('Calling Gemini API for analysis', { 
-        jobId: job?.id || 'unknown',
+        jobId: jobId || 'unknown',
         type,
         hasApiKey: !!GEMINI_API_KEY_ANALYSIS,
         apiKeyPrefix: GEMINI_API_KEY_ANALYSIS?.substring(0, 10) || 'none'
@@ -725,14 +725,14 @@ async function performImageAnalysis(imageData, type) {
       });
       
       safeLog('Gemini API analysis response received', {
-        jobId: job?.id || 'unknown',
+        jobId: jobId || 'unknown',
         hasText: !!response.text,
         textLength: response.text?.length || 0
       });
     } catch (apiError) {
       const apiErrorMessage = apiError instanceof Error ? apiError.message : String(apiError);
       safeLog('Gemini API call failed for analysis', {
-        jobId: job?.id || 'unknown',
+        jobId: jobId || 'unknown',
         error: apiErrorMessage,
         errorCode: apiError?.code,
         errorStatus: apiError?.status,
@@ -799,7 +799,7 @@ async function processAnalysisJob(job) {
   job.startedAt = Date.now();
   
   try {
-    const result = await performImageAnalysis(job.imageData, job.type);
+    const result = await performImageAnalysis(job.imageData, job.type, job.id);
     job.setResult(result);
     
     // Сохраняем завершенную задачу
