@@ -701,19 +701,45 @@ async function performImageAnalysis(imageData, type) {
 - Если это явно фото одного человека - принимай (isValid: true)`,
     };
     
-    const response = await genAIAnalysis.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: { parts: [imagePart, evaluationPrompt] },
-      config: {
-        responseModalities: [Modality.TEXT],
-        safetySettings: [
-          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
-        ],
-      },
-    });
+    let response;
+    try {
+      safeLog('Calling Gemini API for analysis', { 
+        jobId: job?.id || 'unknown',
+        type,
+        hasApiKey: !!GEMINI_API_KEY_ANALYSIS,
+        apiKeyPrefix: GEMINI_API_KEY_ANALYSIS?.substring(0, 10) || 'none'
+      });
+      
+      response = await genAIAnalysis.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: { parts: [imagePart, evaluationPrompt] },
+        config: {
+          responseModalities: [Modality.TEXT],
+          safetySettings: [
+            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+          ],
+        },
+      });
+      
+      safeLog('Gemini API analysis response received', {
+        jobId: job?.id || 'unknown',
+        hasText: !!response.text,
+        textLength: response.text?.length || 0
+      });
+    } catch (apiError) {
+      const apiErrorMessage = apiError instanceof Error ? apiError.message : String(apiError);
+      safeLog('Gemini API call failed for analysis', {
+        jobId: job?.id || 'unknown',
+        error: apiErrorMessage,
+        errorCode: (apiError as any)?.code,
+        errorStatus: (apiError as any)?.status,
+        hasApiKey: !!GEMINI_API_KEY_ANALYSIS
+      });
+      throw apiError;
+    }
     
     const raw = (response.text || '').toString();
     const cleaned = raw.trim().replace(/^```[a-zA-Z]*\n?/, '').replace(/```$/, '');
@@ -788,6 +814,18 @@ async function processAnalysisJob(job) {
     
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    // Детальное логирование ошибки анализа
+    safeLog('Analysis job failed', {
+      jobId: job.id,
+      error: errorMessage,
+      errorStack: errorStack?.substring(0, 500),
+      errorCode: (error as any)?.code,
+      errorStatus: (error as any)?.status,
+      isApiError: errorMessage.toLowerCase().includes('api') || errorMessage.toLowerCase().includes('gemini'),
+    });
+    
     job.setError(new Error(errorMessage));
     
     // Сохраняем завершенную задачу с ошибкой
