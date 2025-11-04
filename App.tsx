@@ -372,13 +372,18 @@ function App() {
         return genderOverride;
     };
 
-    // Таймер для оценки изображения
+    // Таймер для оценки изображения - обратный отсчет от 10 до 1
     useEffect(() => {
         let intervalId: NodeJS.Timeout | null = null;
         if (isValidatingImage) {
-            setValidationTimer(0);
+            setValidationTimer(10); // Начинаем с 10 секунд
             intervalId = setInterval(() => {
-                setValidationTimer(prev => prev + 1);
+                setValidationTimer(prev => {
+                    if (prev <= 1) {
+                        return 1; // Останавливаемся на 1
+                    }
+                    return prev - 1; // Уменьшаем каждую секунду
+                });
             }, 1000);
         } else {
             setValidationTimer(0);
@@ -418,11 +423,7 @@ function App() {
                         if (status.statusMessage) {
                             setValidationStatusMessage(status.statusMessage);
                         }
-                        // Обновляем таймер на основе remainingTime
-                        if (status.remainingTime !== undefined) {
-                            const remainingSeconds = Math.ceil(status.remainingTime / 1000);
-                            setValidationTimer(remainingSeconds);
-                        }
+                        // Не обновляем таймер из статуса - используем только обратный отсчет от 10
                     });
                     
                     console.log('Image evaluation result:', evaluation);
@@ -779,9 +780,11 @@ function App() {
                                     >
                                         <Icons.spinner className="w-12 h-12 text-blue-600 animate-spin mb-4" />
                                         <p className="text-sm font-medium text-gray-700 mb-1">{validationStatusMessage}</p>
-                                        {validationTimer > 0 && (
-                                            <p className="text-xs text-gray-500">Осталось: ~{validationTimer} сек</p>
-                                        )}
+                                        {validationTimer > 1 ? (
+                                            <p className="text-xs text-gray-500">Осталось: {validationTimer} сек</p>
+                                        ) : validationTimer === 1 ? (
+                                            <p className="text-xs text-gray-500">Ожидаем завершения анализа</p>
+                                        ) : null}
                                     </motion.div>
                                 )}
                                 {imageValidationError && (
