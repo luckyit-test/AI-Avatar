@@ -734,8 +734,8 @@ async function performImageAnalysis(imageData, type) {
       safeLog('Gemini API call failed for analysis', {
         jobId: job?.id || 'unknown',
         error: apiErrorMessage,
-        errorCode: (apiError as any)?.code,
-        errorStatus: (apiError as any)?.status,
+        errorCode: apiError?.code,
+        errorStatus: apiError?.status,
         hasApiKey: !!GEMINI_API_KEY_ANALYSIS
       });
       throw apiError;
@@ -821,8 +821,8 @@ async function processAnalysisJob(job) {
       jobId: job.id,
       error: errorMessage,
       errorStack: errorStack?.substring(0, 500),
-      errorCode: (error as any)?.code,
-      errorStatus: (error as any)?.status,
+      errorCode: error?.code,
+      errorStatus: error?.status,
       isApiError: errorMessage.toLowerCase().includes('api') || errorMessage.toLowerCase().includes('gemini'),
     });
     
