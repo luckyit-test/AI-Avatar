@@ -422,6 +422,16 @@ async function processJob(job) {
         lastError = error;
         const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
         
+        // Проверяем, является ли ошибка связанной с API ключом
+        const isApiKeyError = (
+          errorMessage.includes('403') ||
+          errorMessage.toLowerCase().includes('permission_denied') ||
+          errorMessage.toLowerCase().includes('api key') ||
+          errorMessage.toLowerCase().includes('leaked') ||
+          errorMessage.toLowerCase().includes('invalid api key') ||
+          errorMessage.toLowerCase().includes('api key was reported')
+        );
+        
         // Проверяем, является ли ошибка связанной с rate limiting
         const isRateLimitError = (
           errorMessage.toLowerCase().includes('rate_limit') ||
@@ -442,6 +452,12 @@ async function processJob(job) {
           errorMessage.toLowerCase().includes('network') ||
           errorMessage.toLowerCase().includes('fetch failed')
         );
+        
+        // Если ошибка API ключа - не повторяем, сразу выбрасываем понятную ошибку
+        if (isApiKeyError) {
+          safeLog('API key error detected', { jobId: job.id, errorMessage: errorMessage.substring(0, 200) });
+          throw new Error('Ошибка API ключа для генерации. Обратитесь к администратору.');
+        }
         
         if (isRetriable && attempt < maxRetries) {
           // Для rate limit ошибок используем более длительный backoff
@@ -478,7 +494,14 @@ async function processJob(job) {
     const duration = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : String(error);
     safeLog('Image generation failed (queued)', { jobId: job.id, error: errorMessage, duration });
-    job.setError(new Error('Не удалось сгенерировать изображение. Попробуйте позже.'));
+    
+    // Передаем более понятное сообщение об ошибке, если это ошибка API ключа
+    let userFriendlyError = 'Не удалось сгенерировать изображение. Попробуйте позже.';
+    if (errorMessage.includes('API ключа') || errorMessage.includes('api key') || errorMessage.includes('leaked')) {
+      userFriendlyError = 'Ошибка конфигурации сервера. Обратитесь к администратору.';
+    }
+    
+    job.setError(new Error(userFriendlyError));
     
     // Сохраняем завершенную задачу с ошибкой
     completedJobs.set(job.id, job);
