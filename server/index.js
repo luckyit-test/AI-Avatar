@@ -1365,10 +1365,19 @@ app.post(`${API_PREFIX}/evaluate-image`, async (req, res) => {
   const startTime = Date.now();
   const clientIp = req.ip || req.connection.remoteAddress;
   
+  // Логируем ВСЕ запросы для диагностики
+  console.log('[evaluate-image] Request received', {
+    clientIp,
+    hasImageData: !!req.body?.imageData,
+    imageDataLength: req.body?.imageData?.length || 0,
+    timestamp: new Date().toISOString()
+  });
+  
   try {
     const { imageData } = req.body;
 
     if (!imageData) {
+      console.error('[evaluate-image] Missing imageData', { clientIp });
       safeLog('Image evaluation failed: missing imageData', { clientIp });
       return res.status(400).json({ 
         error: 'Отсутствует обязательный параметр: imageData' 
@@ -1382,8 +1391,19 @@ app.post(`${API_PREFIX}/evaluate-image`, async (req, res) => {
     }
 
     // Добавляем задачу в очередь анализа
+    console.log('[evaluate-image] Adding to analysis queue', {
+      clientIp,
+      imageDataLength: imageData.length
+    });
+    
     const queueResult = addToAnalysisQueue(imageData, 'evaluate');
     const jobId = queueResult.jobId;
+    
+    console.log('[evaluate-image] Job added to queue', {
+      jobId,
+      position: queueResult.position,
+      estimatedWaitTime: queueResult.estimatedWaitTime
+    });
     
     // Возвращаем jobId для polling статуса
     return res.json({
@@ -1395,6 +1415,11 @@ app.post(`${API_PREFIX}/evaluate-image`, async (req, res) => {
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[evaluate-image] Error:', {
+      clientIp,
+      error: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined
+    });
     safeLog('Image evaluation request failed', { clientIp, error: errorMessage });
     
     if (errorMessage.includes('переполнена')) {
