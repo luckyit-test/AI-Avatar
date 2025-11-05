@@ -350,6 +350,18 @@ async function processJob(job) {
     const imageSizeKB = Math.round(imageSizeBytes / 1024);
     const imageSizeMB = (imageSizeKB / 1024).toFixed(2);
     
+    // Логируем информацию о входном изображении - используем console.log для гарантии записи
+    console.log(`[${new Date().toISOString()}] Starting image generation`, {
+      jobId: job.id,
+      imageMimeType: mimeType,
+      imageSizeBytes: imageSizeBytes,
+      imageSizeKB: imageSizeKB,
+      imageSizeMB: imageSizeMB,
+      base64Length: base64Data.length,
+      promptLength: job.prompt.length,
+      promptPreview: job.prompt.substring(0, 200)
+    });
+    
     safeLog('Starting image generation', {
       jobId: job.id,
       imageMimeType: mimeType,
