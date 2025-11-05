@@ -648,14 +648,34 @@ function addToQueue(imageData, prompt) {
     userGroup = {
       tasks: [],
       createdAt: now,
-      addedToQueue: false
+      addedToQueue: false,
+      flushTimer: null
     };
     userBatchGroups.set(groupKey, userGroup);
     
-    // Очищаем группу через 1 секунду после создания
+    // Очищаем группу через 5 секунд после создания (увеличено с 1 секунды)
+    // Это дает больше времени для обработки задач и проверки статуса
     setTimeout(() => {
-      userBatchGroups.delete(groupKey);
-    }, 1000);
+      const existingGroup = userBatchGroups.get(groupKey);
+      if (existingGroup && existingGroup === userGroup && !existingGroup.addedToQueue) {
+        // Если группа не была добавлена в очередь, добавляем её сейчас
+        if (existingGroup.tasks.length > 0) {
+          existingGroup.addedToQueue = true;
+          existingGroup.tasks.forEach(task => {
+            generationQueue.push(task);
+          });
+          safeLog('User batch group auto-flushed after timeout', {
+            batchSize: existingGroup.tasks.length,
+            queueSize: generationQueue.length
+          });
+          processQueue();
+        }
+        userBatchGroups.delete(groupKey);
+      } else if (existingGroup && existingGroup === userGroup && existingGroup.addedToQueue) {
+        // Группа уже была добавлена, просто удаляем
+        userBatchGroups.delete(groupKey);
+      }
+    }, 5000); // Увеличено с 1000 до 5000 мс
   }
   
   const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -673,6 +693,12 @@ function addToQueue(imageData, prompt) {
   if (userGroup.tasks.length >= BATCH_SIZE && !userGroup.addedToQueue) {
     userGroup.addedToQueue = true;
     
+    // Отменяем таймер флаша, если он был установлен
+    if (userGroup.flushTimer) {
+      clearTimeout(userGroup.flushTimer);
+      userGroup.flushTimer = null;
+    }
+    
     // Добавляем все задачи из группы в очередь
     userGroup.tasks.forEach(task => {
       generationQueue.push(task);
@@ -680,11 +706,12 @@ function addToQueue(imageData, prompt) {
     
     safeLog('User batch group added to queue', { 
       batchSize: userGroup.tasks.length,
-      queueSize: generationQueue.length
+      queueSize: generationQueue.length,
+      jobIds: userGroup.tasks.map(t => t.id)
     });
     
-    // Удаляем группу
-    userBatchGroups.delete(groupKey);
+    // НЕ удаляем группу сразу - оставляем для поиска статуса
+    // Удалим позже через таймер очистки
     
     // Запускаем обработку очереди
     processQueue();
@@ -702,10 +729,11 @@ function addToQueue(imageData, prompt) {
           
           safeLog('User batch group flushed by timer', { 
             batchSize: existingGroup.tasks.length,
-            queueSize: generationQueue.length
+            queueSize: generationQueue.length,
+            jobIds: existingGroup.tasks.map(t => t.id)
           });
           
-          userBatchGroups.delete(groupKey);
+          // НЕ удаляем группу сразу - оставляем для поиска статуса
           processQueue();
         }
       }, USER_BATCH_WINDOW);
@@ -1046,7 +1074,22 @@ function getJobStatus(jobId) {
   for (const [groupKey, userGroup] of userBatchGroups.entries()) {
     const jobInGroup = userGroup.tasks.find(j => j.id === jobId);
     if (jobInGroup) {
-      // Вычисляем позицию: задачи в очереди + задачи в группах до этой
+      // Если группа уже добавлена в очередь, ищем задачу там
+      if (userGroup.addedToQueue) {
+        const queuedJob = generationQueue.find(j => j.id === jobId);
+        if (queuedJob) {
+          const estimatedWaitTime = queuedJob.getEstimatedWaitTime();
+          return {
+            status: 'queued',
+            position: queuedJob.getPosition(),
+            estimatedWaitTime: estimatedWaitTime,
+            estimatedStartTime: Date.now() + estimatedWaitTime,
+            createdAt: queuedJob.createdAt,
+          };
+        }
+      }
+      
+      // Задача еще в группе, вычисляем позицию
       let position = generationQueue.length;
       for (const [key, group] of userBatchGroups.entries()) {
         if (key < groupKey) {
@@ -1067,6 +1110,18 @@ function getJobStatus(jobId) {
       };
     }
   }
+  
+  // Дополнительное логирование для отладки
+  safeLog('Job not found', {
+    jobId,
+    queueSize: generationQueue.length,
+    activeJobsCount: activeJobs.size,
+    completedJobsCount: completedJobs.size,
+    userBatchGroupsCount: userBatchGroups.size,
+    queueJobIds: generationQueue.map(j => j.id).slice(0, 10),
+    activeJobIds: Array.from(activeJobs).slice(0, 10),
+    completedJobIds: Array.from(completedJobs.keys()).slice(0, 10)
+  });
   
   return null; // Задача не найдена
 }
