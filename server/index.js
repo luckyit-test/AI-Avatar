@@ -689,6 +689,7 @@ async function processQueue() {
 
       // Запускаем все задачи из пакета одновременно (без await - не ждем завершения!)
       batchJobs.forEach(job => {
+        console.log(`[${new Date().toISOString()}] [BEFORE PROCESSJOB CALL] jobId=${job.id}, queueSize=${generationQueue.length}`);
         processJob(job).catch(err => {
           const errorMessage = err instanceof Error ? err.message : String(err);
           const errorStack = err instanceof Error ? err.stack : undefined;
