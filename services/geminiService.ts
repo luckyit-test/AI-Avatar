@@ -13,7 +13,7 @@ const API_BASE_URL = typeof window !== 'undefined'
 export type DetectedGender = 'male' | 'female' | 'unknown';
 export interface GenderDetectionResult { gender: DetectedGender; confidence: number }
 
-export type ValidationErrorType = 'none' | 'prohibited_content' | 'not_single_person' | 'license_violation';
+export type ValidationErrorType = 'none' | 'prohibited_content' | 'not_single_person' | 'license_violation' | 'public_figure';
 export interface ImageValidationResult {
   isValid: boolean;
   errorType: ValidationErrorType;
@@ -36,12 +36,16 @@ export interface ImageEvaluationResult {
   errorMessage: string;
   gender: DetectedGender;
   confidence: number;
+  publicFigure?: boolean;
+  publicFigureReason?: string | null;
   details?: {
     hasSinglePerson?: boolean;
     hasProhibitedContent?: boolean;
     hasAnimals?: boolean;
     hasLandscape?: boolean;
     hasMultiplePeople?: boolean;
+    isPublicFigure?: boolean;
+    publicFigureReason?: string | null;
   };
 }
 
@@ -56,6 +60,8 @@ export interface AnalysisStatus {
   errorMessage?: string;
   gender?: DetectedGender;
   confidence?: number;
+  publicFigure?: boolean;
+  publicFigureReason?: string | null;
   details?: any;
   result?: any;
   error?: string;
@@ -129,12 +135,19 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
       
       if (status.status === 'completed') {
         // Возвращаем результат в формате ImageEvaluationResult
+        const publicFigureFlag = status.publicFigure ?? status.details?.isPublicFigure ?? false;
+        const publicFigureReason = status.publicFigureReason ?? status.details?.publicFigureReason ?? null;
+        const resolvedErrorType: ValidationErrorType = (status.errorType as ValidationErrorType) 
+          || (publicFigureFlag ? 'public_figure' : (status.isValid ? 'none' : 'not_single_person'));
+
         return {
           isValid: status.isValid ?? false,
-          errorType: status.errorType || (status.isValid ? 'none' : 'not_single_person'),
+          errorType: resolvedErrorType,
           errorMessage: status.errorMessage || '',
           gender: status.gender || 'unknown',
           confidence: Math.max(0, Math.min(1, status.confidence || 0)),
+          publicFigure: publicFigureFlag,
+          publicFigureReason,
           details: status.details || {}
         };
       }

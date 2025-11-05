@@ -79,6 +79,8 @@ class GenerationJob {
     this.id = id;
     this.imageData = imageData;
     this.prompt = prompt;
+    this.originalPrompt = prompt;
+    this.fallbackApplied = false;
     this.createdAt = Date.now();
     this.startedAt = null;
     this.completedAt = null;
@@ -168,6 +170,26 @@ class GenerationJob {
       this.reject(error);
     }
   }
+}
+
+function buildFallbackPrompt(originalPrompt) {
+  if (!originalPrompt) {
+    return originalPrompt;
+  }
+
+  let fallback = originalPrompt;
+
+  fallback = fallback.replace(/CRITICAL:[^\.]*\./gi, '').trim();
+  fallback = fallback.replace(/Preserve identity EXACTLY[^\.]*\./gi, 'Maintain a recognizable likeness while allowing natural stylistic interpretation.');
+  fallback = fallback.replace(/The person must look like themselves[^\.]*\./gi, 'Keep the portrait respectful and professional while keeping the person recognizable.');
+  fallback = fallback.replace(/Each image in this batch must show a distinct outfit[^\.]*\./gi, 'Allow natural variation between images without strict requirements.');
+  fallback = fallback.replace(/Preserve realistic skin texture[^\.]*\./gi, 'Ensure the portrait maintains natural skin texture and a professional look.');
+
+  if (!/Follow all content policies/gi.test(fallback)) {
+    fallback += ' Follow all content policies and avoid replicating public figures exactly. Focus on a tasteful professional portrait inspired by the reference photo.';
+  }
+
+  return fallback;
 }
 
 // Структура задачи в очереди анализа
@@ -373,11 +395,15 @@ async function processJob(job) {
     const imagePart = {
       inlineData: { mimeType, data: base64Data },
     };
-    const textPart = { text: job.prompt };
+
+    let promptToUse = job.prompt;
+    let usingFallbackPrompt = false;
+    let attempt = 0;
     
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    while (attempt < maxRetries) {
+      attempt += 1;
+      const textPart = { text: promptToUse };
       try {
-        // Логируем параметры запроса перед отправкой
         const requestConfig = {
           model: 'gemini-2.5-flash-image',
           contents: { parts: [imagePart, textPart] },
@@ -389,11 +415,12 @@ async function processJob(job) {
         safeLog('Calling Gemini API', { 
           jobId: job.id, 
           attempt,
+          promptVariant: usingFallbackPrompt ? 'fallback' : 'original',
           imageMimeType: mimeType,
           imageSizeBytes: imageSizeBytes,
           imageSizeKB: Math.round(imageSizeBytes / 1024),
-          promptLength: job.prompt.length,
-          promptPreview: job.prompt.substring(0, 200),
+          promptLength: promptToUse.length,
+          promptPreview: promptToUse.substring(0, 200),
           requestConfig: JSON.stringify(requestConfig).substring(0, 1000)
         });
         
@@ -461,9 +488,6 @@ async function processJob(job) {
         
         // Если нет изображения, пытаемся найти причину
         const textResponse = response.text || responseParts.find(p => p.text)?.text || '';
-        // finishReason уже объявлен выше в безопасном логировании
-        
-        // IMAGE_OTHER может быть временной проблемой - пробуем повторить
         const isRetriableFinishReason = (
           finishReason === 'IMAGE_OTHER' ||
           finishReason === 'OTHER' ||
@@ -486,12 +510,27 @@ async function processJob(job) {
             })),
             candidate: JSON.stringify(candidate).substring(0, 2000),
             fullResponse: fullResponseStr,
-            promptFeedback: response.promptFeedback ? JSON.stringify(response.promptFeedback).substring(0, 500) : null
+            promptFeedback: response.promptFeedback ? JSON.stringify(response.promptFeedback).substring(0, 500) : null,
+            promptVariant: usingFallbackPrompt ? 'fallback' : 'original'
           });
-          
-          // Небольшая задержка перед повтором
           await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
           continue;
+        }
+        
+        if (finishReason === 'IMAGE_OTHER' && !usingFallbackPrompt) {
+          const softenedPrompt = buildFallbackPrompt(job.prompt);
+          if (softenedPrompt && softenedPrompt !== promptToUse) {
+            usingFallbackPrompt = true;
+            promptToUse = softenedPrompt;
+            safeLog('Applying fallback prompt after IMAGE_OTHER rejection', {
+              jobId: job.id,
+              attempt,
+              previousPromptLength: job.prompt.length,
+              fallbackPromptLength: promptToUse.length
+            });
+            attempt = 0;
+            continue;
+          }
         }
         
         const errorMessage = `Модель ИИ ответила текстом вместо изображения. Finish reason: ${finishReason}. Text: "${textResponse.substring(0, 200)}"`;
@@ -511,7 +550,8 @@ async function processJob(job) {
             blocked: r.blocked
           })),
           candidateFinishReason: finishReason,
-          fullCandidate: JSON.stringify(candidate).substring(0, 2000)
+          fullCandidate: JSON.stringify(candidate).substring(0, 2000),
+          promptVariant: usingFallbackPrompt ? 'fallback' : 'original'
         });
         
         throw new Error(errorMessage);
@@ -608,7 +648,7 @@ async function processJob(job) {
     if (errorMessage.includes('API ключа') || errorMessage.includes('api key') || errorMessage.includes('leaked')) {
       userFriendlyError = 'Ошибка конфигурации сервера. Обратитесь к администратору.';
     } else if (errorMessage.includes('IMAGE_OTHER') || errorMessage.includes('finishReason')) {
-      userFriendlyError = 'Временная проблема с генерацией. Попробуйте снова.';
+      userFriendlyError = 'Возможно, изображение содержит публичный или защищённый образ. Попробуйте другое фото.';
     }
     
     job.setError(new Error(userFriendlyError));
@@ -764,34 +804,38 @@ async function performImageAnalysis(imageData, type, jobId = null) {
   if (type === 'evaluate') {
     // Промпт для evaluate-image
     const evaluationPrompt = {
-      text: `Проанализируй это изображение и ответь на три вопроса:
+      text: `Проанализируй это изображение и ответь на четыре вопроса:
 
 1. Является ли это фотографией реального человека? (не рисунок, не 3D-рендер, не анимация, не скульптура)
 2. Является ли это селфи или портретом ОДНОГО человека? (не группа людей на переднем плане)
 3. Не нарушает ли это изображение политику контента? (нет запрещенного контента)
+4. Выглядит ли изображённый человек как известная публичная фигура (политик, артист, лидер мнений и т.п.) или как персона, права на образ которой могут быть защищены?
 
 Верни ТОЛЬКО валидный JSON (без дополнительного текста):
 {
-  "isValid": boolean,  // true только если все три вопроса: ДА, ДА, НЕТ (не нарушает)
-  "errorType": "none" | "prohibited_content" | "not_single_person" | "license_violation",
+  "isValid": boolean,  // true только если первые три вопроса: ДА, ДА, НЕТ и пункт 4: НЕТ
+  "errorType": "none" | "prohibited_content" | "not_single_person" | "license_violation" | "public_figure",
   "errorMessage": "строка на русском" (только если isValid: false),
   "gender": "male" | "female" | "unknown",  // ОБЯЗАТЕЛЬНО верни пол, если isValid: true
   "confidence": число от 0 до 1,  // уверенность в определении пола
+  "publicFigure": boolean, // true если человек выглядит как публичная фигура или защищённый образ
+  "publicFigureReason": "строка" | null,
   "details": {
-    "isPhotographOfRealPerson": boolean,  // это фото реального человека?
-    "isSelfieOnePerson": boolean,  // это селфи/портрет одного человека?
-    "hasSinglePerson": boolean,  // есть ли один человек на фото?
-    "isFaceClearlyVisible": boolean,  // лицо хорошо видно?
-    "hasProhibitedContent": boolean,  // есть запрещенный контент?
-    "hasMultiplePeople": boolean  // несколько людей?
+    "isPhotographOfRealPerson": boolean,
+    "isSelfieOnePerson": boolean,
+    "hasSinglePerson": boolean,
+    "isFaceClearlyVisible": boolean,
+    "hasProhibitedContent": boolean,
+    "hasMultiplePeople": boolean,
+    "isPublicFigure": boolean
   }
 }
 
 ВАЖНО:
-- Если это фото реального человека, селфи одного человека, и нет запрещенного контента → isValid: true, и ОБЯЗАТЕЛЬНО верни gender ("male" или "female")
-- Если что-то не так → isValid: false и укажи errorType
-- Будь строгим только к реальным проблемам (рисунки, группа людей, запрещенный контент)
-- Если это явно фото одного человека - принимай (isValid: true)`,
+- Если это фото реального человека, одного человека, нет запрещенного контента и это не публичная фигура → isValid: true, и ОБЯЗАТЕЛЬНО верни gender ("male" или "female")
+- Если обнаружена публичная фигура или образ, на использование которого могут быть ограничения → isValid: false, errorType: "public_figure", errorMessage: "Это изображение похоже на известного публичного человека. Мы не можем генерировать портреты общественных персон."
+- Если найдены другие проблемы (несколько людей, запрещённый контент и т.п.) → isValid: false и соответствующий errorType
+- Будь строгим только к реальным проблемам, но публичных фигур всегда отклоняй`
     };
     
     let response;
@@ -851,6 +895,16 @@ async function performImageAnalysis(imageData, type, jobId = null) {
       throw new Error('Failed to parse analysis response');
     }
     
+    if (parsed.publicFigure === true || parsed.details?.isPublicFigure === true) {
+      parsed.isValid = false;
+      parsed.errorType = 'public_figure';
+      parsed.errorMessage = parsed.errorMessage || parsed.publicFigureReason || 'Это изображение похоже на известного публичного человека. Мы не можем генерировать портреты общественных персон.';
+      parsed.publicFigure = true;
+      if (parsed.details) {
+        parsed.details.isPublicFigure = true;
+      }
+    }
+
     return parsed;
   } else {
     throw new Error(`Unknown analysis type: ${type}`);
@@ -1362,9 +1416,22 @@ app.get(`${API_PREFIX}/analysis/:jobId`, (req, res) => {
     if (status.status === 'completed') {
       const parsed = status.result;
       const d = parsed.details || {};
-      let postIsValid = parsed.isValid === true && parsed.errorType !== 'prohibited_content';
-      let postErrorType = postIsValid ? 'none' : (parsed.errorType === 'prohibited_content' ? 'prohibited_content' : 'not_single_person');
-      
+      const isPublicFigure = parsed.errorType === 'public_figure' || parsed.publicFigure === true || d?.isPublicFigure === true;
+      let postIsValid = parsed.isValid === true && parsed.errorType !== 'prohibited_content' && !isPublicFigure;
+      let postErrorType = 'none';
+
+      if (!postIsValid) {
+        if (parsed.errorType === 'prohibited_content') {
+          postErrorType = 'prohibited_content';
+        } else if (parsed.errorType === 'license_violation') {
+          postErrorType = 'license_violation';
+        } else if (isPublicFigure) {
+          postErrorType = 'public_figure';
+        } else {
+          postErrorType = 'not_single_person';
+        }
+      }
+
       let errorMessage = '';
       if (!postIsValid) {
         if (postErrorType === 'prohibited_content') {
@@ -1387,8 +1454,15 @@ app.get(`${API_PREFIX}/analysis/:jobId`, (req, res) => {
           }
         } else if (postErrorType === 'license_violation') {
           errorMessage = 'Изображение содержит защищенный авторским правом контент. Выберите другое изображение.';
+        } else if (postErrorType === 'public_figure') {
+          errorMessage = 'Это изображение похоже на известного публичного человека. Мы не можем генерировать портреты общественных персон.';
         }
       }
+      const enrichedDetails = {
+        ...d,
+        isPublicFigure: isPublicFigure,
+        publicFigureReason: parsed.publicFigureReason || d.publicFigureReason || null,
+      };
       
       return res.json({
         status: 'completed',
@@ -1397,7 +1471,8 @@ app.get(`${API_PREFIX}/analysis/:jobId`, (req, res) => {
         errorMessage: errorMessage,
         gender: parsed.gender || 'unknown',
         confidence: Math.max(0, Math.min(1, parsed.confidence || 0)),
-        details: d
+        publicFigure: isPublicFigure,
+        details: enrichedDetails
       });
     }
     
@@ -1896,3 +1971,4 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`📡 API доступен по адресу: http://0.0.0.0:${PORT}`);
   console.log(`🔒 CORS разрешен для: ${allowedOrigins.join(', ')}`);
 });
+
