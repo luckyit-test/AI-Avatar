@@ -337,8 +337,14 @@ async function processJob(job) {
   let lastError = null;
   
   try {
+    // ЛОГИРУЕМ САМОЕ НАЧАЛО - до валидации
+    console.log(`[${new Date().toISOString()}] [PROCESSJOB START] jobId=${job.id}, imageDataLength=${job.imageData?.length || 0}, promptLength=${job.prompt?.length || 0}`);
+    
     // Валидируем изображение
     const imageValidation = validateImageData(job.imageData);
+    
+    console.log(`[${new Date().toISOString()}] [AFTER VALIDATION] jobId=${job.id}, valid=${imageValidation.valid}, error=${imageValidation.error || 'none'}`);
+    
     if (!imageValidation.valid) {
       throw new Error(imageValidation.error || 'Неверный формат изображения');
     }
@@ -351,16 +357,7 @@ async function processJob(job) {
     const imageSizeMB = (imageSizeKB / 1024).toFixed(2);
     
     // Логируем информацию о входном изображении - используем console.log для гарантии записи
-    console.log(`[${new Date().toISOString()}] Starting image generation`, {
-      jobId: job.id,
-      imageMimeType: mimeType,
-      imageSizeBytes: imageSizeBytes,
-      imageSizeKB: imageSizeKB,
-      imageSizeMB: imageSizeMB,
-      base64Length: base64Data.length,
-      promptLength: job.prompt.length,
-      promptPreview: job.prompt.substring(0, 200)
-    });
+    console.log(`[${new Date().toISOString()}] [STARTING GENERATION] jobId=${job.id}, mimeType=${mimeType}, sizeBytes=${imageSizeBytes}, sizeKB=${imageSizeKB}, sizeMB=${imageSizeMB}, base64Len=${base64Data.length}, promptLen=${job.prompt.length}`);
     
     safeLog('Starting image generation', {
       jobId: job.id,
