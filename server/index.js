@@ -337,22 +337,34 @@ async function processJob(job) {
   let lastError = null;
   
   try {
-    const { mimeType, base64Data } = validateImageData(job.imageData);
-    const imagePart = {
-      inlineData: { mimeType, data: base64Data },
-    };
-    const textPart = { text: job.prompt };
+    // Валидируем изображение
+    const imageValidation = validateImageData(job.imageData);
+    if (!imageValidation.valid) {
+      throw new Error(imageValidation.error || 'Неверный формат изображения');
+    }
     
-    // Логируем информацию о входном изображении
+    const { mimeType, base64Data } = imageValidation;
+    
+    // Логируем информацию о входном изображении ПЕРЕД обработкой
     const imageSizeBytes = Math.floor(base64Data.length * 0.75); // Примерный размер в байтах
+    const imageSizeKB = Math.round(imageSizeBytes / 1024);
+    const imageSizeMB = (imageSizeKB / 1024).toFixed(2);
+    
     safeLog('Starting image generation', {
       jobId: job.id,
       imageMimeType: mimeType,
       imageSizeBytes: imageSizeBytes,
-      imageSizeKB: Math.round(imageSizeBytes / 1024),
+      imageSizeKB: imageSizeKB,
+      imageSizeMB: imageSizeMB,
+      base64Length: base64Data.length,
       promptLength: job.prompt.length,
-      promptPreview: job.prompt.substring(0, 100)
+      promptPreview: job.prompt.substring(0, 200)
     });
+    
+    const imagePart = {
+      inlineData: { mimeType, data: base64Data },
+    };
+    const textPart = { text: job.prompt };
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
