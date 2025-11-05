@@ -425,7 +425,7 @@ async function processJob(job) {
         
         // Если нет изображения, пытаемся найти причину
         const textResponse = response.text || responseParts.find(p => p.text)?.text || '';
-        const finishReason = response.candidates?.[0]?.finishReason || 'unknown';
+        // finishReason уже объявлен выше в безопасном логировании
         
         // IMAGE_OTHER может быть временной проблемой - пробуем повторить
         const isRetriableFinishReason = (
