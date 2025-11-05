@@ -343,6 +343,17 @@ async function processJob(job) {
     };
     const textPart = { text: job.prompt };
     
+    // Логируем информацию о входном изображении
+    const imageSizeBytes = Math.floor(base64Data.length * 0.75); // Примерный размер в байтах
+    safeLog('Starting image generation', {
+      jobId: job.id,
+      imageMimeType: mimeType,
+      imageSizeBytes: imageSizeBytes,
+      imageSizeKB: Math.round(imageSizeBytes / 1024),
+      promptLength: job.prompt.length,
+      promptPreview: job.prompt.substring(0, 100)
+    });
+    
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         safeLog('Calling Gemini API', { 
@@ -362,6 +373,9 @@ async function processJob(job) {
         const responseParts = response.candidates?.[0]?.content?.parts || [];
         const hasImagePart = responseParts.some(part => part.inlineData);
         const hasTextPart = responseParts.some(part => part.text);
+        const candidate = response.candidates?.[0];
+        const finishReason = candidate?.finishReason || 'unknown';
+        const safetyRatings = candidate?.safetyRatings || [];
         
         safeLog('Gemini API response received', { 
           jobId: job.id,
@@ -369,7 +383,13 @@ async function processJob(job) {
           hasTextPart,
           partsCount: responseParts.length,
           partsTypes: responseParts.map(p => Object.keys(p).join(',')),
-          candidateFinishReason: response.candidates?.[0]?.finishReason
+          candidateFinishReason: finishReason,
+          safetyRatings: safetyRatings.map(r => ({
+            category: r.category,
+            probability: r.probability,
+            blocked: r.blocked
+          })),
+          responseText: response.text || responseParts.find(p => p.text)?.text || ''
         });
         
         const imagePartFromResponse = responseParts.find(part => part.inlineData);
@@ -419,7 +439,14 @@ async function processJob(job) {
             jobId: job.id,
             finishReason,
             attempt,
-            textResponse: textResponse.substring(0, 100)
+            textResponse: textResponse.substring(0, 500),
+            fullTextResponse: textResponse,
+            safetyRatings: safetyRatings.map(r => ({
+              category: r.category,
+              probability: r.probability,
+              blocked: r.blocked
+            })),
+            candidate: JSON.stringify(candidate).substring(0, 1000)
           });
           
           // Небольшая задержка перед повтором
@@ -432,10 +459,19 @@ async function processJob(job) {
         safeLog('Image generation failed - text response instead of image', { 
           jobId: job.id,
           finishReason,
-          textResponse: textResponse.substring(0, 200),
+          textResponse: textResponse.substring(0, 500),
+          fullTextResponse: textResponse,
           hasImagePart,
           hasTextPart,
-          attempt
+          attempt,
+          maxRetries,
+          safetyRatings: safetyRatings.map(r => ({
+            category: r.category,
+            probability: r.probability,
+            blocked: r.blocked
+          })),
+          candidateFinishReason: finishReason,
+          fullCandidate: JSON.stringify(candidate).substring(0, 2000)
         });
         
         throw new Error(errorMessage);
