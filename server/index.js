@@ -377,6 +377,9 @@ async function processJob(job) {
         const finishReason = candidate?.finishReason || 'unknown';
         const safetyRatings = candidate?.safetyRatings || [];
         
+        // Логируем полный ответ для диагностики
+        const fullResponseStr = JSON.stringify(response).substring(0, 3000);
+        
         safeLog('Gemini API response received', { 
           jobId: job.id,
           hasImagePart,
@@ -389,7 +392,10 @@ async function processJob(job) {
             probability: r.probability,
             blocked: r.blocked
           })),
-          responseText: response.text || responseParts.find(p => p.text)?.text || ''
+          responseText: response.text || responseParts.find(p => p.text)?.text || '',
+          fullResponse: fullResponseStr,
+          candidatesCount: response.candidates?.length || 0,
+          promptFeedback: response.promptFeedback ? JSON.stringify(response.promptFeedback).substring(0, 500) : null
         });
         
         const imagePartFromResponse = responseParts.find(part => part.inlineData);
@@ -435,6 +441,8 @@ async function processJob(job) {
         );
         
         if (isRetriableFinishReason && attempt < maxRetries) {
+          const fullResponseStr = JSON.stringify(response).substring(0, 3000);
+          
           safeLog('Image generation returned retriable finish reason, retrying', { 
             jobId: job.id,
             finishReason,
@@ -446,7 +454,9 @@ async function processJob(job) {
               probability: r.probability,
               blocked: r.blocked
             })),
-            candidate: JSON.stringify(candidate).substring(0, 1000)
+            candidate: JSON.stringify(candidate).substring(0, 2000),
+            fullResponse: fullResponseStr,
+            promptFeedback: response.promptFeedback ? JSON.stringify(response.promptFeedback).substring(0, 500) : null
           });
           
           // Небольшая задержка перед повтором
