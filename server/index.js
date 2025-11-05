@@ -356,18 +356,27 @@ async function processJob(job) {
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        safeLog('Calling Gemini API', { 
-          jobId: job.id, 
-          attempt
-        });
-        
-        const response = await genAI.models.generateContent({
+        // Логируем параметры запроса перед отправкой
+        const requestConfig = {
           model: 'gemini-2.5-flash-image',
           contents: { parts: [imagePart, textPart] },
           config: {
             responseModalities: [Modality.IMAGE],
           },
+        };
+        
+        safeLog('Calling Gemini API', { 
+          jobId: job.id, 
+          attempt,
+          imageMimeType: mimeType,
+          imageSizeBytes: imageSizeBytes,
+          imageSizeKB: Math.round(imageSizeBytes / 1024),
+          promptLength: job.prompt.length,
+          promptPreview: job.prompt.substring(0, 200),
+          requestConfig: JSON.stringify(requestConfig).substring(0, 1000)
         });
+        
+        const response = await genAI.models.generateContent(requestConfig);
         
         // Детальное логирование ответа для отладки
         const responseParts = response.candidates?.[0]?.content?.parts || [];
