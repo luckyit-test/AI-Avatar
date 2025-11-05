@@ -331,17 +331,17 @@ async function processJob(job) {
   
   const startTime = Date.now();
   
+  // Вызываем Gemini API
+  // Rate limit уже проверен в processQueue() перед запуском этой задачи
+  const maxRetries = 5;
+  let lastError = null;
+  
   try {
     const { mimeType, base64Data } = validateImageData(job.imageData);
     const imagePart = {
       inlineData: { mimeType, data: base64Data },
     };
     const textPart = { text: job.prompt };
-    
-    // Вызываем Gemini API
-    // Rate limit уже проверен в processQueue() перед запуском этой задачи
-    const maxRetries = 5;
-    let lastError = null;
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
@@ -963,11 +963,12 @@ function getJobStatus(jobId) {
     }
     
     // Задача активна, но еще не завершена
+    // Возвращаем статус processing с примерным временем генерации
     const avgGenTime = calculateAverageGenerationTime();
     return {
       status: 'processing',
       position: 0,
-      estimatedWaitTime: avgGenTime,
+      estimatedWaitTime: avgGenTime || 30000, // По умолчанию 30 секунд если нет статистики
       estimatedStartTime: Date.now(), // Уже началась
     };
   }
