@@ -614,7 +614,23 @@ async function processQueue() {
       // Запускаем все задачи из пакета одновременно (без await - не ждем завершения!)
       batchJobs.forEach(job => {
         processJob(job).catch(err => {
-          console.error('Unexpected error in processJob:', err);
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          const errorStack = err instanceof Error ? err.stack : undefined;
+          
+          safeLog('Unexpected error in processJob (unhandled)', {
+            jobId: job.id,
+            error: errorMessage,
+            errorStack: errorStack?.substring(0, 500)
+          });
+          
+          // Сохраняем задачу с ошибкой, чтобы фронтенд мог получить статус
+          job.setError(new Error('Не удалось сгенерировать изображение. Попробуйте позже.'));
+          completedJobs.set(job.id, job);
+          if (completedJobs.size > MAX_COMPLETED_JOBS) {
+            const firstKey = completedJobs.keys().next().value;
+            completedJobs.delete(firstKey);
+          }
+          
           activeJobs.delete(job.id);
           currentJobIds = currentJobIds.filter(id => id !== job.id);
           // Перезапускаем обработку очереди после ошибки
