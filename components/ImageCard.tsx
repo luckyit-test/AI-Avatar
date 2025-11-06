@@ -198,7 +198,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
                             className="absolute inset-0 flex items-center justify-center flex-col p-4 text-center"
                         >
                             <div className="mb-3 p-3 rounded-full bg-red-100">
-                                <Icons.error className="w-10 h-10 text-red-500" />
+                            <Icons.error className="w-10 h-10 text-red-500" />
                             </div>
                             <p className="text-sm font-semibold text-red-700">Ошибка генерации</p>
                             {error && (

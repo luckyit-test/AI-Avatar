@@ -72,6 +72,7 @@ const completedAnalysisJobs = new Map();
 // Статистика времени генерации для предсказания
 const generationTimes = []; // История времени генерации в мс
 const MAX_HISTORY_SIZE = 50; // Храним последние 50 генераций
+const MAX_PROMPT_SOFTENING_LEVEL = 4; // Сколько ступеней смягчения промпта пробуем при IMAGE_OTHER
 
 // Структура задачи в очереди генерации
 class GenerationJob {
@@ -172,24 +173,52 @@ class GenerationJob {
   }
 }
 
-function buildFallbackPrompt(originalPrompt) {
-  if (!originalPrompt) {
+function buildFallbackPrompt(originalPrompt, level = 1) {
+  if (!originalPrompt || level <= 0) {
     return originalPrompt;
   }
 
-  let fallback = originalPrompt;
+  const transformations = [
+    (prompt) => {
+      let result = prompt.replace(/CRITICAL:[^\.]*\./gi, '');
+      result = result.replace(/\s{2,}/g, ' ');
+      return result.trim();
+    },
+    (prompt) => {
+      let result = prompt;
+      result = result.replace(/Preserve identity EXACTLY[^\.]*\./gi, 'Maintain the overall likeness while allowing tasteful interpretation.');
+      result = result.replace(/The person must look like themselves[^\.]*\./gi, 'Keep the person broadly recognizable while permitting stylistic adjustments.');
+      result = result.replace(/The person must be clearly male[^\.]*\./gi, 'Ensure the portrait still reads as male, keeping the overall character.');
+      result = result.replace(/The person must be clearly female[^\.]*\./gi, 'Ensure the portrait still reads as female, keeping the overall character.');
+      result = result.replace(/Do NOT generate a female portrait\./gi, 'Avoid switching the portrayed gender unless necessary.');
+      result = result.replace(/Do NOT generate a male portrait\./gi, 'Avoid switching the portrayed gender unless necessary.');
+      return result;
+    },
+    (prompt) => {
+      let result = prompt;
+      result = result.replace(/Each image in this batch must show a distinct outfit[^\.]*\./gi, 'Variation between images is welcome but not strictly required.');
+      result = result.replace(/Preserve realistic skin texture[^\.]*\./gi, 'Keep skin looking natural and professional; gentle retouching is acceptable.');
+      result = result.replace(/No suit[^\.]*\./gi, 'Suits are optional; choose attire that feels professional.');
+      result = result.replace(/Avoid formal blazer\./gi, 'Feel free to pick any appropriate professional outfit.');
+      return result;
+    },
+    (prompt) => {
+      let result = prompt;
+      result = result.replace(/Preserve facial hair exactly[^\.]*\./gi, 'Respect the person\'s facial hair while allowing natural interpretation.');
+      if (!/Follow all content policies/gi.test(result)) {
+        result += ' Follow all content policies and avoid recreating public figures exactly. Create a respectful business portrait inspired by the reference image.';
+      }
+      return result;
+    }
+  ];
 
-  fallback = fallback.replace(/CRITICAL:[^\.]*\./gi, '').trim();
-  fallback = fallback.replace(/Preserve identity EXACTLY[^\.]*\./gi, 'Maintain a recognizable likeness while allowing natural stylistic interpretation.');
-  fallback = fallback.replace(/The person must look like themselves[^\.]*\./gi, 'Keep the portrait respectful and professional while keeping the person recognizable.');
-  fallback = fallback.replace(/Each image in this batch must show a distinct outfit[^\.]*\./gi, 'Allow natural variation between images without strict requirements.');
-  fallback = fallback.replace(/Preserve realistic skin texture[^\.]*\./gi, 'Ensure the portrait maintains natural skin texture and a professional look.');
-
-  if (!/Follow all content policies/gi.test(fallback)) {
-    fallback += ' Follow all content policies and avoid replicating public figures exactly. Focus on a tasteful professional portrait inspired by the reference photo.';
+  let softened = originalPrompt;
+  const cappedLevel = Math.min(level, transformations.length);
+  for (let i = 0; i < cappedLevel; i++) {
+    softened = transformations[i](softened);
   }
 
-  return fallback;
+  return softened.replace(/\s{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 // Структура задачи в очереди анализа
@@ -397,7 +426,7 @@ async function processJob(job) {
     };
 
     let promptToUse = job.prompt;
-    let usingFallbackPrompt = false;
+    let softeningLevel = 0; // 0 = оригинальный промпт, 1-4 = уровни смягчения
     let attempt = 0;
     
     while (attempt < maxRetries) {
@@ -415,7 +444,8 @@ async function processJob(job) {
         safeLog('Calling Gemini API', { 
           jobId: job.id, 
           attempt,
-          promptVariant: usingFallbackPrompt ? 'fallback' : 'original',
+          softeningLevel,
+          promptVariant: softeningLevel === 0 ? 'original' : `softened-level-${softeningLevel}`,
           imageMimeType: mimeType,
           imageSizeBytes: imageSizeBytes,
           imageSizeKB: Math.round(imageSizeBytes / 1024),
@@ -477,7 +507,7 @@ async function processJob(job) {
             completedJobs.delete(firstKey);
           }
           
-          safeLog('Image generated successfully (queued)', { jobId: job.id, duration, queueSize: generationQueue.length, activeJobs: activeJobs.size });
+          safeLog('Image generated successfully (queued)', { jobId: job.id, duration, queueSize: generationQueue.length, activeJobs: activeJobs.size, softeningLevel });
           
           // Задача завершена успешно
           activeJobs.delete(job.id);
@@ -494,13 +524,42 @@ async function processJob(job) {
           finishReason === 'RECITATION'
         );
         
-        if (isRetriableFinishReason && attempt < maxRetries) {
+        // Для IMAGE_OTHER применяем постепенное смягчение промпта с каждой попыткой
+        if (finishReason === 'IMAGE_OTHER' && attempt < maxRetries) {
+          // Увеличиваем уровень смягчения (максимум 4 уровня)
+          const nextSofteningLevel = Math.min(softeningLevel + 1, 4);
+          
+          if (nextSofteningLevel > softeningLevel) {
+            const softenedPrompt = buildFallbackPrompt(job.prompt, nextSofteningLevel);
+            if (softenedPrompt && softenedPrompt !== promptToUse) {
+              softeningLevel = nextSofteningLevel;
+              promptToUse = softenedPrompt;
+              
+              safeLog('Applying progressive prompt softening after IMAGE_OTHER rejection', {
+                jobId: job.id,
+                attempt,
+                softeningLevel: nextSofteningLevel,
+                previousPromptLength: job.prompt.length,
+                softenedPromptLength: promptToUse.length,
+                promptPreview: promptToUse.substring(0, 200)
+              });
+              
+              // Небольшая задержка перед следующей попыткой
+              await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+              continue;
+            }
+          }
+        }
+        
+        // Для других retriable ошибок (OTHER, RECITATION) - просто повторяем с тем же промптом
+        if (isRetriableFinishReason && finishReason !== 'IMAGE_OTHER' && attempt < maxRetries) {
           const fullResponseStr = JSON.stringify(response).substring(0, 3000);
           
           safeLog('Image generation returned retriable finish reason, retrying', { 
             jobId: job.id,
             finishReason,
             attempt,
+            softeningLevel,
             textResponse: textResponse.substring(0, 500),
             fullTextResponse: textResponse,
             safetyRatings: safetyRatings.map(r => ({
@@ -510,27 +569,10 @@ async function processJob(job) {
             })),
             candidate: JSON.stringify(candidate).substring(0, 2000),
             fullResponse: fullResponseStr,
-            promptFeedback: response.promptFeedback ? JSON.stringify(response.promptFeedback).substring(0, 500) : null,
-            promptVariant: usingFallbackPrompt ? 'fallback' : 'original'
+            promptFeedback: response.promptFeedback ? JSON.stringify(response.promptFeedback).substring(0, 500) : null
           });
           await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
           continue;
-        }
-        
-        if (finishReason === 'IMAGE_OTHER' && !usingFallbackPrompt) {
-          const softenedPrompt = buildFallbackPrompt(job.prompt);
-          if (softenedPrompt && softenedPrompt !== promptToUse) {
-            usingFallbackPrompt = true;
-            promptToUse = softenedPrompt;
-            safeLog('Applying fallback prompt after IMAGE_OTHER rejection', {
-              jobId: job.id,
-              attempt,
-              previousPromptLength: job.prompt.length,
-              fallbackPromptLength: promptToUse.length
-            });
-            attempt = 0;
-            continue;
-          }
         }
         
         const errorMessage = `Модель ИИ ответила текстом вместо изображения. Finish reason: ${finishReason}. Text: "${textResponse.substring(0, 200)}"`;
@@ -544,6 +586,7 @@ async function processJob(job) {
           hasTextPart,
           attempt,
           maxRetries,
+          softeningLevel,
           safetyRatings: safetyRatings.map(r => ({
             category: r.category,
             probability: r.probability,
@@ -551,7 +594,7 @@ async function processJob(job) {
           })),
           candidateFinishReason: finishReason,
           fullCandidate: JSON.stringify(candidate).substring(0, 2000),
-          promptVariant: usingFallbackPrompt ? 'fallback' : 'original'
+          promptVariant: softeningLevel === 0 ? 'original' : `softened-level-${softeningLevel}`
         });
         
         throw new Error(errorMessage);

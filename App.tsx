@@ -501,7 +501,7 @@ function App() {
 
         // Генерируем все 6 стилей параллельно
         const prompts = buildPromptsByContext(getEffectiveGender(), selectedRole, selectedCompany, variability, naturalLook);
-        
+
         const processStyle = async (style: string) => {
             try {
                 const prompt = prompts[style];
@@ -750,8 +750,8 @@ function App() {
                     <aside className="w-full lg:w-1/3 lg:max-w-sm flex-shrink-0">
                         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm sticky top-8 transition-shadow duration-300 hover:shadow-md">
                             <div data-onboarding="upload">
-                                <h2 className="text-lg font-semibold text-gray-900 mb-1">1. Загрузите ваше фото</h2>
-                                <p className="text-sm text-gray-500 mb-4">Выберите четкое изображение лица анфас.</p>
+                            <h2 className="text-lg font-semibold text-gray-900 mb-1">1. Загрузите ваше фото</h2>
+                            <p className="text-sm text-gray-500 mb-4">Выберите четкое изображение лица анфас.</p>
                             </div>
                             
                             {/* Скрытый input для кнопки ошибки - всегда в DOM */}
@@ -897,8 +897,8 @@ function App() {
                                     {/* Вариативность и естественность зафиксированы в коде (Высокая, включено) */}
                                 </div>
                                 <div data-onboarding="generate">
-                                    <h2 className="text-lg font-semibold text-gray-900 mb-1">2. Сгенерируйте портреты</h2>
-                                    <p className="text-sm text-gray-500 mb-4">Мы создадим 6 профессиональных портретов в разных стилях.</p>
+                                <h2 className="text-lg font-semibold text-gray-900 mb-1">2. Сгенерируйте портреты</h2>
+                                <p className="text-sm text-gray-500 mb-4">Мы создадим 6 профессиональных портретов в разных стилях.</p>
                                 </div>
                                 {appState === 'image-uploaded' && (
                                     <div className="flex items-center gap-3">
@@ -934,11 +934,11 @@ function App() {
                                                 }
                                             }}
                                         >
-                                            <Icons.sparkles className="w-4 h-4 mr-2" />
+                                        <Icons.sparkles className="w-4 h-4 mr-2" />
                                             {getEffectiveGender() && (getEffectiveGender() === 'male' || getEffectiveGender() === 'female') 
                                                 ? 'Сгенерировать' 
                                                 : 'Выберите пол'}
-                                        </button>
+                                    </button>
                                     </div>
                                 )}
                                  {appState === 'generating' && (
@@ -984,13 +984,13 @@ function App() {
                                         >
                                             {isDownloading ? (
                                                 <>
-                                                    <Icons.spinner className="w-4 h-4 mr-2 animate-spin" />
+                                                <Icons.spinner className="w-4 h-4 mr-2 animate-spin" />
                                                     Альбом
                                                 </>
                                             ) : (
                                                 <>
-                                                    <Icons.download className="w-4 h-4 mr-2" />
-                                                    Альбом
+                                                <Icons.download className="w-4 h-4 mr-2" />
+                                            Альбом
                                                 </>
                                             )}
                                         </button>

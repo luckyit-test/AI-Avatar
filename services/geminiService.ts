@@ -310,35 +310,56 @@ export async function addGenerationToQueue(imageDataUrl: string, prompt: string)
  * Проверяет статус задачи генерации
  */
 export async function checkGenerationStatus(jobId: string): Promise<QueueStatus> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/generate-image/${jobId}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+  const maxRetries = 3;
+  let lastError: Error | null = null;
 
-    if (!response.ok) {
-      if (response.status === 404) {
-        throw new Error('Задача не найдена');
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/generate-image/${jobId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Задача не найдена');
+        }
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: 'Неизвестная ошибка' }));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
       }
-      const errorData = await response.json().catch(() => ({ error: 'Неизвестная ошибка' }));
-      throw new Error(errorData.error || `HTTP ${response.status}`);
-    }
 
-    const status = await response.json();
-    
-    // Логируем статус для отладки проблем
-    if (status.status === 'error') {
-      console.warn('[checkGenerationStatus] Job error:', { jobId, error: status.error });
+      const status = await response.json();
+
+      if (status.status === 'error') {
+        console.warn('[checkGenerationStatus] Job error:', { jobId, error: status.error });
+      }
+
+      return status;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isNetworkError =
+        error instanceof Error &&
+        (error.name === 'TypeError' || /failed to fetch/i.test(error.message) || /networkerror/i.test(error.message));
+
+      console.error('[checkGenerationStatus] Fetch error:', { jobId, attempt, error: errorMessage });
+
+      if (isNetworkError && attempt < maxRetries) {
+        // Ждём немного и повторяем попытку, чтобы сгладить кратковременные сетевые сбои
+        await new Promise(resolve => setTimeout(resolve, 300 * attempt));
+        continue;
+      }
+
+      lastError = error instanceof Error ? error : new Error(errorMessage);
+      break;
     }
-    
-    return status;
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('[checkGenerationStatus] Fetch error:', { jobId, error: errorMessage });
-    throw new Error(`Не удалось проверить статус: ${errorMessage}`);
   }
+
+  const finalError = lastError ?? new Error('Неизвестная ошибка');
+  throw new Error(`Не удалось проверить статус: ${finalError.message}`);
 }
 
 /**
