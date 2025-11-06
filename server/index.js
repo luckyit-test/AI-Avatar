@@ -425,13 +425,11 @@ async function processJob(job) {
       inlineData: { mimeType, data: base64Data },
     };
 
-    let promptToUse = job.prompt;
-    let softeningLevel = 0; // 0 = оригинальный промпт, 1-4 = уровни смягчения
     let attempt = 0;
     
     while (attempt < maxRetries) {
       attempt += 1;
-      const textPart = { text: promptToUse };
+      const textPart = { text: job.prompt };
       try {
         const requestConfig = {
           model: 'gemini-2.5-flash-image',
@@ -444,13 +442,11 @@ async function processJob(job) {
         safeLog('Calling Gemini API', { 
           jobId: job.id, 
           attempt,
-          softeningLevel,
-          promptVariant: softeningLevel === 0 ? 'original' : `softened-level-${softeningLevel}`,
           imageMimeType: mimeType,
           imageSizeBytes: imageSizeBytes,
           imageSizeKB: Math.round(imageSizeBytes / 1024),
-          promptLength: promptToUse.length,
-          promptPreview: promptToUse.substring(0, 200),
+          promptLength: job.prompt.length,
+          promptPreview: job.prompt.substring(0, 200),
           requestConfig: JSON.stringify(requestConfig).substring(0, 1000)
         });
         
@@ -507,7 +503,7 @@ async function processJob(job) {
             completedJobs.delete(firstKey);
           }
           
-          safeLog('Image generated successfully (queued)', { jobId: job.id, duration, queueSize: generationQueue.length, activeJobs: activeJobs.size, softeningLevel });
+          safeLog('Image generated successfully (queued)', { jobId: job.id, duration, queueSize: generationQueue.length, activeJobs: activeJobs.size });
           
           // Задача завершена успешно
           activeJobs.delete(job.id);
@@ -524,42 +520,14 @@ async function processJob(job) {
           finishReason === 'RECITATION'
         );
         
-        // Для IMAGE_OTHER применяем постепенное смягчение промпта с каждой попыткой
-        if (finishReason === 'IMAGE_OTHER' && attempt < maxRetries) {
-          // Увеличиваем уровень смягчения (максимум 4 уровня)
-          const nextSofteningLevel = Math.min(softeningLevel + 1, 4);
-          
-          if (nextSofteningLevel > softeningLevel) {
-            const softenedPrompt = buildFallbackPrompt(job.prompt, nextSofteningLevel);
-            if (softenedPrompt && softenedPrompt !== promptToUse) {
-              softeningLevel = nextSofteningLevel;
-              promptToUse = softenedPrompt;
-              
-              safeLog('Applying progressive prompt softening after IMAGE_OTHER rejection', {
-                jobId: job.id,
-                attempt,
-                softeningLevel: nextSofteningLevel,
-                previousPromptLength: job.prompt.length,
-                softenedPromptLength: promptToUse.length,
-                promptPreview: promptToUse.substring(0, 200)
-              });
-              
-              // Небольшая задержка перед следующей попыткой
-              await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-              continue;
-            }
-          }
-        }
-        
-        // Для других retriable ошибок (OTHER, RECITATION) - просто повторяем с тем же промптом
-        if (isRetriableFinishReason && finishReason !== 'IMAGE_OTHER' && attempt < maxRetries) {
+        // Для retriable ошибок - просто повторяем попытку с тем же промптом
+        if (isRetriableFinishReason && attempt < maxRetries) {
           const fullResponseStr = JSON.stringify(response).substring(0, 3000);
           
           safeLog('Image generation returned retriable finish reason, retrying', { 
             jobId: job.id,
             finishReason,
             attempt,
-            softeningLevel,
             textResponse: textResponse.substring(0, 500),
             fullTextResponse: textResponse,
             safetyRatings: safetyRatings.map(r => ({
@@ -586,15 +554,13 @@ async function processJob(job) {
           hasTextPart,
           attempt,
           maxRetries,
-          softeningLevel,
           safetyRatings: safetyRatings.map(r => ({
             category: r.category,
             probability: r.probability,
             blocked: r.blocked
           })),
           candidateFinishReason: finishReason,
-          fullCandidate: JSON.stringify(candidate).substring(0, 2000),
-          promptVariant: softeningLevel === 0 ? 'original' : `softened-level-${softeningLevel}`
+          fullCandidate: JSON.stringify(candidate).substring(0, 2000)
         });
         
         throw new Error(errorMessage);
@@ -847,38 +813,33 @@ async function performImageAnalysis(imageData, type, jobId = null) {
   if (type === 'evaluate') {
     // Промпт для evaluate-image
     const evaluationPrompt = {
-      text: `Проанализируй это изображение и ответь на четыре вопроса:
+      text: `Проанализируй это изображение и ответь на три вопроса:
 
 1. Является ли это фотографией реального человека? (не рисунок, не 3D-рендер, не анимация, не скульптура)
 2. Является ли это селфи или портретом ОДНОГО человека? (не группа людей на переднем плане)
 3. Не нарушает ли это изображение политику контента? (нет запрещенного контента)
-4. Выглядит ли изображённый человек как известная публичная фигура (политик, артист, лидер мнений и т.п.) или как персона, права на образ которой могут быть защищены?
 
 Верни ТОЛЬКО валидный JSON (без дополнительного текста):
 {
-  "isValid": boolean,  // true только если первые три вопроса: ДА, ДА, НЕТ и пункт 4: НЕТ
-  "errorType": "none" | "prohibited_content" | "not_single_person" | "license_violation" | "public_figure",
+  "isValid": boolean,  // true только если все три вопроса: ДА, ДА, НЕТ
+  "errorType": "none" | "prohibited_content" | "not_single_person" | "license_violation",
   "errorMessage": "строка на русском" (только если isValid: false),
   "gender": "male" | "female" | "unknown",  // ОБЯЗАТЕЛЬНО верни пол, если isValid: true
   "confidence": число от 0 до 1,  // уверенность в определении пола
-  "publicFigure": boolean, // true если человек выглядит как публичная фигура или защищённый образ
-  "publicFigureReason": "строка" | null,
   "details": {
     "isPhotographOfRealPerson": boolean,
     "isSelfieOnePerson": boolean,
     "hasSinglePerson": boolean,
     "isFaceClearlyVisible": boolean,
     "hasProhibitedContent": boolean,
-    "hasMultiplePeople": boolean,
-    "isPublicFigure": boolean
+    "hasMultiplePeople": boolean
   }
 }
 
 ВАЖНО:
-- Если это фото реального человека, одного человека, нет запрещенного контента и это не публичная фигура → isValid: true, и ОБЯЗАТЕЛЬНО верни gender ("male" или "female")
-- Если обнаружена публичная фигура или образ, на использование которого могут быть ограничения → isValid: false, errorType: "public_figure", errorMessage: "Это изображение похоже на известного публичного человека. Мы не можем генерировать портреты общественных персон."
-- Если найдены другие проблемы (несколько людей, запрещённый контент и т.п.) → isValid: false и соответствующий errorType
-- Будь строгим только к реальным проблемам, но публичных фигур всегда отклоняй`
+- Если это фото реального человека, одного человека и нет запрещенного контента → isValid: true, и ОБЯЗАТЕЛЬНО верни gender ("male" или "female")
+- Если найдены проблемы (несколько людей, запрещённый контент и т.п.) → isValid: false и соответствующий errorType
+- Будь строгим только к реальным проблемам`
     };
     
     let response;
@@ -936,16 +897,6 @@ async function performImageAnalysis(imageData, type, jobId = null) {
     
     if (!parsed || typeof parsed.isValid !== 'boolean') {
       throw new Error('Failed to parse analysis response');
-    }
-    
-    if (parsed.publicFigure === true || parsed.details?.isPublicFigure === true) {
-      parsed.isValid = false;
-      parsed.errorType = 'public_figure';
-      parsed.errorMessage = parsed.errorMessage || parsed.publicFigureReason || 'Это изображение похоже на известного публичного человека. Мы не можем генерировать портреты общественных персон.';
-      parsed.publicFigure = true;
-      if (parsed.details) {
-        parsed.details.isPublicFigure = true;
-      }
     }
 
     return parsed;
@@ -1459,21 +1410,8 @@ app.get(`${API_PREFIX}/analysis/:jobId`, (req, res) => {
     if (status.status === 'completed') {
       const parsed = status.result;
       const d = parsed.details || {};
-      const isPublicFigure = parsed.errorType === 'public_figure' || parsed.publicFigure === true || d?.isPublicFigure === true;
-      let postIsValid = parsed.isValid === true && parsed.errorType !== 'prohibited_content' && !isPublicFigure;
-      let postErrorType = 'none';
-
-      if (!postIsValid) {
-        if (parsed.errorType === 'prohibited_content') {
-          postErrorType = 'prohibited_content';
-        } else if (parsed.errorType === 'license_violation') {
-          postErrorType = 'license_violation';
-        } else if (isPublicFigure) {
-          postErrorType = 'public_figure';
-        } else {
-          postErrorType = 'not_single_person';
-        }
-      }
+      let postIsValid = parsed.isValid === true && parsed.errorType !== 'prohibited_content';
+      let postErrorType = parsed.errorType || 'none';
 
       let errorMessage = '';
       if (!postIsValid) {
@@ -1497,25 +1435,19 @@ app.get(`${API_PREFIX}/analysis/:jobId`, (req, res) => {
           }
         } else if (postErrorType === 'license_violation') {
           errorMessage = 'Изображение содержит защищенный авторским правом контент. Выберите другое изображение.';
-        } else if (postErrorType === 'public_figure') {
-          errorMessage = 'Это изображение похоже на известного публичного человека. Мы не можем генерировать портреты общественных персон.';
+        } else {
+          errorMessage = parsed.errorMessage || 'Пожалуйста, загрузите изображение с одним человеком в кадре (мужчина или женщина).';
         }
       }
-      const enrichedDetails = {
-        ...d,
-        isPublicFigure: isPublicFigure,
-        publicFigureReason: parsed.publicFigureReason || d.publicFigureReason || null,
-      };
       
       return res.json({
         status: 'completed',
         isValid: postIsValid,
-        errorType: postErrorType || 'none',
+        errorType: postErrorType,
         errorMessage: errorMessage,
         gender: parsed.gender || 'unknown',
         confidence: Math.max(0, Math.min(1, parsed.confidence || 0)),
-        publicFigure: isPublicFigure,
-        details: enrichedDetails
+        details: d
       });
     }
     
