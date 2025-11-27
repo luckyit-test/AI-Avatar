@@ -13,7 +13,13 @@ const API_BASE_URL = typeof window !== 'undefined'
 export type DetectedGender = 'male' | 'female' | 'unknown';
 export interface GenderDetectionResult { gender: DetectedGender; confidence: number }
 
-export type ValidationErrorType = 'none' | 'prohibited_content' | 'not_single_person' | 'license_violation' | 'public_figure';
+export type ValidationErrorType =
+  | 'none'
+  | 'prohibited_content'
+  | 'not_single_person'
+  | 'license_violation'
+  | 'public_figure'
+  | 'technical_error';
 export interface ImageValidationResult {
   isValid: boolean;
   errorType: ValidationErrorType;
@@ -65,6 +71,53 @@ export interface AnalysisStatus {
   details?: any;
   result?: any;
   error?: string;
+}
+
+function normalizeEvaluationErrorMessage(raw: unknown): { errorType: ValidationErrorType; message: string } {
+  const errorMessage = raw instanceof Error ? raw.message : String(raw ?? '');
+
+  // Явные сообщения от бэкенда (оставляем как есть, только тип помечаем как технический)
+  if (errorMessage.includes('Размер изображения превышает 5MB')) {
+    return {
+      errorType: 'technical_error',
+      message: 'Фото слишком большое. Максимальный размер — 5 МБ. Уменьшите изображение или сделайте скриншот и попробуйте снова.',
+    };
+  }
+
+  if (errorMessage.includes('Неподдерживаемый формат изображения')) {
+    return {
+      errorType: 'technical_error',
+      message: 'Формат изображения не поддерживается. Загрузите фото в формате JPG, PNG или WEBP.',
+    };
+  }
+
+  if (errorMessage.includes('Очередь переполнена')) {
+    return {
+      errorType: 'technical_error',
+      message: 'Сервис сейчас перегружен. Подождите минуту и попробуйте ещё раз.',
+    };
+  }
+
+  // Типичные сетевые/таймаутные ошибки
+  const lower = errorMessage.toLowerCase();
+  if (
+    lower.includes('failed to fetch') ||
+    lower.includes('networkerror') ||
+    lower.includes('network error') ||
+    lower.includes('timeout') ||
+    lower.includes('timed out')
+  ) {
+    return {
+      errorType: 'technical_error',
+      message: 'Не удалось связаться с сервером. Проверьте интернет или попробуйте ещё раз через пару минут.',
+    };
+  }
+
+  // Fallback — честно говорим, что это не проблема фото, а общая ошибка проверки
+  return {
+    errorType: 'technical_error',
+    message: 'Не удалось проверить изображение из‑за технической ошибки. Попробуйте позже или используйте другое соединение.',
+  };
 }
 
 /**
@@ -162,17 +215,22 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
     
     throw new Error('Таймаут ожидания анализа');
   } catch (error) {
-    // При любой ошибке (сеть, таймаут и т.д.) — отклоняем
+    // При технической ошибке (сеть, таймаут, ошибка сервера) возвращаем честное сообщение,
+    // которое не обвиняет пользователя в "неправильном" фото.
+    const { errorType, message } = normalizeEvaluationErrorMessage(error);
     const errorMessage = error instanceof Error ? error.message : String(error);
+
     console.error('[evaluateImage] Error caught:', {
       error: errorMessage,
+      mappedMessage: message,
       errorType: error instanceof Error ? error.constructor.name : typeof error,
       stack: error instanceof Error ? error.stack : undefined
     });
+
     return {
       isValid: false,
-      errorType: 'not_single_person',
-      errorMessage: 'Не удалось проверить изображение. Загрузите другое изображение с одним человеком.',
+      errorType,
+      errorMessage: message,
       gender: 'unknown',
       confidence: 0,
       details: {}
