@@ -1276,10 +1276,10 @@ function validateImageData(imageData) {
   
   // Проверяем размер (base64 примерно на 33% больше оригинала)
   const sizeInBytes = (base64Data.length * 3) / 4;
-  const maxSize = 5 * 1024 * 1024; // 5MB
+  const maxSize = 10 * 1024 * 1024; // 10MB
   
   if (sizeInBytes > maxSize) {
-    return { valid: false, error: 'Размер изображения превышает 5MB' };
+    return { valid: false, error: 'Размер изображения превышает 10MB' };
   }
   
   return { valid: true, mimeType, base64Data };
