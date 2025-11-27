@@ -432,7 +432,7 @@ async function processJob(job) {
       const textPart = { text: job.prompt };
       try {
         const requestConfig = {
-          model: 'gemini-3-flash-image',
+          model: 'gemini-3-pro-image-preview',
           contents: { parts: [imagePart, textPart] },
           config: {
             responseModalities: [Modality.IMAGE],
