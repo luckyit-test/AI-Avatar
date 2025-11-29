@@ -533,7 +533,7 @@ async function processJob(job) {
           if (finishReason === 'IMAGE_OTHER' && attempt > 3) {
             // После 3 попыток начинаем смягчать промпт
             const softeningLevel = Math.min(attempt - 3, MAX_PROMPT_SOFTENING_LEVEL);
-            promptToUse = softenPrompt(job.originalPrompt || job.prompt, softeningLevel);
+            promptToUse = buildFallbackPrompt(job.originalPrompt || job.prompt, softeningLevel);
             safeLog('Softening prompt for IMAGE_OTHER retry', { 
               jobId: job.id,
               attempt,
