@@ -688,10 +688,19 @@ async function processJob(job) {
       isRateLimit: errorMessage.toLowerCase().includes('rate') || errorMessage.toLowerCase().includes('quota') || errorMessage.includes('429'),
       isApiError: errorMessage.toLowerCase().includes('api') || errorMessage.toLowerCase().includes('gemini'),
       isImageOther: errorMessage.includes('IMAGE_OTHER') || errorMessage.includes('finishReason'),
-      isMaxRetries: errorMessage.includes('Превышено максимальное количество попыток')
+      isMaxRetries: errorMessage.includes('Превышено максимальное количество попыток'),
+      // Логируем промпт для диагностики
+      promptLength: job.prompt?.length || 0,
+      promptPreview: job.prompt?.substring(0, 200) || 'no prompt',
+      promptContainsCritical: job.prompt?.includes('CRITICAL') || false,
+      promptContainsExact: job.prompt?.includes('EXACTLY') || false,
+      originalPromptLength: job.originalPrompt?.length || 0
     };
     
     safeLog('Image generation failed (queued)', errorDetails);
+    
+    // Дополнительное логирование для диагностики проблем с конкретными стилями
+    console.error(`[GENERATION ERROR] jobId=${job.id}, promptLength=${job.prompt?.length || 0}, error=${errorMessage.substring(0, 100)}`);
     
     // Передаем более понятное сообщение об ошибке в зависимости от типа
     let userFriendlyError = 'Не удалось сгенерировать изображение. Попробуйте позже.';
