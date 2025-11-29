@@ -661,8 +661,9 @@ function App() {
                 console.log('[App] Original image size:', uploadedImage.length, 'chars');
                 console.log('[App] ========================================');
                 
-                // Простой промпт для промежуточного изображения
-                const intermediatePrompt = 'Simple neutral gray background. Keep the person unchanged.';
+                // Максимально простой промпт для промежуточного изображения
+                // Используем минимальный промпт, который должен работать даже с проблемными изображениями
+                const intermediatePrompt = 'Change background to gray. Keep person the same.';
                 console.log('[App] Intermediate prompt:', intermediatePrompt);
                 
                 try {

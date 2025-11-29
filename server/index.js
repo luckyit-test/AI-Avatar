@@ -544,17 +544,34 @@ async function processJob(job) {
           
           // Смягчаем промпт на каждой попытке для IMAGE_OTHER
           let promptToUse = job.prompt;
-          if (finishReason === 'IMAGE_OTHER' && attempt > 3) {
-            // После 3 попыток начинаем смягчать промпт
-            const softeningLevel = Math.min(attempt - 3, MAX_PROMPT_SOFTENING_LEVEL);
-            promptToUse = buildFallbackPrompt(job.originalPrompt || job.prompt, softeningLevel);
-            safeLog('Softening prompt for IMAGE_OTHER retry', { 
-              jobId: job.id,
-              attempt,
-              softeningLevel,
-              originalPromptLength: job.prompt.length,
-              softenedPromptLength: promptToUse.length
-            });
+          const isIntermediatePrompt = job.prompt?.includes('Change background to gray') || job.prompt?.includes('Simple neutral gray background');
+          
+          if (finishReason === 'IMAGE_OTHER') {
+            if (isIntermediatePrompt) {
+              // Для промежуточных изображений используем минимальный промпт сразу
+              if (attempt > 2) {
+                promptToUse = 'Professional portrait. Gray background.';
+              } else if (attempt > 5) {
+                promptToUse = 'Portrait. Gray background.';
+              } else if (attempt > 10) {
+                promptToUse = 'Business photo.';
+              }
+            } else if (attempt > 3) {
+              // Для финальных промптов - стандартное смягчение
+              const softeningLevel = Math.min(attempt - 3, MAX_PROMPT_SOFTENING_LEVEL);
+              promptToUse = buildFallbackPrompt(job.originalPrompt || job.prompt, softeningLevel);
+            }
+            
+            if (promptToUse !== job.prompt) {
+              safeLog('Softening prompt for IMAGE_OTHER retry', { 
+                jobId: job.id,
+                attempt,
+                isIntermediate: isIntermediatePrompt,
+                originalPromptLength: job.prompt.length,
+                softenedPromptLength: promptToUse.length,
+                newPrompt: promptToUse.substring(0, 100)
+              });
+            }
           }
           
           safeLog('Image generation returned retriable finish reason, retrying', { 
@@ -703,6 +720,61 @@ async function processJob(job) {
         }
         
         throw error;
+      }
+    }
+    
+    // Для промежуточных изображений пробуем финальный минимальный промпт перед сдачей
+    const isIntermediatePrompt = job.prompt?.includes('Change background to gray') || job.prompt?.includes('Simple neutral gray background');
+    if (isIntermediatePrompt && !lastError?.finishReason) {
+      // Последняя попытка с абсолютно минимальным промптом
+      try {
+        const minimalPrompt = 'Portrait photo.';
+        const textPart = { text: minimalPrompt };
+        const imagePart = {
+          inlineData: { mimeType, data: base64Data },
+        };
+        
+        safeLog('Final attempt with minimal prompt for intermediate image', {
+          jobId: job.id,
+          minimalPrompt,
+          imageSizeBytes: Math.floor(base64Data.length * 0.75)
+        });
+        
+        const response = await genAI.models.generateContent({
+          model: 'gemini-2.5-flash-image',
+          contents: { parts: [imagePart, textPart] },
+          config: {
+            responseModalities: [Modality.IMAGE],
+          },
+        });
+        
+        const responseParts = response.candidates?.[0]?.content?.parts || [];
+        const imagePartFromResponse = responseParts.find(part => part.inlineData);
+        
+        if (imagePartFromResponse?.inlineData) {
+          const { mimeType: responseMimeType, data: responseData } = imagePartFromResponse.inlineData;
+          const imageDataUrl = `data:${responseMimeType};base64,${responseData}`;
+          const duration = Date.now() - startTime;
+          
+          job.setResult({ imageDataUrl });
+          completedJobs.set(job.id, job);
+          if (completedJobs.size > MAX_COMPLETED_JOBS) {
+            const firstKey = completedJobs.keys().next().value;
+            completedJobs.delete(firstKey);
+          }
+          
+          activeJobs.delete(job.id);
+          currentJobIds = currentJobIds.filter(id => id !== job.id);
+          processQueue();
+          
+          safeLog('Intermediate image generated with minimal prompt', { jobId: job.id, duration });
+          return;
+        }
+      } catch (minimalError) {
+        safeLog('Final minimal prompt attempt failed', {
+          jobId: job.id,
+          error: minimalError instanceof Error ? minimalError.message : String(minimalError)
+        });
       }
     }
     
