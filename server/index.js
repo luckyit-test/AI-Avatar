@@ -589,6 +589,12 @@ async function processJob(job) {
         
         const errorMessage = `Модель ИИ ответила текстом вместо изображения. Finish reason: ${finishReason}. Text: "${textResponse.substring(0, 200)}"`;
         
+        // Сохраняем finishReason в ошибке для последующего логирования
+        const errorWithReason = new Error(errorMessage);
+        errorWithReason.finishReason = finishReason;
+        errorWithReason.safetyRatings = safetyRatings;
+        lastError = errorWithReason;
+        
         safeLog('Image generation failed - text response instead of image', { 
           jobId: job.id,
           finishReason,
