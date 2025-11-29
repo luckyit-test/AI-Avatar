@@ -107,8 +107,16 @@ function normalizeEvaluationErrorMessage(raw: unknown): { errorType: ValidationE
     lower.includes('timeout') ||
     lower.includes('timed out') ||
     lower.includes('aborted') ||
-    lower.includes('abort')
+    lower.includes('abort') ||
+    lower.includes('yandex_browser_network_error')
   ) {
+    // Специальное сообщение для Яндекс браузера
+    if (lower.includes('yandex_browser_network_error')) {
+      return {
+        errorType: 'technical_error',
+        message: 'Проблема с Яндекс браузером. Попробуйте использовать Chrome или обновить Яндекс браузер до последней версии.',
+      };
+    }
     return {
       errorType: 'technical_error',
       message: 'Не удалось связаться с сервером. Проверьте интернет-соединение или попробуйте ещё раз через пару минут.',
@@ -143,11 +151,17 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
       throw new Error('Размер изображения превышает 10MB');
     }
 
+    // Определяем браузер для специальной обработки
+    const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown';
+    const isYandexBrowser = /YaBrowser|Yandex/i.test(userAgent);
+    const isChrome = /Chrome/i.test(userAgent) && !isYandexBrowser;
+    
     console.log('[evaluateImage] Starting evaluation', {
       apiBaseUrl: API_BASE_URL,
       imageDataLength: imageDataUrl?.length || 0,
       estimatedSizeMB: (base64Size / (1024 * 1024)).toFixed(2),
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
+      userAgent,
+      browser: isYandexBrowser ? 'Yandex' : (isChrome ? 'Chrome' : 'Other')
     });
     
     // Добавляем задачу в очередь с таймаутом для мобильных устройств
@@ -160,22 +174,40 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
       const requestBody = JSON.stringify({ imageData: imageDataUrl });
       console.log('[evaluateImage] Request body size:', {
         bodyLength: requestBody.length,
-        bodySizeMB: (requestBody.length / (1024 * 1024)).toFixed(2)
+        bodySizeMB: (requestBody.length / (1024 * 1024)).toFixed(2),
+        browser: isYandexBrowser ? 'Yandex' : (isChrome ? 'Chrome' : 'Other')
       });
 
-      response = await fetch(`${API_BASE_URL}/evaluate-image`, {
+      // Для Яндекс браузера используем более длинный таймаут и дополнительные заголовки
+      const fetchOptions: RequestInit = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
         body: requestBody,
         signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
+      };
+
+      // Для Яндекс браузера добавляем дополнительные опции
+      if (isYandexBrowser) {
+        // Увеличиваем таймаут для Яндекс браузера
+        clearTimeout(timeoutId);
+        const yandexTimeout = setTimeout(() => controller.abort(), 90000); // 90 секунд для Яндекс
+        fetchOptions.signal = controller.signal;
+        
+        response = await fetch(`${API_BASE_URL}/evaluate-image`, fetchOptions);
+        clearTimeout(yandexTimeout);
+      } else {
+        response = await fetch(`${API_BASE_URL}/evaluate-image`, fetchOptions);
+        clearTimeout(timeoutId);
+      }
+      
       console.log('[evaluateImage] Fetch completed', {
         ok: response.ok,
         status: response.status,
-        statusText: response.statusText
+        statusText: response.statusText,
+        browser: isYandexBrowser ? 'Yandex' : (isChrome ? 'Chrome' : 'Other')
       });
     } catch (fetchError: any) {
       clearTimeout(timeoutId);
@@ -183,7 +215,9 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
         name: fetchError?.name,
         message: fetchError?.message,
         stack: fetchError?.stack,
-        cause: fetchError?.cause
+        cause: fetchError?.cause,
+        browser: isYandexBrowser ? 'Yandex' : (isChrome ? 'Chrome' : 'Other'),
+        isYandexBrowser
       });
       
       if (fetchError.name === 'AbortError') {
@@ -196,8 +230,14 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
         console.error('[evaluateImage] Network error - possible causes:', {
           message: fetchError.message,
           apiUrl: `${API_BASE_URL}/evaluate-image`,
-          isOnline: typeof navigator !== 'undefined' ? navigator.onLine : 'unknown'
+          isOnline: typeof navigator !== 'undefined' ? navigator.onLine : 'unknown',
+          browser: isYandexBrowser ? 'Yandex' : (isChrome ? 'Chrome' : 'Other')
         });
+        
+        // Для Яндекс браузера - специальное сообщение
+        if (isYandexBrowser) {
+          throw new Error('yandex_browser_network_error');
+        }
       }
       
       throw fetchError;
