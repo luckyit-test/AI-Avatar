@@ -656,18 +656,32 @@ function App() {
             
             if (!intermediateImage) {
                 setIsGeneratingIntermediate(true);
-                console.log('[App] Generating intermediate image with simple prompt...');
+                console.log('[App] ========================================');
+                console.log('[App] STEP 1: Generating intermediate image');
+                console.log('[App] Original image size:', uploadedImage.length, 'chars');
+                console.log('[App] ========================================');
                 
                 // Простой промпт для промежуточного изображения
                 const intermediatePrompt = 'Simple neutral gray background. Keep the person unchanged.';
+                console.log('[App] Intermediate prompt:', intermediatePrompt);
                 
                 try {
                     const intermediateResult = await generateImage(uploadedImage, intermediatePrompt);
+                    console.log('[App] ========================================');
+                    console.log('[App] ✅ Intermediate image generated successfully!');
+                    console.log('[App] Intermediate image size:', intermediateResult.length, 'chars');
+                    console.log('[App] Intermediate image preview:', intermediateResult.substring(0, 100) + '...');
+                    console.log('[App] ========================================');
                     setIntermediateImage(intermediateResult);
                     imageToUse = intermediateResult;
-                    console.log('[App] Intermediate image generated successfully');
                 } catch (err) {
-                    console.error('[App] Failed to generate intermediate image, using original:', err);
+                    console.error('[App] ========================================');
+                    console.error('[App] ❌ FAILED to generate intermediate image!');
+                    console.error('[App] Error:', err);
+                    console.error('[App] Error message:', err instanceof Error ? err.message : String(err));
+                    console.error('[App] Error stack:', err instanceof Error ? err.stack : 'no stack');
+                    console.error('[App] Will use original image instead');
+                    console.error('[App] ========================================');
                     // Если промежуточное изображение не удалось - используем оригинал
                     imageToUse = uploadedImage;
                 } finally {
@@ -676,8 +690,14 @@ function App() {
             } else {
                 // Используем кэшированное промежуточное изображение
                 imageToUse = intermediateImage;
-                console.log('[App] Using cached intermediate image');
+                console.log('[App] Using cached intermediate image (size:', intermediateImage.length, 'chars)');
             }
+            
+            console.log('[App] ========================================');
+            console.log('[App] STEP 2: Generating 6 final portraits');
+            console.log('[App] Using image size:', imageToUse.length, 'chars');
+            console.log('[App] Image source:', imageToUse === intermediateImage ? 'INTERMEDIATE' : 'ORIGINAL');
+            console.log('[App] ========================================');
 
             // ШАГ 2: Генерируем все 6 стилей параллельно на основе промежуточного изображения
             const prompts = buildPromptsByContext(getEffectiveGender(), selectedRole, selectedCompany, variability, naturalLook);
@@ -685,6 +705,9 @@ function App() {
             const processStyle = async (style: string) => {
                 try {
                     const prompt = prompts[style];
+                    console.log(`[App] Starting generation for style: ${style}`);
+                    console.log(`[App] Prompt length: ${prompt.length} chars`);
+                    console.log(`[App] Prompt preview: ${prompt.substring(0, 150)}...`);
                     
                     // Callback для обновления статуса в реальном времени
                     const onStatusUpdate = (status: QueueStatus) => {
@@ -713,17 +736,22 @@ function App() {
                     };
                     
                     const resultUrl = await generateImage(imageToUse, prompt, onStatusUpdate);
+                    console.log(`[App] ✅ Successfully generated image for style: ${style}`);
+                    console.log(`[App] Result URL length: ${resultUrl.length} chars`);
                     setGeneratedImages(prev => ({
                         ...prev,
                         [style]: { status: 'done', url: resultUrl },
                     }));
                 } catch (err) {
                     const errorMessage = err instanceof Error ? err.message : "Произошла неизвестная ошибка.";
+                    console.error(`[App] ❌ Failed to generate image for style: ${style}`);
+                    console.error(`[App] Error:`, err);
+                    console.error(`[App] Error message:`, errorMessage);
+                    console.error(`[App] Error stack:`, err instanceof Error ? err.stack : 'no stack');
                     setGeneratedImages(prev => ({
                         ...prev,
                         [style]: { status: 'error', error: errorMessage },
                     }));
-                    console.error(`Не удалось создать изображение для стиля ${style}:`, err);
                 }
             };
 
