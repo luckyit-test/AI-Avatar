@@ -154,14 +154,18 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
     // Определяем браузер для специальной обработки
     const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown';
     const isYandexBrowser = /YaBrowser|Yandex/i.test(userAgent);
+    const isMobile = /Mobile|Android|iPhone|iPad/i.test(userAgent);
+    const isYandexMobile = isMobile && isYandexBrowser;
     const isChrome = /Chrome/i.test(userAgent) && !isYandexBrowser;
     
-    console.log('[evaluateImage] Starting evaluation', {
+      console.log('[evaluateImage] Starting evaluation', {
       apiBaseUrl: API_BASE_URL,
       imageDataLength: imageDataUrl?.length || 0,
       estimatedSizeMB: (base64Size / (1024 * 1024)).toFixed(2),
       userAgent,
-      browser: isYandexBrowser ? 'Yandex' : (isChrome ? 'Chrome' : 'Other')
+      browser: isYandexBrowser ? 'Yandex' : (isChrome ? 'Chrome' : 'Other'),
+      isMobile,
+      isYandexMobile
     });
     
     // Добавляем задачу в очередь с таймаутом для мобильных устройств
@@ -178,7 +182,7 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
         browser: isYandexBrowser ? 'Yandex' : (isChrome ? 'Chrome' : 'Other')
       });
 
-      // Для Яндекс браузера используем более длинный таймаут и дополнительные заголовки
+      // Для Яндекс браузера (особенно мобильного) используем более длинный таймаут и дополнительные заголовки
       const fetchOptions: RequestInit = {
         method: 'POST',
         headers: {
@@ -189,12 +193,17 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
         signal: controller.signal,
       };
 
-      // Для Яндекс браузера добавляем дополнительные опции
+      // Для Яндекс браузера (особенно мобильного) добавляем дополнительные опции
       if (isYandexBrowser) {
-        // Увеличиваем таймаут для Яндекс браузера
+        // Увеличиваем таймаут для Яндекс браузера (особенно на мобильных)
         clearTimeout(timeoutId);
-        const yandexTimeout = setTimeout(() => controller.abort(), 90000); // 90 секунд для Яндекс
+        const yandexTimeout = setTimeout(() => controller.abort(), isYandexMobile ? 120000 : 90000); // 120 сек для мобильного, 90 для десктопа
         fetchOptions.signal = controller.signal;
+        
+        console.log('[evaluateImage] Using extended timeout for Yandex browser', {
+          isMobile: isYandexMobile,
+          timeout: isYandexMobile ? 120000 : 90000
+        });
         
         response = await fetch(`${API_BASE_URL}/evaluate-image`, fetchOptions);
         clearTimeout(yandexTimeout);

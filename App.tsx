@@ -6,6 +6,7 @@ import React, { useState, ChangeEvent, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { generateImage, evaluateImage, type DetectedGender, type QueueStatus, type ImageEvaluationResult } from './services/geminiService';
 import { createAlbumPage } from './lib/albumUtils';
+import { compressImage, shouldCompressImage } from './lib/imageCompression';
 import Footer from './components/Footer';
 import Uploader from './components/Uploader';
 import ImageCard from './components/ImageCard';
@@ -444,6 +445,43 @@ function App() {
             return;
         }
 
+        // Определяем, нужно ли сжимать изображение
+        const isMobile = /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent);
+        const isYandexMobile = isMobile && /YaBrowser|Yandex/i.test(navigator.userAgent);
+        const needsCompression = shouldCompressImage(file, isMobile);
+        
+        console.log('[App] Image processing options:', {
+            isMobile,
+            isYandexMobile,
+            needsCompression,
+            fileSize: file.size,
+            fileSizeMB: (file.size / (1024 * 1024)).toFixed(2)
+        });
+
+        // Для мобильных устройств (особенно Яндекс браузера) сжимаем изображение
+        if (needsCompression) {
+            console.log('[App] Compressing image for mobile device...');
+            try {
+                const compressedDataUrl = await compressImage(file, 1920, 1920, 0.85);
+                const compressedSize = (compressedDataUrl.length * 3) / 4;
+                console.log('[App] Image compressed:', {
+                    originalSize: file.size,
+                    originalSizeMB: (file.size / (1024 * 1024)).toFixed(2),
+                    compressedSize,
+                    compressedSizeMB: (compressedSize / (1024 * 1024)).toFixed(2),
+                    compressionRatio: ((1 - compressedSize / file.size) * 100).toFixed(1) + '%'
+                });
+                
+                // Используем сжатое изображение
+                processImageData(compressedDataUrl, file);
+                return;
+            } catch (compressionError) {
+                console.error('[App] Compression failed, using original:', compressionError);
+                // Если сжатие не удалось, используем оригинал
+            }
+        }
+
+        // Если сжатие не нужно или не удалось - используем оригинал
         const reader = new FileReader();
         reader.onerror = () => {
             console.error('FileReader error:', reader.error);
@@ -452,102 +490,114 @@ function App() {
         
         reader.onloadend = () => {
             const dataUrl = reader.result as string;
+            processImageData(dataUrl, file);
+        };
+        
+        reader.readAsDataURL(file);
+    };
+
+    const processImageData = (dataUrl: string, originalFile: File) => {
             
-            // Дополнительная проверка размера base64 (на случай если что-то пошло не так)
-            const base64Size = (dataUrl.length * 3) / 4;
-            const MAX_BASE64_SIZE = 10 * 1024 * 1024; // 10MB
-            if (base64Size > MAX_BASE64_SIZE) {
-                setImageValidationError(
-                    'Изображение слишком большое после обработки. Пожалуйста, уменьшите изображение и попробуйте снова.'
-                );
-                return;
-            }
-            
-            // НЕ показываем изображение сразу - сначала анализируем
-            setUploadedImage(null);
-            setAppState('idle');
-            setGeneratedImages({}); // Clear previous results
-            setGenderOverride(null);
-            setDetectedGender('unknown');
-            setImageValidationError(null);
-            
-            // Запускаем анализ
-            setIsValidatingImage(true);
-            setValidationStatusMessage('Анализируем изображение...');
-            setValidationTimer(0);
-            const analysisStartedAt = Date.now();
-            const MIN_ANALYSIS_MS = 1200; // гарантируем видимость статуса хотя бы 1.2с
-            
-            (async () => {
-                try {
-                    // Единая оценка изображения (валидация + определение пола) с callback для статуса
-                    const evaluation: ImageEvaluationResult = await evaluateImage(dataUrl, (status) => {
-                        // Обновляем статусное сообщение
-                        if (status.statusMessage) {
-                            setValidationStatusMessage(status.statusMessage);
-                        }
-                        // Не обновляем таймер из статуса - используем только обратный отсчет от 10
-                    });
-                    
-                    console.log('Image evaluation result:', evaluation);
-                    
-                    if (!evaluation.isValid) {
-                        // Изображение не прошло валидацию - показываем ошибку
-                        setImageValidationError(evaluation.errorMessage);
-                        // Держим статус хотя бы MIN_ANALYSIS_MS
-                        const elapsed = Date.now() - analysisStartedAt;
-                        const delay = Math.max(0, MIN_ANALYSIS_MS - elapsed);
-                        if (delay > 0) await new Promise(r => setTimeout(r, delay));
-                        setIsValidatingImage(false);
-                        setValidationStatusMessage('Анализируем изображение...');
-                        return;
+        // Дополнительная проверка размера base64 (на случай если что-то пошло не так)
+        const base64Size = (dataUrl.length * 3) / 4;
+        const MAX_BASE64_SIZE = 10 * 1024 * 1024; // 10MB
+        if (base64Size > MAX_BASE64_SIZE) {
+            setImageValidationError(
+                'Изображение слишком большое после обработки. Пожалуйста, уменьшите изображение и попробуйте снова.'
+            );
+            return;
+        }
+        
+        console.log('[App] Processing image data:', {
+            dataUrlLength: dataUrl.length,
+            estimatedSizeMB: (base64Size / (1024 * 1024)).toFixed(2),
+            originalFileSize: originalFile.size,
+            originalFileSizeMB: (originalFile.size / (1024 * 1024)).toFixed(2)
+        });
+        
+        // НЕ показываем изображение сразу - сначала анализируем
+        setUploadedImage(null);
+        setAppState('idle');
+        setGeneratedImages({}); // Clear previous results
+        setGenderOverride(null);
+        setDetectedGender('unknown');
+        setImageValidationError(null);
+        
+        // Запускаем анализ
+        setIsValidatingImage(true);
+        setValidationStatusMessage('Анализируем изображение...');
+        setValidationTimer(0);
+        const analysisStartedAt = Date.now();
+        const MIN_ANALYSIS_MS = 1200; // гарантируем видимость статуса хотя бы 1.2с
+        
+        (async () => {
+            try {
+                // Единая оценка изображения (валидация + определение пола) с callback для статуса
+                const evaluation: ImageEvaluationResult = await evaluateImage(dataUrl, (status) => {
+                    // Обновляем статусное сообщение
+                    if (status.statusMessage) {
+                        setValidationStatusMessage(status.statusMessage);
                     }
-                    // Изображение валидно - ТЕПЕРЬ показываем его (после минимальной задержки)
-                    {
-                        const elapsed = Date.now() - analysisStartedAt;
-                        const delay = Math.max(0, MIN_ANALYSIS_MS - elapsed);
-                        if (delay > 0) await new Promise(r => setTimeout(r, delay));
-                    }
-                    setUploadedImage(dataUrl);
-                    setAppState('image-uploaded');
-                    setIsValidatingImage(false);
-                    setValidationStatusMessage('Анализируем изображение...');
-                    
-                    // Устанавливаем определенный пол
-                    setDetectedGender(evaluation.gender);
-                    console.log('Detected gender:', evaluation.gender, 'confidence:', evaluation.confidence);
-                    
-                    // Автоматически выбираем пол если уверенность >= 0.7
-                    if ((evaluation.gender === 'male' || evaluation.gender === 'female') && evaluation.confidence >= 0.7) {
-                        setGenderOverride(evaluation.gender);
-                        console.log('Auto-selected gender:', evaluation.gender, 'confidence:', evaluation.confidence);
-                    } else {
-                        // Если уверенность низкая или пол не определен - сбрасываем выбор
-                        setGenderOverride(null);
-                        console.log('Gender not auto-selected, user must choose. Gender:', evaluation.gender, 'confidence:', evaluation.confidence);
-                    }
-                } catch (error) {
-                    console.error('[App] Error evaluating image:', {
-                        error,
-                        errorMessage: error instanceof Error ? error.message : String(error),
-                        errorName: error instanceof Error ? error.name : typeof error,
-                        stack: error instanceof Error ? error.stack : undefined,
-                        fileSize: file.size,
-                        fileType: file.type,
-                        timestamp: new Date().toISOString()
-                    });
+                    // Не обновляем таймер из статуса - используем только обратный отсчет от 10
+                });
+                
+                console.log('Image evaluation result:', evaluation);
+                
+                if (!evaluation.isValid) {
+                    // Изображение не прошло валидацию - показываем ошибку
+                    setImageValidationError(evaluation.errorMessage);
                     // Держим статус хотя бы MIN_ANALYSIS_MS
                     const elapsed = Date.now() - analysisStartedAt;
                     const delay = Math.max(0, MIN_ANALYSIS_MS - elapsed);
                     if (delay > 0) await new Promise(r => setTimeout(r, delay));
                     setIsValidatingImage(false);
                     setValidationStatusMessage('Анализируем изображение...');
-                    // При ошибке оценки показываем ошибку
-                    setImageValidationError('Не удалось оценить изображение. Пожалуйста, попробуйте другое изображение.');
+                    return;
                 }
-            })();
-        };
-        reader.readAsDataURL(file);
+                // Изображение валидно - ТЕПЕРЬ показываем его (после минимальной задержки)
+                {
+                    const elapsed = Date.now() - analysisStartedAt;
+                    const delay = Math.max(0, MIN_ANALYSIS_MS - elapsed);
+                    if (delay > 0) await new Promise(r => setTimeout(r, delay));
+                }
+                setUploadedImage(dataUrl);
+                setAppState('image-uploaded');
+                setIsValidatingImage(false);
+                setValidationStatusMessage('Анализируем изображение...');
+                
+                // Устанавливаем определенный пол
+                setDetectedGender(evaluation.gender);
+                console.log('Detected gender:', evaluation.gender, 'confidence:', evaluation.confidence);
+                
+                // Автоматически выбираем пол если уверенность >= 0.7
+                if ((evaluation.gender === 'male' || evaluation.gender === 'female') && evaluation.confidence >= 0.7) {
+                    setGenderOverride(evaluation.gender);
+                    console.log('Auto-selected gender:', evaluation.gender, 'confidence:', evaluation.confidence);
+                } else {
+                    // Если уверенность низкая или пол не определен - сбрасываем выбор
+                    setGenderOverride(null);
+                    console.log('Gender not auto-selected, user must choose. Gender:', evaluation.gender, 'confidence:', evaluation.confidence);
+                }
+            } catch (error) {
+                console.error('[App] Error evaluating image:', {
+                    error,
+                    errorMessage: error instanceof Error ? error.message : String(error),
+                    errorName: error instanceof Error ? error.name : typeof error,
+                    stack: error instanceof Error ? error.stack : undefined,
+                    fileSize: originalFile.size,
+                    fileType: originalFile.type,
+                    timestamp: new Date().toISOString()
+                });
+                // Держим статус хотя бы MIN_ANALYSIS_MS
+                const elapsed = Date.now() - analysisStartedAt;
+                const delay = Math.max(0, MIN_ANALYSIS_MS - elapsed);
+                if (delay > 0) await new Promise(r => setTimeout(r, delay));
+                setIsValidatingImage(false);
+                setValidationStatusMessage('Анализируем изображение...');
+                // При ошибке оценки показываем ошибку
+                setImageValidationError('Не удалось оценить изображение. Пожалуйста, попробуйте другое изображение.');
+            }
+        })();
     };
 
     const handleGenerateClick = async () => {
