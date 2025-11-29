@@ -939,16 +939,82 @@ function App() {
                                             <button
                                                 onClick={async (e) => {
                                                     e.stopPropagation();
+                                                    
+                                                    // Собираем все доступные логи
+                                                    let logs = errorLogger.getLogsAsText();
+                                                    
+                                                    // Если логов нет, собираем информацию из консоли и текущего состояния
+                                                    if (!logs || logs.trim().length === 0) {
+                                                        const diagnosticInfo = {
+                                                            timestamp: new Date().toISOString(),
+                                                            userAgent: navigator.userAgent,
+                                                            url: window.location.href,
+                                                            isMobile: /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent),
+                                                            isYandex: /YaBrowser|Yandex/i.test(navigator.userAgent),
+                                                            errorMessage: imageValidationError,
+                                                            screenSize: `${window.screen.width}x${window.screen.height}`,
+                                                            viewportSize: `${window.innerWidth}x${window.innerHeight}`,
+                                                            language: navigator.language,
+                                                            platform: navigator.platform,
+                                                            cookieEnabled: navigator.cookieEnabled,
+                                                            onLine: navigator.onLine
+                                                        };
+                                                        
+                                                        logs = `=== ДИАГНОСТИЧЕСКАЯ ИНФОРМАЦИЯ ===\n\n` +
+                                                               `Время: ${diagnosticInfo.timestamp}\n` +
+                                                               `Ошибка: ${diagnosticInfo.errorMessage}\n` +
+                                                               `URL: ${diagnosticInfo.url}\n\n` +
+                                                               `=== ИНФОРМАЦИЯ ОБ УСТРОЙСТВЕ ===\n` +
+                                                               `User-Agent: ${diagnosticInfo.userAgent}\n` +
+                                                               `Платформа: ${diagnosticInfo.platform}\n` +
+                                                               `Язык: ${diagnosticInfo.language}\n` +
+                                                               `Мобильное устройство: ${diagnosticInfo.isMobile ? 'Да' : 'Нет'}\n` +
+                                                               `Яндекс браузер: ${diagnosticInfo.isYandex ? 'Да' : 'Нет'}\n` +
+                                                               `Размер экрана: ${diagnosticInfo.screenSize}\n` +
+                                                               `Размер окна: ${diagnosticInfo.viewportSize}\n` +
+                                                               `Cookies включены: ${diagnosticInfo.cookieEnabled ? 'Да' : 'Нет'}\n` +
+                                                               `Онлайн: ${diagnosticInfo.onLine ? 'Да' : 'Нет'}\n\n` +
+                                                               `=== ИНСТРУКЦИЯ ===\n` +
+                                                               `1. Откройте консоль браузера (F12 или через меню)\n` +
+                                                               `2. Найдите все записи, начинающиеся с [App] или [evaluateImage]\n` +
+                                                               `3. Скопируйте их и отправьте разработчику\n`;
+                                                    }
+                                                    
+                                                    // Пробуем скопировать через Clipboard API
                                                     try {
-                                                        const logs = errorLogger.getLogsAsText();
-                                                        await navigator.clipboard.writeText(logs);
-                                                        alert('✅ Логи скопированы в буфер обмена!\n\nОтправьте их разработчику для диагностики.');
-                                                    } catch (e) {
-                                                        console.error('Failed to copy logs:', e);
-                                                        // Fallback: показываем логи в alert
-                                                        const logs = errorLogger.getLogsAsText();
-                                                        const preview = logs.substring(0, 2000) + (logs.length > 2000 ? '\n... (еще ' + (logs.length - 2000) + ' символов)' : '');
-                                                        alert('Логи (первые 2000 символов):\n\n' + preview);
+                                                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                                                            await navigator.clipboard.writeText(logs);
+                                                            alert('✅ Логи скопированы в буфер обмена!\n\nОтправьте их разработчику для диагностики.');
+                                                            return;
+                                                        }
+                                                    } catch (clipboardError) {
+                                                        console.warn('Clipboard API failed, trying fallback:', clipboardError);
+                                                    }
+                                                    
+                                                    // Fallback: используем старый метод через textarea
+                                                    try {
+                                                        const textarea = document.createElement('textarea');
+                                                        textarea.value = logs;
+                                                        textarea.style.position = 'fixed';
+                                                        textarea.style.left = '-999999px';
+                                                        textarea.style.top = '-999999px';
+                                                        document.body.appendChild(textarea);
+                                                        textarea.focus();
+                                                        textarea.select();
+                                                        
+                                                        const successful = document.execCommand('copy');
+                                                        document.body.removeChild(textarea);
+                                                        
+                                                        if (successful) {
+                                                            alert('✅ Логи скопированы в буфер обмена!\n\nОтправьте их разработчику для диагностики.');
+                                                        } else {
+                                                            throw new Error('execCommand failed');
+                                                        }
+                                                    } catch (fallbackError) {
+                                                        console.error('All copy methods failed:', fallbackError);
+                                                        // Последний fallback: показываем логи в alert
+                                                        const preview = logs.substring(0, 1500) + (logs.length > 1500 ? '\n\n... (еще ' + (logs.length - 1500) + ' символов, откройте консоль для полных логов)' : '');
+                                                        alert('Не удалось скопировать автоматически.\n\nЛоги (первые 1500 символов):\n\n' + preview + '\n\nОткройте консоль браузера (F12) для полных логов.');
                                                     }
                                                 }}
                                                 className="px-4 py-2 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
