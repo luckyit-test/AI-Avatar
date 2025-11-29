@@ -828,10 +828,16 @@ async function processQueue() {
         jobIds: batchJobs.map(j => j.id)
       });
 
-      // Запускаем все задачи из пакета одновременно (без await - не ждем завершения!)
-      batchJobs.forEach(job => {
-        console.log(`[${new Date().toISOString()}] [BEFORE PROCESSJOB CALL] jobId=${job.id}, queueSize=${generationQueue.length}`);
-        processJob(job).catch(err => {
+      // Запускаем задачи из пакета с небольшой задержкой между ними
+      // Это помогает избежать перегрузки API при одновременной отправке всех 6 запросов
+      batchJobs.forEach((job, index) => {
+        // Добавляем небольшую задержку между запросами (50-100мс)
+        // Это помогает API лучше обработать запросы
+        const delay = index * 50; // 0, 50, 100, 150, 200, 250 мс
+        
+        setTimeout(() => {
+          console.log(`[${new Date().toISOString()}] [BEFORE PROCESSJOB CALL] jobId=${job.id}, queueSize=${generationQueue.length}, delay=${delay}ms, index=${index}`);
+          processJob(job).catch(err => {
           const errorMessage = err instanceof Error ? err.message : String(err);
           const errorStack = err instanceof Error ? err.stack : undefined;
           
@@ -854,6 +860,7 @@ async function processQueue() {
           // Перезапускаем обработку очереди после ошибки
           processQueue();
         });
+        }, delay);
       });
 
       cleanupGeminiRequestTimestamps();
