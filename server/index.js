@@ -450,7 +450,21 @@ async function processJob(job) {
           requestConfig: JSON.stringify(requestConfig).substring(0, 1000)
         });
         
-        const response = await genAI.models.generateContent(requestConfig);
+        let response;
+        try {
+          response = await genAI.models.generateContent(requestConfig);
+        } catch (apiError) {
+          const apiErrorMessage = apiError instanceof Error ? apiError.message : String(apiError);
+          safeLog('Gemini API call failed immediately', {
+            jobId: job.id,
+            attempt,
+            error: apiErrorMessage,
+            errorName: apiError instanceof Error ? apiError.name : 'unknown',
+            errorStack: apiError instanceof Error ? apiError.stack?.substring(0, 500) : undefined,
+            model: requestConfig.model
+          });
+          throw apiError;
+        }
         
         // Детальное логирование ответа для отладки
         const responseParts = response.candidates?.[0]?.content?.parts || [];
@@ -607,6 +621,18 @@ async function processJob(job) {
       } catch (error) {
         lastError = error;
         const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+        
+        // Детальное логирование ошибки для диагностики
+        safeLog('Error in generation attempt', {
+          jobId: job.id,
+          attempt,
+          error: errorMessage,
+          errorName: error instanceof Error ? error.name : 'unknown',
+          errorStack: error instanceof Error ? error.stack?.substring(0, 1000) : undefined,
+          errorCode: error?.code,
+          errorStatus: error?.status,
+          errorResponse: error?.response ? JSON.stringify(error.response).substring(0, 500) : undefined
+        });
         
         // Проверяем, является ли ошибка связанной с API ключом
         const isApiKeyError = (
