@@ -1486,7 +1486,7 @@ async function replaceBackgroundWithGray(imageDataUrl) {
     
     // Получаем метаданные изображения
     const metadata = await sharp(imageBuffer).metadata();
-    const { width, height } = metadata;
+    let { width, height } = metadata;
     
     // Более агрессивная обработка для уменьшения вероятности IMAGE_OTHER:
     // 1. Немного уменьшаем разрешение (если большое)
