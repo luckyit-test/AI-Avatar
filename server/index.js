@@ -1445,6 +1445,10 @@ function validatePrompt(prompt) {
   return { valid: true };
 }
 
+// Буфер для хранения последних логов (для отладки)
+const logBuffer = [];
+const MAX_LOG_BUFFER_SIZE = 1000; // Храним последние 1000 записей
+
 // Безопасное логирование (без секретов)
 function safeLog(message, data = {}) {
   const sanitizedData = { ...data };
@@ -1452,7 +1456,19 @@ function safeLog(message, data = {}) {
   if (sanitizedData.imageData) {
     sanitizedData.imageData = sanitizedData.imageData.substring(0, 50) + '...';
   }
-  console.log(`[${new Date().toISOString()}] ${message}`, sanitizedData);
+  const logEntry = {
+    timestamp: new Date().toISOString(),
+    message,
+    data: sanitizedData
+  };
+  
+  // Добавляем в буфер
+  logBuffer.push(logEntry);
+  if (logBuffer.length > MAX_LOG_BUFFER_SIZE) {
+    logBuffer.shift(); // Удаляем старые записи
+  }
+  
+  console.log(`[${logEntry.timestamp}] ${message}`, sanitizedData);
 }
 
 // Эндпоинт для генерации изображения (через очередь)
