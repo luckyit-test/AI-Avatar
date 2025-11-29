@@ -398,10 +398,22 @@ function App() {
     }, [isValidatingImage]);
 
     const handleImageUpload = (file: File) => {
+        // Детальное логирование для диагностики
+        console.log('[App] File selected:', {
+            name: file.name,
+            size: file.size,
+            sizeMB: (file.size / (1024 * 1024)).toFixed(2),
+            type: file.type,
+            lastModified: new Date(file.lastModified).toISOString(),
+            isMobile: /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent),
+            userAgent: navigator.userAgent
+        });
+
         // Проверка размера файла ПЕРЕД конвертацией в base64
         const MAX_FILE_SIZE = 7 * 1024 * 1024; // 7MB (base64 будет ~9-10MB)
         if (file.size > MAX_FILE_SIZE) {
             const sizeInMB = (file.size / (1024 * 1024)).toFixed(1);
+            console.warn('[App] File too large:', { size: file.size, sizeMB: sizeInMB, maxSize: MAX_FILE_SIZE });
             setImageValidationError(
                 `Фото слишком большое (${sizeInMB} МБ). Максимальный размер — 7 МБ. ` +
                 `Пожалуйста, уменьшите изображение или сделайте скриншот и попробуйте снова.`
@@ -411,9 +423,23 @@ function App() {
 
         // Проверка формата
         const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-        if (!allowedTypes.includes(file.type.toLowerCase())) {
+        const fileTypeLower = file.type.toLowerCase();
+        
+        // Специальная проверка для HEIC (многие телефоны используют этот формат)
+        if (fileTypeLower.includes('heic') || fileTypeLower.includes('heif') || 
+            file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif')) {
+            console.warn('[App] HEIC format detected:', { fileName: file.name, fileType: file.type });
             setImageValidationError(
-                'Формат изображения не поддерживается. Загрузите фото в формате JPG, PNG или WEBP.'
+                'Формат HEIC не поддерживается. Пожалуйста, конвертируйте фото в JPG или PNG перед загрузкой. ' +
+                'На iPhone можно сделать скриншот фото или сохранить в другом формате.'
+            );
+            return;
+        }
+        
+        if (!allowedTypes.includes(fileTypeLower)) {
+            console.warn('[App] Unsupported file type:', { fileType: file.type, fileName: file.name });
+            setImageValidationError(
+                `Формат изображения не поддерживается (${file.type || 'неизвестный'}). Загрузите фото в формате JPG, PNG или WEBP.`
             );
             return;
         }
