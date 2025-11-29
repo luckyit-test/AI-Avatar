@@ -673,22 +673,33 @@ async function processJob(job) {
     const errorStack = error instanceof Error ? error.stack : undefined;
     
     // Детальное логирование всех ошибок генерации
-    safeLog('Image generation failed (queued)', { 
+    const errorDetails = {
       jobId: job.id, 
       error: errorMessage, 
       duration,
-      errorStack: errorStack?.substring(0, 500),
+      errorStack: errorStack?.substring(0, 1000),
       attempts: maxRetries,
-      lastError: lastError ? (lastError instanceof Error ? lastError.message : String(lastError)) : null
-    });
+      lastError: lastError ? (lastError instanceof Error ? lastError.message : String(lastError)) : null,
+      errorType: typeof error,
+      errorName: error instanceof Error ? error.name : 'unknown',
+      // Дополнительная информация об ошибке
+      isTimeout: errorMessage.toLowerCase().includes('timeout') || errorMessage.toLowerCase().includes('timed out'),
+      isNetworkError: errorMessage.toLowerCase().includes('network') || errorMessage.toLowerCase().includes('fetch failed'),
+      isRateLimit: errorMessage.toLowerCase().includes('rate') || errorMessage.toLowerCase().includes('quota') || errorMessage.includes('429'),
+      isApiError: errorMessage.toLowerCase().includes('api') || errorMessage.toLowerCase().includes('gemini'),
+      isImageOther: errorMessage.includes('IMAGE_OTHER') || errorMessage.includes('finishReason'),
+      isMaxRetries: errorMessage.includes('Превышено максимальное количество попыток')
+    };
     
-    // Передаем более понятное сообщение об ошибке
+    safeLog('Image generation failed (queued)', errorDetails);
+    
+    // Передаем более понятное сообщение об ошибке в зависимости от типа
     let userFriendlyError = 'Не удалось сгенерировать изображение. Попробуйте позже.';
+    
     if (errorMessage.includes('API ключа') || errorMessage.includes('api key') || errorMessage.includes('leaked')) {
       userFriendlyError = 'Ошибка конфигурации сервера. Обратитесь к администратору.';
-    } else if (errorMessage.includes('IMAGE_OTHER') || errorMessage.includes('finishReason')) {
+    } else if (errorDetails.isImageOther) {
       // Более понятное сообщение для IMAGE_OTHER
-      // API может ошибочно определять обычные фото как защищенные, поэтому даем более мягкое сообщение
       userFriendlyError = 'Не удалось сгенерировать изображение. Это может произойти, если:\n' +
         '• Фото слишком темное или размытое\n' +
         '• Лицо плохо видно или закрыто\n' +
@@ -696,6 +707,31 @@ async function processJob(job) {
         'Попробуйте:\n' +
         '• Загрузить более четкое фото с хорошо видимым лицом\n' +
         '• Подождать несколько минут и попробовать снова';
+    } else if (errorDetails.isTimeout) {
+      userFriendlyError = 'Превышено время ожидания генерации. Сервер может быть перегружен.\n\n' +
+        'Попробуйте:\n' +
+        '• Подождать 1-2 минуты и попробовать снова\n' +
+        '• Проверить интернет-соединение';
+    } else if (errorDetails.isRateLimit) {
+      userFriendlyError = 'Слишком много запросов. Пожалуйста, подождите несколько минут и попробуйте снова.';
+    } else if (errorDetails.isNetworkError) {
+      userFriendlyError = 'Ошибка сети при генерации изображения.\n\n' +
+        'Попробуйте:\n' +
+        '• Проверить интернет-соединение\n' +
+        '• Подождать несколько секунд и попробовать снова';
+    } else if (errorDetails.isMaxRetries) {
+      userFriendlyError = 'Не удалось сгенерировать изображение после нескольких попыток.\n\n' +
+        'Возможные причины:\n' +
+        '• Фото слишком сложное для обработки\n' +
+        '• Временные проблемы с API\n\n' +
+        'Попробуйте:\n' +
+        '• Загрузить другое фото\n' +
+        '• Подождать несколько минут';
+    } else if (errorDetails.isApiError) {
+      userFriendlyError = 'Ошибка при обращении к сервису генерации.\n\n' +
+        'Попробуйте:\n' +
+        '• Подождать 1-2 минуты и попробовать снова\n' +
+        '• Загрузить другое фото';
     }
     
     job.setError(new Error(userFriendlyError));
