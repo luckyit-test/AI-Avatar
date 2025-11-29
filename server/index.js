@@ -1648,6 +1648,12 @@ app.post(`${API_PREFIX}/generate-image`, async (req, res) => {
     
     // Дополнительное логирование для отладки
     const isIntermediatePrompt = prompt?.includes('Change background to gray') || prompt?.includes('Simple neutral gray background');
+    
+    // Определяем, является ли это финальным портретом (использует промежуточное изображение)
+    // Проверяем по размеру и формату - промежуточные изображения обычно меньше и имеют серый фон
+    const isFinalPortrait = !isIntermediatePrompt && imageData?.length > 0;
+    const imagePreview = imageData?.substring(0, 100) || 'no image';
+    
     safeLog('POST /generate-image received', { 
       clientIp, 
       hasImageData: !!imageData, 
@@ -1655,7 +1661,9 @@ app.post(`${API_PREFIX}/generate-image`, async (req, res) => {
       hasPrompt: !!prompt,
       promptLength: prompt?.length || 0,
       promptPreview: prompt?.substring(0, 200) || 'no prompt',
-      isIntermediatePrompt: isIntermediatePrompt
+      isIntermediatePrompt: isIntermediatePrompt,
+      isFinalPortrait: isFinalPortrait,
+      imagePreview: imagePreview
     });
     
     // Для промежуточных изображений - обрабатываем программно, без API
