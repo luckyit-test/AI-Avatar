@@ -2,7 +2,7 @@ name: deploy
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, avatar ]
   workflow_dispatch: {}
 
 concurrency:
@@ -33,12 +33,14 @@ jobs:
             sudo mkdir -p "$APP_DIR"
             cd "$APP_DIR"
 
+            BRANCH="${{ github.ref_name }}"
             if [ ! -d .git ]; then
               sudo git clone "$REPO_URL" .
             else
-              sudo git fetch origin main
-              sudo git reset --hard origin/main
+              sudo git fetch origin "$BRANCH"
+              sudo git reset --hard "origin/$BRANCH"
             fi
+            sudo git checkout "$BRANCH" 2>/dev/null || sudo git checkout -b "$BRANCH" "origin/$BRANCH"
 
             # env and folders
             echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" | sudo tee .env >/dev/null
