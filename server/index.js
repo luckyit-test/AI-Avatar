@@ -1451,7 +1451,9 @@ app.post(`${API_PREFIX}/generate-image`, async (req, res) => {
       hasImageData: !!imageData, 
       imageDataLength: imageData?.length || 0,
       hasPrompt: !!prompt,
-      promptLength: prompt?.length || 0
+      promptLength: prompt?.length || 0,
+      promptPreview: prompt?.substring(0, 200) || 'no prompt',
+      isIntermediatePrompt: prompt?.includes('Simple neutral gray background') || false
     });
 
     // Валидация входных данных
