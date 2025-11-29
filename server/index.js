@@ -1679,6 +1679,59 @@ app.get(`${API_PREFIX}/queue/stats`, (req, res) => {
   });
 });
 
+// Эндпоинт для получения логов (только для отладки)
+app.get(`${API_PREFIX}/logs`, (req, res) => {
+  const { 
+    limit = 100, 
+    filter = '', 
+    since = null,
+    includeIntermediate = 'true' // По умолчанию показываем все логи
+  } = req.query;
+  
+  let filteredLogs = [...logBuffer];
+  
+  // Фильтр по тексту
+  if (filter) {
+    const filterLower = filter.toLowerCase();
+    filteredLogs = filteredLogs.filter(log => 
+      log.message.toLowerCase().includes(filterLower) ||
+      JSON.stringify(log.data).toLowerCase().includes(filterLower)
+    );
+  }
+  
+  // Фильтр по времени
+  if (since) {
+    const sinceTime = new Date(since).getTime();
+    filteredLogs = filteredLogs.filter(log => 
+      new Date(log.timestamp).getTime() >= sinceTime
+    );
+  }
+  
+  // Фильтр для промежуточных изображений
+  if (includeIntermediate !== 'true') {
+    // Показываем только логи, связанные с промежуточными изображениями
+    filteredLogs = filteredLogs.filter(log => 
+      log.message.includes('intermediate') ||
+      log.message.includes('Intermediate') ||
+      (log.data && (
+        log.data.isIntermediatePrompt === true ||
+        log.data.promptPreview?.includes('Simple neutral gray background')
+      ))
+    );
+  }
+  
+  // Ограничиваем количество
+  const limitNum = Math.min(parseInt(limit) || 100, 500);
+  const result = filteredLogs.slice(-limitNum).reverse(); // Последние логи первыми
+  
+  res.json({
+    logs: result,
+    total: filteredLogs.length,
+    bufferSize: logBuffer.length,
+    maxBufferSize: MAX_LOG_BUFFER_SIZE
+  });
+});
+
 // Эндпоинт для полной оценки изображения (валидация + определение пола за один запрос)
 app.post(`${API_PREFIX}/evaluate-image`, async (req, res) => {
   const startTime = Date.now();
