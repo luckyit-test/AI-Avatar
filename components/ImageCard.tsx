@@ -202,7 +202,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
                             </div>
                             <p className="text-sm font-semibold text-red-700">Ошибка генерации</p>
                             {error && (
-                                <p className="mt-1 text-xs text-red-600">{error}</p>
+                                <p className="mt-1 text-xs text-red-600 whitespace-pre-line">{error}</p>
                             )}
                         </motion.div>
                     )}
