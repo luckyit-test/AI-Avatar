@@ -590,8 +590,17 @@ async function processJob(job) {
             blocked: r.blocked
           })),
           candidateFinishReason: finishReason,
-          fullCandidate: JSON.stringify(candidate).substring(0, 2000)
+          fullCandidate: JSON.stringify(candidate).substring(0, 2000),
+          // Логируем промпт для диагностики проблем с конкретными стилями
+          promptLength: job.prompt?.length || 0,
+          promptPreview: job.prompt?.substring(0, 300) || 'no prompt',
+          promptContainsCritical: job.prompt?.includes('CRITICAL') || false,
+          promptContainsExact: job.prompt?.includes('EXACTLY') || false,
+          promptStyle: job.prompt?.match(/style should be ([^\.]+)/i)?.[1] || 'unknown'
         });
+        
+        // Дополнительное логирование в консоль для быстрой диагностики
+        console.error(`[GENERATION FAILED] jobId=${job.id}, finishReason=${finishReason}, promptLength=${job.prompt?.length || 0}, attempt=${attempt}`);
         
         throw new Error(errorMessage);
         
