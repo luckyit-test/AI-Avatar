@@ -501,7 +501,15 @@ function App() {
                         console.log('Gender not auto-selected, user must choose. Gender:', evaluation.gender, 'confidence:', evaluation.confidence);
                     }
                 } catch (error) {
-                    console.error('Error evaluating image:', error);
+                    console.error('[App] Error evaluating image:', {
+                        error,
+                        errorMessage: error instanceof Error ? error.message : String(error),
+                        errorName: error instanceof Error ? error.name : typeof error,
+                        stack: error instanceof Error ? error.stack : undefined,
+                        fileSize: file.size,
+                        fileType: file.type,
+                        timestamp: new Date().toISOString()
+                    });
                     // Держим статус хотя бы MIN_ANALYSIS_MS
                     const elapsed = Date.now() - analysisStartedAt;
                     const delay = Math.max(0, MIN_ANALYSIS_MS - elapsed);

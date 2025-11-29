@@ -156,20 +156,50 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
     
     let response: Response;
     try {
+      console.log('[evaluateImage] Sending request to:', `${API_BASE_URL}/evaluate-image`);
+      const requestBody = JSON.stringify({ imageData: imageDataUrl });
+      console.log('[evaluateImage] Request body size:', {
+        bodyLength: requestBody.length,
+        bodySizeMB: (requestBody.length / (1024 * 1024)).toFixed(2)
+      });
+
       response = await fetch(`${API_BASE_URL}/evaluate-image`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ imageData: imageDataUrl }),
+        body: requestBody,
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
+      console.log('[evaluateImage] Fetch completed', {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText
+      });
     } catch (fetchError: any) {
       clearTimeout(timeoutId);
+      console.error('[evaluateImage] Fetch error:', {
+        name: fetchError?.name,
+        message: fetchError?.message,
+        stack: fetchError?.stack,
+        cause: fetchError?.cause
+      });
+      
       if (fetchError.name === 'AbortError') {
+        console.error('[evaluateImage] Request aborted (timeout)');
         throw new Error('timeout');
       }
+      
+      // Детальная информация о сетевой ошибке
+      if (fetchError instanceof TypeError && fetchError.message.includes('fetch')) {
+        console.error('[evaluateImage] Network error - possible causes:', {
+          message: fetchError.message,
+          apiUrl: `${API_BASE_URL}/evaluate-image`,
+          isOnline: typeof navigator !== 'undefined' ? navigator.onLine : 'unknown'
+        });
+      }
+      
       throw fetchError;
     }
 
@@ -278,13 +308,29 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
     // которое не обвиняет пользователя в "неправильном" фото.
     const { errorType, message } = normalizeEvaluationErrorMessage(error);
     const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorName = error instanceof Error ? error.name : typeof error;
+    const errorStack = error instanceof Error ? error.stack : undefined;
 
+    // Детальное логирование для диагностики
     console.error('[evaluateImage] Error caught:', {
       error: errorMessage,
+      errorName,
       mappedMessage: message,
       errorType: error instanceof Error ? error.constructor.name : typeof error,
-      stack: error instanceof Error ? error.stack : undefined
+      stack: errorStack,
+      apiBaseUrl: API_BASE_URL,
+      isMobile: /Mobile|Android|iPhone|iPad/i.test(typeof navigator !== 'undefined' ? navigator.userAgent : ''),
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
     });
+
+    // Дополнительная информация для пользователя в консоли
+    if (typeof window !== 'undefined') {
+      console.error('[evaluateImage] Full error details:', {
+        error,
+        apiUrl: `${API_BASE_URL}/evaluate-image`,
+        timestamp: new Date().toISOString()
+      });
+    }
 
     return {
       isValid: false,
