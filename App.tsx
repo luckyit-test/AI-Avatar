@@ -398,9 +398,44 @@ function App() {
     }, [isValidatingImage]);
 
     const handleImageUpload = (file: File) => {
+        // Проверка размера файла ПЕРЕД конвертацией в base64
+        const MAX_FILE_SIZE = 7 * 1024 * 1024; // 7MB (base64 будет ~9-10MB)
+        if (file.size > MAX_FILE_SIZE) {
+            const sizeInMB = (file.size / (1024 * 1024)).toFixed(1);
+            setImageValidationError(
+                `Фото слишком большое (${sizeInMB} МБ). Максимальный размер — 7 МБ. ` +
+                `Пожалуйста, уменьшите изображение или сделайте скриншот и попробуйте снова.`
+            );
+            return;
+        }
+
+        // Проверка формата
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        if (!allowedTypes.includes(file.type.toLowerCase())) {
+            setImageValidationError(
+                'Формат изображения не поддерживается. Загрузите фото в формате JPG, PNG или WEBP.'
+            );
+            return;
+        }
+
         const reader = new FileReader();
+        reader.onerror = () => {
+            console.error('FileReader error:', reader.error);
+            setImageValidationError('Ошибка чтения файла. Попробуйте выбрать другое изображение.');
+        };
+        
         reader.onloadend = () => {
             const dataUrl = reader.result as string;
+            
+            // Дополнительная проверка размера base64 (на случай если что-то пошло не так)
+            const base64Size = (dataUrl.length * 3) / 4;
+            const MAX_BASE64_SIZE = 10 * 1024 * 1024; // 10MB
+            if (base64Size > MAX_BASE64_SIZE) {
+                setImageValidationError(
+                    'Изображение слишком большое после обработки. Пожалуйста, уменьшите изображение и попробуйте снова.'
+                );
+                return;
+            }
             
             // НЕ показываем изображение сразу - сначала анализируем
             setUploadedImage(null);

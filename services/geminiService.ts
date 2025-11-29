@@ -105,11 +105,21 @@ function normalizeEvaluationErrorMessage(raw: unknown): { errorType: ValidationE
     lower.includes('networkerror') ||
     lower.includes('network error') ||
     lower.includes('timeout') ||
-    lower.includes('timed out')
+    lower.includes('timed out') ||
+    lower.includes('aborted') ||
+    lower.includes('abort')
   ) {
     return {
       errorType: 'technical_error',
-      message: 'Не удалось связаться с сервером. Проверьте интернет или попробуйте ещё раз через пару минут.',
+      message: 'Не удалось связаться с сервером. Проверьте интернет-соединение или попробуйте ещё раз через пару минут.',
+    };
+  }
+
+  // Ошибки размера файла
+  if (lower.includes('размер изображения превышает') || lower.includes('size') && lower.includes('exceed')) {
+    return {
+      errorType: 'technical_error',
+      message: 'Фото слишком большое. Максимальный размер — 7 МБ. Уменьшите изображение или сделайте скриншот и попробуйте снова.',
     };
   }
 
@@ -125,19 +135,43 @@ function normalizeEvaluationErrorMessage(raw: unknown): { errorType: ValidationE
  */
 export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (status: AnalysisStatus) => void): Promise<ImageEvaluationResult> {
   try {
+    // Проверка размера перед отправкой
+    const base64Size = (imageDataUrl.length * 3) / 4;
+    const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+    if (base64Size > MAX_SIZE) {
+      console.error('[evaluateImage] Image too large', { base64Size, maxSize: MAX_SIZE });
+      throw new Error('Размер изображения превышает 10MB');
+    }
+
     console.log('[evaluateImage] Starting evaluation', {
       apiBaseUrl: API_BASE_URL,
-      imageDataLength: imageDataUrl?.length || 0
+      imageDataLength: imageDataUrl?.length || 0,
+      estimatedSizeMB: (base64Size / (1024 * 1024)).toFixed(2),
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
     });
     
-    // Добавляем задачу в очередь
-    const response = await fetch(`${API_BASE_URL}/evaluate-image`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ imageData: imageDataUrl }),
-    });
+    // Добавляем задачу в очередь с таймаутом для мобильных устройств
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 секунд таймаут
+    
+    let response: Response;
+    try {
+      response = await fetch(`${API_BASE_URL}/evaluate-image`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ imageData: imageDataUrl }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        throw new Error('timeout');
+      }
+      throw fetchError;
+    }
 
     console.log('[evaluateImage] Response received', {
       ok: response.ok,
@@ -149,8 +183,19 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
       const errorData = await response.json().catch(() => ({ error: 'Неизвестная ошибка' }));
       console.error('[evaluateImage] Response error', {
         status: response.status,
-        errorData
+        statusText: response.statusText,
+        errorData,
+        headers: Object.fromEntries(response.headers.entries())
       });
+      
+      // Более детальные сообщения об ошибках
+      if (response.status === 413) {
+        throw new Error('Размер изображения превышает 10MB');
+      } else if (response.status === 400) {
+        throw new Error(errorData.error || 'Некорректный запрос');
+      } else if (response.status >= 500) {
+        throw new Error('timeout');
+      }
       throw new Error(errorData.error || `HTTP ${response.status}`);
     }
 
@@ -164,12 +209,26 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
     const startTime = Date.now();
     
     while (Date.now() - startTime < maxWaitTime) {
-      const statusResponse = await fetch(`${API_BASE_URL}/analysis/${jobId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const statusController = new AbortController();
+      const statusTimeoutId = setTimeout(() => statusController.abort(), 10000); // 10 секунд для проверки статуса
+      
+      let statusResponse: Response;
+      try {
+        statusResponse = await fetch(`${API_BASE_URL}/analysis/${jobId}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          signal: statusController.signal,
+        });
+        clearTimeout(statusTimeoutId);
+      } catch (statusError: any) {
+        clearTimeout(statusTimeoutId);
+        if (statusError.name === 'AbortError') {
+          throw new Error('timeout');
+        }
+        throw statusError;
+      }
 
       if (!statusResponse.ok) {
         if (statusResponse.status === 404) {
