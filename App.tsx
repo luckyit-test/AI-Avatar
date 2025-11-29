@@ -353,6 +353,22 @@ type AppState = 'idle' | 'image-uploaded' | 'generating' | 'results-shown';
 function App() {
     const onboarding = useOnboarding();
     const fileInputRef = React.useRef<HTMLInputElement>(null);
+    
+    // Проверка и автоматическое перенаправление на HTTPS
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const currentUrl = window.location.href;
+            const isHttp = currentUrl.startsWith('http://');
+            const isHttps = currentUrl.startsWith('https://');
+            
+            // Если открыт HTTP, перенаправляем на HTTPS
+            if (isHttp && !isHttps && currentUrl.includes('newava.pro')) {
+                const httpsUrl = currentUrl.replace('http://', 'https://');
+                console.warn('[App] Redirecting from HTTP to HTTPS:', { from: currentUrl, to: httpsUrl });
+                window.location.replace(httpsUrl);
+            }
+        }
+    }, []);
     const [uploadedImage, setUploadedImage] = useState<string | null>(null);
     const [imageValidationError, setImageValidationError] = useState<string | null>(null);
     const [isValidatingImage, setIsValidatingImage] = useState<boolean>(false);

@@ -172,14 +172,34 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 секунд таймаут
     
+    // Проверяем, что используем HTTPS (критично для мобильных браузеров)
+    const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
+    const isHttps = currentUrl.startsWith('https://');
+    const isHttp = currentUrl.startsWith('http://');
+    
+    if (isHttp && !isHttps) {
+      console.warn('[evaluateImage] WARNING: Using HTTP instead of HTTPS! This may cause issues on mobile browsers.');
+      errorLogger.log('HTTPSWarning', 'Using HTTP instead of HTTPS - may cause request failures', {
+        currentUrl,
+        apiBaseUrl: API_BASE_URL,
+        isMobile,
+        isYandexMobile
+      });
+    }
+    
     let response: Response;
     try {
       console.log('[evaluateImage] Sending request to:', `${API_BASE_URL}/evaluate-image`);
+      console.log('[evaluateImage] Current page URL:', currentUrl);
+      console.log('[evaluateImage] Protocol check:', { isHttps, isHttp, currentUrl });
+      
       const requestBody = JSON.stringify({ imageData: imageDataUrl });
       console.log('[evaluateImage] Request body size:', {
         bodyLength: requestBody.length,
         bodySizeMB: (requestBody.length / (1024 * 1024)).toFixed(2),
-        browser: isYandexBrowser ? 'Yandex' : (isChrome ? 'Chrome' : 'Other')
+        browser: isYandexBrowser ? 'Yandex' : (isChrome ? 'Chrome' : 'Other'),
+        isMobile,
+        isYandexMobile
       });
 
       // Для Яндекс браузера (особенно мобильного) используем более длинный таймаут и дополнительные заголовки
@@ -220,14 +240,33 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
       });
     } catch (fetchError: any) {
       clearTimeout(timeoutId);
-      console.error('[evaluateImage] Fetch error:', {
+      
+      const errorDetails = {
         name: fetchError?.name,
         message: fetchError?.message,
         stack: fetchError?.stack,
         cause: fetchError?.cause,
         browser: isYandexBrowser ? 'Yandex' : (isChrome ? 'Chrome' : 'Other'),
-        isYandexBrowser
-      });
+        isYandexBrowser,
+        isMobile,
+        isYandexMobile,
+        apiUrl: `${API_BASE_URL}/evaluate-image`,
+        currentUrl: typeof window !== 'undefined' ? window.location.href : 'unknown',
+        isHttps: typeof window !== 'undefined' ? window.location.href.startsWith('https://') : false,
+        isOnline: typeof navigator !== 'undefined' ? navigator.onLine : 'unknown'
+      };
+      
+      console.error('[evaluateImage] Fetch error:', errorDetails);
+      
+      // Логируем ошибку для диагностики
+      if (typeof window !== 'undefined') {
+        try {
+          const { errorLogger } = await import('../lib/errorLogger');
+          errorLogger.log('FetchError', fetchError?.message || 'Unknown fetch error', errorDetails);
+        } catch (e) {
+          // Игнорируем если модуль не доступен
+        }
+      }
       
       if (fetchError.name === 'AbortError') {
         console.error('[evaluateImage] Request aborted (timeout)');
