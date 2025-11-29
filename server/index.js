@@ -11,6 +11,7 @@ dotenv.config({ path: join(__dirname, '../.env') }); // fallback на .env
 import express from 'express';
 import cors from 'cors';
 import { GoogleGenAI, Modality } from '@google/genai';
+import sharp from 'sharp';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -1470,6 +1471,62 @@ if (!GEMINI_API_KEY_ANALYSIS) {
 const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY_GENERATION }); // Для генерации
 const genAIAnalysis = new GoogleGenAI({ apiKey: GEMINI_API_KEY_ANALYSIS }); // Для анализа
 
+// Функция для программной замены фона на серый (для промежуточного изображения)
+async function replaceBackgroundWithGray(imageDataUrl) {
+  try {
+    // Парсим data URL
+    const match = imageDataUrl.match(/^data:(image\/\w+);base64,(.*)$/);
+    if (!match) {
+      throw new Error('Invalid image data URL format');
+    }
+    
+    const [, mimeType, base64Data] = match;
+    const imageBuffer = Buffer.from(base64Data, 'base64');
+    
+    // Получаем метаданные изображения
+    const metadata = await sharp(imageBuffer).metadata();
+    const { width, height } = metadata;
+    
+    // Создаем серый фон
+    const grayBackground = sharp({
+      create: {
+        width: width,
+        height: height,
+        channels: 3,
+        background: { r: 128, g: 128, b: 128 } // Серый цвет RGB(128, 128, 128)
+      }
+    })
+    .jpeg({ quality: 95 });
+    
+    // Накладываем оригинальное изображение поверх серого фона
+    // Используем composite для наложения изображения поверх фона
+    const processedImage = await grayBackground
+      .composite([{
+        input: imageBuffer,
+        blend: 'over' // Накладываем изображение поверх фона
+      }])
+      .jpeg({ quality: 95 })
+      .toBuffer();
+    
+    // Конвертируем обратно в base64
+    const processedBase64 = processedImage.toString('base64');
+    const processedDataUrl = `data:image/jpeg;base64,${processedBase64}`;
+    
+    safeLog('Background replaced with gray', {
+      originalSize: imageBuffer.length,
+      processedSize: processedImage.length,
+      width,
+      height
+    });
+    
+    return processedDataUrl;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    safeLog('Failed to replace background', { error: errorMessage });
+    throw new Error(`Не удалось обработать изображение: ${errorMessage}`);
+  }
+}
+
 // Валидация размера base64 изображения
 function validateImageData(imageData) {
   if (!imageData || typeof imageData !== 'string') {
@@ -1551,6 +1608,7 @@ app.post(`${API_PREFIX}/generate-image`, async (req, res) => {
     const { imageData, prompt } = req.body;
     
     // Дополнительное логирование для отладки
+    const isIntermediatePrompt = prompt?.includes('Change background to gray') || prompt?.includes('Simple neutral gray background');
     safeLog('POST /generate-image received', { 
       clientIp, 
       hasImageData: !!imageData, 
@@ -1558,8 +1616,32 @@ app.post(`${API_PREFIX}/generate-image`, async (req, res) => {
       hasPrompt: !!prompt,
       promptLength: prompt?.length || 0,
       promptPreview: prompt?.substring(0, 200) || 'no prompt',
-      isIntermediatePrompt: prompt?.includes('Simple neutral gray background') || false
+      isIntermediatePrompt: isIntermediatePrompt
     });
+    
+    // Для промежуточных изображений - обрабатываем программно, без API
+    if (isIntermediatePrompt) {
+      try {
+        safeLog('Processing intermediate image with background replacement', { clientIp });
+        const processedImage = await replaceBackgroundWithGray(imageData);
+        
+        // Возвращаем обработанное изображение сразу, без очереди
+        return res.json({
+          jobId: `intermediate_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          position: 0,
+          estimatedWaitTime: 0,
+          estimatedStartTime: Date.now(),
+          queueSize: 0,
+          totalInSystem: 0,
+          processedImage: processedImage, // Возвращаем обработанное изображение напрямую
+          isProcessed: true
+        });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        safeLog('Intermediate image processing failed', { clientIp, error: errorMessage });
+        // Если обработка не удалась - продолжаем обычным способом через API
+      }
+    }
 
     // Валидация входных данных
     if (!imageData || !prompt) {

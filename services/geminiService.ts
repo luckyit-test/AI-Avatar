@@ -527,13 +527,14 @@ export interface QueueJob {
   estimatedStartTime?: number; // Абсолютное время начала генерации (timestamp)
   queueSize: number;
   totalInSystem?: number; // Общее количество задач в системе (очередь + активные)
+  processedImage?: string; // Для обработанных промежуточных изображений
 }
 
 /**
  * Добавляет задачу генерации в очередь и возвращает jobId
  */
 export async function addGenerationToQueue(imageDataUrl: string, prompt: string): Promise<QueueJob> {
-  const isIntermediate = prompt.includes('Simple neutral gray background');
+  const isIntermediate = prompt.includes('Change background to gray') || prompt.includes('Simple neutral gray background');
   console.log('[addGenerationToQueue] Adding job to queue', {
     isIntermediate,
     promptLength: prompt.length,
@@ -567,6 +568,20 @@ export async function addGenerationToQueue(imageDataUrl: string, prompt: string)
     }
 
     const result = await response.json();
+    
+    // Если это обработанное промежуточное изображение - возвращаем его сразу
+    if (result.isProcessed && result.processedImage) {
+      console.log('[addGenerationToQueue] Received processed intermediate image directly');
+      // Для обработанных изображений создаем "мгновенную" задачу
+      return {
+        jobId: result.jobId,
+        position: 0,
+        estimatedWaitTime: 0,
+        queueSize: 0,
+        processedImage: result.processedImage // Сохраняем обработанное изображение
+      };
+    }
+    
     return {
       jobId: result.jobId,
       position: result.position,
@@ -645,6 +660,18 @@ export async function generateImage(
 ): Promise<string> {
   // Добавляем задачу в очередь
   const queueJob = await addGenerationToQueue(imageDataUrl, prompt);
+  
+  // Если это обработанное промежуточное изображение - возвращаем его сразу
+  if ('processedImage' in queueJob && queueJob.processedImage) {
+    console.log('[generateImage] Returning processed intermediate image directly');
+    if (onStatusUpdate) {
+      onStatusUpdate({
+        status: 'completed',
+        result: { imageDataUrl: queueJob.processedImage }
+      });
+    }
+    return queueJob.processedImage;
+  }
   
   // Polling статуса задачи
   const pollInterval = 1000; // Проверяем каждую секунду
