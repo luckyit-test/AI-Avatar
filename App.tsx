@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { generateImage, evaluateImage, type DetectedGender, type QueueStatus, type ImageEvaluationResult } from './services/geminiService';
 import { createAlbumPage } from './lib/albumUtils';
 import { compressImage, shouldCompressImage } from './lib/imageCompression';
+import { errorLogger } from './lib/errorLogger';
 import Footer from './components/Footer';
 import Uploader from './components/Uploader';
 import ImageCard from './components/ImageCard';
@@ -578,25 +579,36 @@ function App() {
                     setGenderOverride(null);
                     console.log('Gender not auto-selected, user must choose. Gender:', evaluation.gender, 'confidence:', evaluation.confidence);
                 }
-            } catch (error) {
-                console.error('[App] Error evaluating image:', {
-                    error,
-                    errorMessage: error instanceof Error ? error.message : String(error),
-                    errorName: error instanceof Error ? error.name : typeof error,
-                    stack: error instanceof Error ? error.stack : undefined,
-                    fileSize: originalFile.size,
-                    fileType: originalFile.type,
-                    timestamp: new Date().toISOString()
-                });
-                // Держим статус хотя бы MIN_ANALYSIS_MS
-                const elapsed = Date.now() - analysisStartedAt;
-                const delay = Math.max(0, MIN_ANALYSIS_MS - elapsed);
-                if (delay > 0) await new Promise(r => setTimeout(r, delay));
-                setIsValidatingImage(false);
-                setValidationStatusMessage('Анализируем изображение...');
-                // При ошибке оценки показываем ошибку
-                setImageValidationError('Не удалось оценить изображение. Пожалуйста, попробуйте другое изображение.');
-            }
+                } catch (error) {
+                    const errorDetails = {
+                        error: error instanceof Error ? error.message : String(error),
+                        errorName: error instanceof Error ? error.name : typeof error,
+                        stack: error instanceof Error ? error.stack : undefined,
+                        fileSize: originalFile.size,
+                        fileType: originalFile.type,
+                        timestamp: new Date().toISOString(),
+                        userAgent: navigator.userAgent,
+                        isMobile: /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent),
+                        isYandex: /YaBrowser|Yandex/i.test(navigator.userAgent)
+                    };
+                    
+                    console.error('[App] Error evaluating image:', errorDetails);
+                    
+                    // Логируем ошибку для диагностики
+                    errorLogger.log('ImageEvaluationError', 
+                        error instanceof Error ? error.message : String(error),
+                        errorDetails
+                    );
+                    
+                    // Держим статус хотя бы MIN_ANALYSIS_MS
+                    const elapsed = Date.now() - analysisStartedAt;
+                    const delay = Math.max(0, MIN_ANALYSIS_MS - elapsed);
+                    if (delay > 0) await new Promise(r => setTimeout(r, delay));
+                    setIsValidatingImage(false);
+                    setValidationStatusMessage('Анализируем изображение...');
+                    // При ошибке оценки показываем ошибку
+                    setImageValidationError('Не удалось оценить изображение. Пожалуйста, попробуйте другое изображение.');
+                }
         })();
     };
 

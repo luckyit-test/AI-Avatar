@@ -361,7 +361,7 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
     const errorStack = error instanceof Error ? error.stack : undefined;
 
     // Детальное логирование для диагностики
-    console.error('[evaluateImage] Error caught:', {
+    const errorDetails = {
       error: errorMessage,
       errorName,
       mappedMessage: message,
@@ -369,8 +369,12 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
       stack: errorStack,
       apiBaseUrl: API_BASE_URL,
       isMobile: /Mobile|Android|iPhone|iPad/i.test(typeof navigator !== 'undefined' ? navigator.userAgent : ''),
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
-    });
+      isYandex: /YaBrowser|Yandex/i.test(typeof navigator !== 'undefined' ? navigator.userAgent : ''),
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+      timestamp: new Date().toISOString()
+    };
+    
+    console.error('[evaluateImage] Error caught:', errorDetails);
 
     // Дополнительная информация для пользователя в консоли
     if (typeof window !== 'undefined') {
@@ -379,6 +383,9 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
         apiUrl: `${API_BASE_URL}/evaluate-image`,
         timestamp: new Date().toISOString()
       });
+      
+      // Сохраняем ошибку для диагностики
+      // Логируем в консоль - пользователь может скопировать логи через UI
     }
 
     return {
