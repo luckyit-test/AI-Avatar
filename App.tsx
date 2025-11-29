@@ -703,7 +703,10 @@ function App() {
             // ШАГ 2: Генерируем все 6 стилей параллельно на основе промежуточного изображения
             const prompts = buildPromptsByContext(getEffectiveGender(), selectedRole, selectedCompany, variability, naturalLook);
 
-            const processStyle = async (style: string) => {
+            // Собираем результаты напрямую из промисов, а не из состояния React
+            const firstStageResults: Array<{ style: string; success: boolean; url?: string; error?: string }> = [];
+
+            const processStyle = async (style: string): Promise<{ style: string; success: boolean; url?: string; error?: string }> => {
                 try {
                     const prompt = prompts[style];
                     console.log(`[App] Starting generation for style: ${style}`);
@@ -750,6 +753,7 @@ function App() {
                         ...prev,
                         [style]: { status: 'done', url: resultUrl },
                     }));
+                    return { style, success: true, url: resultUrl };
                 } catch (err) {
                     const errorMessage = err instanceof Error ? err.message : "Произошла неизвестная ошибка.";
                     console.error(`[App] ❌ Failed to generate image for style: ${style}`);
@@ -760,29 +764,30 @@ function App() {
                         ...prev,
                         [style]: { status: 'error', error: errorMessage },
                     }));
+                    return { style, success: false, error: errorMessage };
                 }
             };
 
-            // ШАГ 2: Запускаем все 6 генераций одновременно
-            await Promise.all(STYLES.map(style => processStyle(style)));
+            // ШАГ 2: Запускаем все 6 генераций одновременно и собираем результаты
+            const results = await Promise.all(STYLES.map(style => processStyle(style)));
+            firstStageResults.push(...results);
             
             // ШАГ 3: Проверяем результаты и делаем повторную попытку для неудачных
             console.log('[App] ========================================');
             console.log('[App] STEP 3: Checking results and retrying failed portraits');
             console.log('[App] ========================================');
             
-            // Находим успешные портреты
+            // Находим успешные портреты и неудачные стили из результатов промисов
             const successfulPortraits: Array<{ style: string; url: string }> = [];
             const failedStyles: string[] = [];
             
-            STYLES.forEach(style => {
-                const image = generatedImages[style];
-                if (image?.status === 'done' && image.url) {
-                    successfulPortraits.push({ style, url: image.url });
-                    console.log(`[App] ✅ Successful portrait: ${style}`);
-                } else if (image?.status === 'error') {
-                    failedStyles.push(style);
-                    console.log(`[App] ❌ Failed portrait: ${style}`);
+            results.forEach(result => {
+                if (result.success && result.url) {
+                    successfulPortraits.push({ style: result.style, url: result.url });
+                    console.log(`[App] ✅ Successful portrait: ${result.style}`);
+                } else {
+                    failedStyles.push(result.style);
+                    console.log(`[App] ❌ Failed portrait: ${result.style}`);
                 }
             });
             
