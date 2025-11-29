@@ -1472,6 +1472,7 @@ const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY_GENERATION }); // Для 
 const genAIAnalysis = new GoogleGenAI({ apiKey: GEMINI_API_KEY_ANALYSIS }); // Для анализа
 
 // Функция для программной замены фона на серый (для промежуточного изображения)
+// Используем более агрессивную обработку для уменьшения вероятности IMAGE_OTHER
 async function replaceBackgroundWithGray(imageDataUrl) {
   try {
     // Парсим data URL
@@ -1487,6 +1488,42 @@ async function replaceBackgroundWithGray(imageDataUrl) {
     const metadata = await sharp(imageBuffer).metadata();
     const { width, height } = metadata;
     
+    // Более агрессивная обработка для уменьшения вероятности IMAGE_OTHER:
+    // 1. Немного уменьшаем разрешение (если большое)
+    // 2. Слегка изменяем контраст и яркость
+    // 3. Создаем серый фон
+    // 4. Накладываем обработанное изображение
+    
+    let processedBuffer = imageBuffer;
+    
+    // Если изображение большое - немного уменьшаем (но не слишком сильно)
+    const maxDimension = 2048;
+    if (width > maxDimension || height > maxDimension) {
+      const scale = Math.min(maxDimension / width, maxDimension / height);
+      processedBuffer = await sharp(imageBuffer)
+        .resize(Math.round(width * scale), Math.round(height * scale), {
+          fit: 'inside',
+          withoutEnlargement: true
+        })
+        .modulate({
+          brightness: 1.05, // Слегка увеличиваем яркость
+          saturation: 0.95, // Слегка уменьшаем насыщенность
+        })
+        .toBuffer();
+      
+      const resizedMetadata = await sharp(processedBuffer).metadata();
+      width = resizedMetadata.width;
+      height = resizedMetadata.height;
+    } else {
+      // Если размер нормальный - все равно немного изменяем параметры
+      processedBuffer = await sharp(imageBuffer)
+        .modulate({
+          brightness: 1.05,
+          saturation: 0.95,
+        })
+        .toBuffer();
+    }
+    
     // Создаем серый фон
     const grayBackground = sharp({
       create: {
@@ -1496,27 +1533,29 @@ async function replaceBackgroundWithGray(imageDataUrl) {
         background: { r: 128, g: 128, b: 128 } // Серый цвет RGB(128, 128, 128)
       }
     })
-    .jpeg({ quality: 95 });
+    .jpeg({ quality: 90 }); // Немного снижаем качество для уменьшения размера
     
-    // Накладываем оригинальное изображение поверх серого фона
-    // Используем composite для наложения изображения поверх фона
-    const processedImage = await grayBackground
+    // Накладываем обработанное изображение поверх серого фона
+    const finalImage = await grayBackground
       .composite([{
-        input: imageBuffer,
+        input: processedBuffer,
         blend: 'over' // Накладываем изображение поверх фона
       }])
-      .jpeg({ quality: 95 })
+      .jpeg({ quality: 90 })
       .toBuffer();
     
     // Конвертируем обратно в base64
-    const processedBase64 = processedImage.toString('base64');
+    const processedBase64 = finalImage.toString('base64');
     const processedDataUrl = `data:image/jpeg;base64,${processedBase64}`;
     
-    safeLog('Background replaced with gray', {
+    safeLog('Background replaced with gray (enhanced processing)', {
       originalSize: imageBuffer.length,
-      processedSize: processedImage.length,
-      width,
-      height
+      processedSize: finalImage.length,
+      originalWidth: metadata.width,
+      originalHeight: metadata.height,
+      finalWidth: width,
+      finalHeight: height,
+      sizeReduction: ((1 - finalImage.length / imageBuffer.length) * 100).toFixed(1) + '%'
     });
     
     return processedDataUrl;

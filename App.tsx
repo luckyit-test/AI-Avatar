@@ -736,6 +736,13 @@ function App() {
                         });
                     };
                     
+                    console.log(`[App] Using image for generation:`, {
+                        style,
+                        imageSource: imageToUse === intermediateImage ? 'INTERMEDIATE' : 'ORIGINAL',
+                        imageSize: imageToUse.length,
+                        imagePreview: imageToUse.substring(0, 100) + '...'
+                    });
+                    
                     const resultUrl = await generateImage(imageToUse, prompt, onStatusUpdate);
                     console.log(`[App] ✅ Successfully generated image for style: ${style}`);
                     console.log(`[App] Result URL length: ${resultUrl.length} chars`);
