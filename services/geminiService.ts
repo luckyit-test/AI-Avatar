@@ -533,6 +533,14 @@ export interface QueueJob {
  * Добавляет задачу генерации в очередь и возвращает jobId
  */
 export async function addGenerationToQueue(imageDataUrl: string, prompt: string): Promise<QueueJob> {
+  const isIntermediate = prompt.includes('Simple neutral gray background');
+  console.log('[addGenerationToQueue] Adding job to queue', {
+    isIntermediate,
+    promptLength: prompt.length,
+    promptPreview: prompt.substring(0, 100),
+    imageDataLength: imageDataUrl.length
+  });
+  
   try {
     const response = await fetch(`${API_BASE_URL}/generate-image`, {
       method: 'POST',
@@ -543,6 +551,13 @@ export async function addGenerationToQueue(imageDataUrl: string, prompt: string)
         imageData: imageDataUrl,
         prompt: prompt,
       }),
+    });
+    
+    console.log('[addGenerationToQueue] Response received', {
+      isIntermediate,
+      ok: response.ok,
+      status: response.status,
+      statusText: response.statusText
     });
 
     if (!response.ok) {
