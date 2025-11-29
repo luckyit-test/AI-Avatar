@@ -932,20 +932,53 @@ function App() {
                                     >
                                         <Icons.xCircle className="w-12 h-12 text-red-600 mb-4" />
                                         <p className="text-sm font-medium text-red-800 mb-2">Ошибка загрузки</p>
-                                        <p className="text-xs text-red-700 leading-relaxed">{imageValidationError}</p>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                // Открываем файловый диалог сразу, без задержек
-                                                if (fileInputRef.current) {
-                                                    fileInputRef.current.value = ''; // Сбрасываем предыдущий выбор
-                                                    fileInputRef.current.click();
-                                                }
-                                            }}
-                                            className="mt-4 px-4 py-2 text-sm font-medium text-white bg-gray-700 rounded-lg hover:bg-gray-800 transition-all duration-200 shadow-sm hover:shadow-md"
-                                        >
-                                            Выбрать другое изображение
-                                        </button>
+                                        <p className="text-xs text-red-700 leading-relaxed mb-4">{imageValidationError}</p>
+                                        
+                                        {/* Кнопки для диагностики */}
+                                        <div className="flex flex-col gap-2 w-full max-w-xs">
+                                            <button
+                                                onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    try {
+                                                        const logs = errorLogger.getLogsAsText();
+                                                        await navigator.clipboard.writeText(logs);
+                                                        alert('✅ Логи скопированы в буфер обмена!\n\nОтправьте их разработчику для диагностики.');
+                                                    } catch (e) {
+                                                        console.error('Failed to copy logs:', e);
+                                                        // Fallback: показываем логи в alert
+                                                        const logs = errorLogger.getLogsAsText();
+                                                        const preview = logs.substring(0, 2000) + (logs.length > 2000 ? '\n... (еще ' + (logs.length - 2000) + ' символов)' : '');
+                                                        alert('Логи (первые 2000 символов):\n\n' + preview);
+                                                    }
+                                                }}
+                                                className="px-4 py-2 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                                            >
+                                                📋 Скопировать логи для диагностики
+                                            </button>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    errorLogger.clearLogs();
+                                                    setImageValidationError(null);
+                                                }}
+                                                className="px-4 py-2 text-xs bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
+                                            >
+                                                Очистить и попробовать снова
+                                            </button>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    // Открываем файловый диалог сразу, без задержек
+                                                    if (fileInputRef.current) {
+                                                        fileInputRef.current.value = ''; // Сбрасываем предыдущий выбор
+                                                        fileInputRef.current.click();
+                                                    }
+                                                }}
+                                                className="px-4 py-2 text-xs font-medium text-white bg-gray-700 rounded hover:bg-gray-800 transition-colors"
+                                            >
+                                                Выбрать другое изображение
+                                            </button>
+                                        </div>
                                     </motion.div>
                                 )}
                                 {uploadedImage && (appState === 'image-uploaded' || appState === 'generating' || appState === 'results-shown') && !imageValidationError && !isValidatingImage && (
