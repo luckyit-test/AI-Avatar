@@ -398,7 +398,7 @@ function App() {
         };
     }, [isValidatingImage]);
 
-    const handleImageUpload = (file: File) => {
+    const handleImageUpload = async (file: File) => {
         // Детальное логирование для диагностики
         console.log('[App] File selected:', {
             name: file.name,
