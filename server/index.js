@@ -740,6 +740,17 @@ async function processJob(job) {
     // Передаем более понятное сообщение об ошибке в зависимости от типа
     let userFriendlyError = 'Не удалось сгенерировать изображение. Попробуйте позже.';
     
+    // Дополнительное логирование finishReason для промежуточных изображений
+    if (errorDetails.promptPreview?.includes('Simple neutral gray background')) {
+      safeLog('Intermediate image generation failed', {
+        jobId: job.id,
+        errorMessage,
+        errorDetails,
+        finishReason: lastError?.finishReason || 'unknown',
+        safetyRatings: lastError?.safetyRatings || []
+      });
+    }
+    
     if (errorMessage.includes('API ключа') || errorMessage.includes('api key') || errorMessage.includes('leaked')) {
       userFriendlyError = 'Ошибка конфигурации сервера. Обратитесь к администратору.';
     } else if (errorDetails.isImageOther) {
