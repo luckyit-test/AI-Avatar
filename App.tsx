@@ -382,6 +382,9 @@ function App() {
     const [genderOverride, setGenderOverride] = useState<'male' | 'female' | null>(null);
     const [selectedRole, setSelectedRole] = useState<typeof IT_ROLES[number]>('Разработчик');
     const [selectedCompany, setSelectedCompany] = useState<typeof COMPANY_TYPES[number]>('Стартап');
+    // Промежуточное изображение для стабильной генерации
+    const [intermediateImage, setIntermediateImage] = useState<string | null>(null);
+    const [isGeneratingIntermediate, setIsGeneratingIntermediate] = useState<boolean>(false);
     // Fixed settings per request: always High variability and maximum naturalness
     const variability: VariabilityLevel = 'high';
     const naturalLook: boolean = true;
@@ -640,67 +643,107 @@ function App() {
 
         setAppState('generating');
         
+        // Инициализируем статусы для 6 финальных портретов
         const initialImages: Record<string, GeneratedImage> = {};
         STYLES.forEach(style => {
             initialImages[style] = { status: 'pending' };
         });
         setGeneratedImages(initialImages);
 
-        // Генерируем все 6 стилей параллельно
-        const prompts = buildPromptsByContext(getEffectiveGender(), selectedRole, selectedCompany, variability, naturalLook);
-
-        const processStyle = async (style: string) => {
-            try {
-                const prompt = prompts[style];
+        try {
+            // ШАГ 1: Генерируем промежуточное изображение (если еще не кэшировано)
+            let imageToUse = uploadedImage;
+            
+            if (!intermediateImage) {
+                setIsGeneratingIntermediate(true);
+                console.log('[App] Generating intermediate image with simple prompt...');
                 
-                // Callback для обновления статуса в реальном времени
-                const onStatusUpdate = (status: QueueStatus) => {
-                    setGeneratedImages(prev => {
-                        if (status.status === 'queued') {
-                            return {
-                                ...prev,
-                                [style]: {
-                                    status: 'queued',
-                                    queuePosition: status.position,
-                                    estimatedWaitTime: status.estimatedWaitTime,
-                                },
-                            };
-                        } else if (status.status === 'processing') {
-                            return {
-                                ...prev,
-                                [style]: {
-                                    status: 'processing',
-                                    queuePosition: 0,
-                                    estimatedWaitTime: status.estimatedWaitTime,
-                                },
-                            };
-                        }
-                        return prev;
-                    });
-                };
+                // Простой промпт для промежуточного изображения
+                const intermediatePrompt = 'Simple neutral gray background. Keep the person unchanged.';
                 
-                const resultUrl = await generateImage(uploadedImage, prompt, onStatusUpdate);
-                setGeneratedImages(prev => ({
-                    ...prev,
-                    [style]: { status: 'done', url: resultUrl },
-                }));
-            } catch (err) {
-                const errorMessage = err instanceof Error ? err.message : "Произошла неизвестная ошибка.";
-                setGeneratedImages(prev => ({
-                    ...prev,
-                    [style]: { status: 'error', error: errorMessage },
-                }));
-                console.error(`Не удалось создать изображение для стиля ${style}:`, err);
+                try {
+                    const intermediateResult = await generateImage(uploadedImage, intermediatePrompt);
+                    setIntermediateImage(intermediateResult);
+                    imageToUse = intermediateResult;
+                    console.log('[App] Intermediate image generated successfully');
+                } catch (err) {
+                    console.error('[App] Failed to generate intermediate image, using original:', err);
+                    // Если промежуточное изображение не удалось - используем оригинал
+                    imageToUse = uploadedImage;
+                } finally {
+                    setIsGeneratingIntermediate(false);
+                }
+            } else {
+                // Используем кэшированное промежуточное изображение
+                imageToUse = intermediateImage;
+                console.log('[App] Using cached intermediate image');
             }
-        };
 
-        // Запускаем все 6 генераций одновременно
-        await Promise.all(STYLES.map(style => processStyle(style)));
-        setAppState('results-shown');
+            // ШАГ 2: Генерируем все 6 стилей параллельно на основе промежуточного изображения
+            const prompts = buildPromptsByContext(getEffectiveGender(), selectedRole, selectedCompany, variability, naturalLook);
+
+            const processStyle = async (style: string) => {
+                try {
+                    const prompt = prompts[style];
+                    
+                    // Callback для обновления статуса в реальном времени
+                    const onStatusUpdate = (status: QueueStatus) => {
+                        setGeneratedImages(prev => {
+                            if (status.status === 'queued') {
+                                return {
+                                    ...prev,
+                                    [style]: {
+                                        status: 'queued',
+                                        queuePosition: status.position,
+                                        estimatedWaitTime: status.estimatedWaitTime,
+                                    },
+                                };
+                            } else if (status.status === 'processing') {
+                                return {
+                                    ...prev,
+                                    [style]: {
+                                        status: 'processing',
+                                        queuePosition: 0,
+                                        estimatedWaitTime: status.estimatedWaitTime,
+                                    },
+                                };
+                            }
+                            return prev;
+                        });
+                    };
+                    
+                    const resultUrl = await generateImage(imageToUse, prompt, onStatusUpdate);
+                    setGeneratedImages(prev => ({
+                        ...prev,
+                        [style]: { status: 'done', url: resultUrl },
+                    }));
+                } catch (err) {
+                    const errorMessage = err instanceof Error ? err.message : "Произошла неизвестная ошибка.";
+                    setGeneratedImages(prev => ({
+                        ...prev,
+                        [style]: { status: 'error', error: errorMessage },
+                    }));
+                    console.error(`Не удалось создать изображение для стиля ${style}:`, err);
+                }
+            };
+
+            // Запускаем все 6 генераций одновременно
+            await Promise.all(STYLES.map(style => processStyle(style)));
+            setAppState('results-shown');
+        } catch (err) {
+            console.error('[App] Error in generation process:', err);
+            // Показываем общую ошибку
+            const errorMessage = err instanceof Error ? err.message : "Произошла ошибка при генерации.";
+            alert(`Ошибка: ${errorMessage}`);
+            setAppState('image-uploaded');
+        }
     };
 
     const handleRegenerateStyle = async (style: string) => {
-        if (!uploadedImage || generatedImages[style]?.status === 'pending' || generatedImages[style]?.status === 'queued' || generatedImages[style]?.status === 'processing') return;
+        // Используем промежуточное изображение если есть, иначе оригинал
+        const imageToUse = intermediateImage || uploadedImage;
+        
+        if (!imageToUse || generatedImages[style]?.status === 'pending' || generatedImages[style]?.status === 'queued' || generatedImages[style]?.status === 'processing') return;
         
         setGeneratedImages(prev => ({ ...prev, [style]: { status: 'pending' } }));
 
@@ -734,7 +777,7 @@ function App() {
                 });
             };
             
-            const resultUrl = await generateImage(uploadedImage, prompt, onStatusUpdate);
+            const resultUrl = await generateImage(imageToUse, prompt, onStatusUpdate);
             setGeneratedImages(prev => ({ ...prev, [style]: { status: 'done', url: resultUrl } }));
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : "Произошла неизвестная ошибка.";
@@ -751,6 +794,8 @@ function App() {
         setAppState('idle');
         setGenderOverride(null);
         setDetectedGender('unknown');
+        setIntermediateImage(null);
+        setIsGeneratingIntermediate(false);
     };
 
     const handleDownloadIndividualImage = (style: string) => {
@@ -1188,18 +1233,34 @@ function App() {
                                     </div>
                                 )}
                                  {appState === 'generating' && (
-                                    <button 
-                                        disabled 
-                                        className="inline-flex items-center justify-center rounded-lg text-sm font-medium w-full h-10 py-2 px-4 text-white opacity-70 cursor-not-allowed"
-                                        style={{
-                                            background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                                            boxShadow: '0 10px 15px -3px rgba(99, 102, 241, 0.3), 0 4px 6px -4px rgba(99, 102, 241, 0.3)',
-                                        }}
-                                    >
-                                        <Icons.spinner className="w-4 h-4 mr-2 animate-spin" />
-                                        Генерация...
-                                    </button>
-                                )}
+                                     <div className="w-full">
+                                         {isGeneratingIntermediate ? (
+                                             <button 
+                                                 disabled 
+                                                 className="inline-flex items-center justify-center rounded-lg text-sm font-medium w-full h-10 py-2 px-4 text-white opacity-70 cursor-not-allowed"
+                                                 style={{
+                                                     background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                                                     boxShadow: '0 10px 15px -3px rgba(99, 102, 241, 0.3), 0 4px 6px -4px rgba(99, 102, 241, 0.3)',
+                                                 }}
+                                             >
+                                                 <Icons.spinner className="w-4 h-4 mr-2 animate-spin" />
+                                                 Подготовка изображения...
+                                             </button>
+                                         ) : (
+                                             <button 
+                                                 disabled 
+                                                 className="inline-flex items-center justify-center rounded-lg text-sm font-medium w-full h-10 py-2 px-4 text-white opacity-70 cursor-not-allowed"
+                                                 style={{
+                                                     background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                                                     boxShadow: '0 10px 15px -3px rgba(99, 102, 241, 0.3), 0 4px 6px -4px rgba(99, 102, 241, 0.3)',
+                                                 }}
+                                             >
+                                                 <Icons.spinner className="w-4 h-4 mr-2 animate-spin" />
+                                                 Генерация портретов...
+                                             </button>
+                                         )}
+                                     </div>
+                                 )}
                                 {appState === 'results-shown' && (
                                      <div className="flex items-center gap-3">
                                         <button 
