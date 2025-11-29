@@ -520,14 +520,34 @@ async function processJob(job) {
           finishReason === 'RECITATION'
         );
         
-        // Для retriable ошибок - просто повторяем попытку с тем же промптом
-        if (isRetriableFinishReason && attempt < maxRetries) {
+        // Для IMAGE_OTHER даем больше попыток (API может ошибочно определять обычные фото как защищенные)
+        const maxRetriesForImageOther = 10; // Больше попыток для IMAGE_OTHER
+        const effectiveMaxRetries = isRetriableFinishReason ? maxRetriesForImageOther : maxRetries;
+        
+        // Для retriable ошибок - повторяем попытку с тем же промптом (или смягченным)
+        if (isRetriableFinishReason && attempt < effectiveMaxRetries) {
           const fullResponseStr = JSON.stringify(response).substring(0, 3000);
+          
+          // Смягчаем промпт на каждой попытке для IMAGE_OTHER
+          let promptToUse = job.prompt;
+          if (finishReason === 'IMAGE_OTHER' && attempt > 3) {
+            // После 3 попыток начинаем смягчать промпт
+            const softeningLevel = Math.min(attempt - 3, MAX_PROMPT_SOFTENING_LEVEL);
+            promptToUse = softenPrompt(job.originalPrompt || job.prompt, softeningLevel);
+            safeLog('Softening prompt for IMAGE_OTHER retry', { 
+              jobId: job.id,
+              attempt,
+              softeningLevel,
+              originalPromptLength: job.prompt.length,
+              softenedPromptLength: promptToUse.length
+            });
+          }
           
           safeLog('Image generation returned retriable finish reason, retrying', { 
             jobId: job.id,
             finishReason,
             attempt,
+            maxRetries: effectiveMaxRetries,
             textResponse: textResponse.substring(0, 500),
             fullTextResponse: textResponse,
             safetyRatings: safetyRatings.map(r => ({
@@ -537,9 +557,19 @@ async function processJob(job) {
             })),
             candidate: JSON.stringify(candidate).substring(0, 2000),
             fullResponse: fullResponseStr,
-            promptFeedback: response.promptFeedback ? JSON.stringify(response.promptFeedback).substring(0, 500) : null
+            promptFeedback: response.promptFeedback ? JSON.stringify(response.promptFeedback).substring(0, 500) : null,
+            usingSoftenedPrompt: promptToUse !== job.prompt
           });
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          
+          // Используем смягченный промпт для следующей попытки
+          if (promptToUse !== job.prompt) {
+            job.prompt = promptToUse;
+          }
+          
+          // Экспоненциальный backoff с jitter
+          const backoff = 1000 * Math.pow(1.5, attempt - 1);
+          const jitter = backoff * (0.5 + Math.random() * 0.5);
+          await new Promise(resolve => setTimeout(resolve, Math.min(backoff + jitter, 5000)));
           continue;
         }
         
@@ -652,12 +682,20 @@ async function processJob(job) {
       lastError: lastError ? (lastError instanceof Error ? lastError.message : String(lastError)) : null
     });
     
-    // Передаем более понятное сообщение об ошибке, если это ошибка API ключа
+    // Передаем более понятное сообщение об ошибке
     let userFriendlyError = 'Не удалось сгенерировать изображение. Попробуйте позже.';
     if (errorMessage.includes('API ключа') || errorMessage.includes('api key') || errorMessage.includes('leaked')) {
       userFriendlyError = 'Ошибка конфигурации сервера. Обратитесь к администратору.';
     } else if (errorMessage.includes('IMAGE_OTHER') || errorMessage.includes('finishReason')) {
-      userFriendlyError = 'Возможно, изображение содержит публичный или защищённый образ. Попробуйте другое фото.';
+      // Более понятное сообщение для IMAGE_OTHER
+      // API может ошибочно определять обычные фото как защищенные, поэтому даем более мягкое сообщение
+      userFriendlyError = 'Не удалось сгенерировать изображение. Это может произойти, если:\n' +
+        '• Фото слишком темное или размытое\n' +
+        '• Лицо плохо видно или закрыто\n' +
+        '• API временно недоступен\n\n' +
+        'Попробуйте:\n' +
+        '• Загрузить более четкое фото с хорошо видимым лицом\n' +
+        '• Подождать несколько минут и попробовать снова';
     }
     
     job.setError(new Error(userFriendlyError));
