@@ -623,7 +623,13 @@ export async function checkGenerationStatus(jobId: string): Promise<QueueStatus>
       const status = await response.json();
 
       if (status.status === 'error') {
-        console.warn('[checkGenerationStatus] Job error:', { jobId, error: status.error });
+        console.warn('[checkGenerationStatus] Job error:', { 
+          jobId, 
+          error: status.error,
+          errorDetails: status.errorDetails || 'no details',
+          finishReason: status.finishReason || 'unknown',
+          safetyRatings: status.safetyRatings || 'no ratings'
+        });
       }
 
       return status;

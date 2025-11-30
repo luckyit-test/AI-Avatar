@@ -88,6 +88,7 @@ class GenerationJob {
     this.completedAt = null;
     this.result = null;
     this.error = null;
+    this.errorDetails = null; // Детали ошибки: finishReason, safetyRatings и т.д.
     this.resolve = null;
     this.reject = null;
   }
@@ -612,6 +613,17 @@ async function processJob(job) {
         errorWithReason.finishReason = finishReason;
         errorWithReason.safetyRatings = safetyRatings;
         lastError = errorWithReason;
+        
+        // Сохраняем детали ошибки в job для передачи клиенту
+        job.errorDetails = {
+          finishReason,
+          safetyRatings: safetyRatings.map(r => ({
+            category: r.category,
+            probability: r.probability,
+            blocked: r.blocked
+          })),
+          textResponse: textResponse.substring(0, 500)
+        };
         
         safeLog('Image generation failed - text response instead of image', { 
           jobId: job.id,
