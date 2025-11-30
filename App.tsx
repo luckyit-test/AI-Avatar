@@ -777,7 +777,7 @@ function App() {
                     
                     console.log(`[App] Using image for generation:`, {
                         style,
-                        imageSource: isUsingIntermediate ? 'INTERMEDIATE' : 'ORIGINAL',
+                        imageSource: isUsingIntermediate ? 'INTERMEDIATE ✅' : 'ORIGINAL ⚠️',
                         imageSize: imageToUse.length,
                         imagePreview: imageToUse.substring(0, 100) + '...'
                     });
