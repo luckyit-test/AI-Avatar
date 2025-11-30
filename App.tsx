@@ -916,25 +916,14 @@ function App() {
                     const aggressiveIntermediatePrompt = 'Change background to gray. Keep person the same.';
                     console.log('[App] Reprocessing intermediate image with aggressive level 2');
                     
-                    // Используем функцию generateImage с агрессивным уровнем
-                    // Для этого нужно передать aggressiveLevel через специальный параметр
-                    // Временно используем прямое обращение к API
-                    const aggressiveIntermediateResult = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://newava.pro/api'}/generate-image`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            imageData: imageToUse,
-                            prompt: aggressiveIntermediatePrompt,
-                            aggressiveLevel: 2, // Агрессивный уровень обработки
-                        }),
-                    }).then(res => res.json()).then(result => {
-                        if (result.isProcessed && result.processedImage) {
-                            return result.processedImage;
-                        }
+                    // Используем addGenerationToQueue с агрессивным уровнем 2
+                    const aggressiveQueueJob = await addGenerationToQueue(imageToUse, aggressiveIntermediatePrompt, 2);
+                    
+                    if (!aggressiveQueueJob.processedImage) {
                         throw new Error('Failed to process intermediate image aggressively');
-                    });
+                    }
+                    
+                    const aggressiveIntermediateResult = aggressiveQueueJob.processedImage;
                     
                     console.log('[App] ========================================');
                     console.log('[App] ✅ Aggressively processed intermediate image generated!');
