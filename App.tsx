@@ -660,6 +660,7 @@ function App() {
         try {
             // ШАГ 1: Генерируем промежуточное изображение (если еще не кэшировано)
             let imageToUse = uploadedImage;
+            let isUsingIntermediate = false;
             
             if (!intermediateImage) {
                 setIsGeneratingIntermediate(true);
@@ -682,6 +683,7 @@ function App() {
                     console.log('[App] ========================================');
                     setIntermediateImage(intermediateResult);
                     imageToUse = intermediateResult;
+                    isUsingIntermediate = true;
                 } catch (err) {
                     console.error('[App] ========================================');
                     console.error('[App] ❌ FAILED to generate intermediate image!');
@@ -692,19 +694,24 @@ function App() {
                     console.error('[App] ========================================');
                     // Если промежуточное изображение не удалось - используем оригинал
                     imageToUse = uploadedImage;
+                    isUsingIntermediate = false;
                 } finally {
                     setIsGeneratingIntermediate(false);
                 }
             } else {
                 // Используем кэшированное промежуточное изображение
                 imageToUse = intermediateImage;
+                isUsingIntermediate = true;
                 console.log('[App] Using cached intermediate image (size:', intermediateImage.length, 'chars)');
             }
             
             console.log('[App] ========================================');
             console.log('[App] STEP 2: Generating 6 final portraits');
             console.log('[App] Using image size:', imageToUse.length, 'chars');
-            console.log('[App] Image source:', imageToUse === intermediateImage ? 'INTERMEDIATE' : 'ORIGINAL');
+            console.log('[App] Image source:', isUsingIntermediate ? 'INTERMEDIATE ✅' : 'ORIGINAL ⚠️');
+            if (!isUsingIntermediate) {
+                console.warn('[App] ⚠️ WARNING: Using ORIGINAL image instead of intermediate! This may cause generation failures.');
+            }
             console.log('[App] ========================================');
 
             // ШАГ 2: Генерируем все 6 стилей параллельно на основе промежуточного изображения
@@ -770,7 +777,7 @@ function App() {
                     
                     console.log(`[App] Using image for generation:`, {
                         style,
-                        imageSource: imageToUse === intermediateImage ? 'INTERMEDIATE' : 'ORIGINAL',
+                        imageSource: isUsingIntermediate ? 'INTERMEDIATE' : 'ORIGINAL',
                         imageSize: imageToUse.length,
                         imagePreview: imageToUse.substring(0, 100) + '...'
                     });
