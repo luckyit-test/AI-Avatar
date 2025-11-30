@@ -880,7 +880,14 @@ async function processJob(job) {
         '• Загрузить другое фото';
     }
     
-    job.setError(new Error(userFriendlyError));
+    // Сохраняем детали ошибки если есть
+    const errorDetailsToSave = lastError?.finishReason ? {
+      finishReason: lastError.finishReason,
+      safetyRatings: lastError.safetyRatings || [],
+      textResponse: lastError.textResponse || null
+    } : null;
+    
+    job.setError(new Error(userFriendlyError), errorDetailsToSave);
     
     // Сохраняем завершенную задачу с ошибкой
     completedJobs.set(job.id, job);
