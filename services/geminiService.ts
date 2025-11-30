@@ -627,9 +627,18 @@ export async function checkGenerationStatus(jobId: string): Promise<QueueStatus>
           jobId, 
           error: status.error,
           errorDetails: status.errorDetails || 'no details',
-          finishReason: status.finishReason || 'unknown',
-          safetyRatings: status.safetyRatings || 'no ratings'
+          finishReason: status.finishReason || status.errorDetails?.finishReason || 'unknown',
+          safetyRatings: status.safetyRatings || status.errorDetails?.safetyRatings || 'no ratings'
         });
+        
+        // Дополнительное логирование для диагностики
+        if (status.finishReason || status.errorDetails?.finishReason) {
+          console.error('[checkGenerationStatus] Error details:', {
+            finishReason: status.finishReason || status.errorDetails?.finishReason,
+            safetyRatings: status.safetyRatings || status.errorDetails?.safetyRatings,
+            fullErrorDetails: JSON.stringify(status.errorDetails || {}, null, 2)
+          });
+        }
       }
 
       return status;
