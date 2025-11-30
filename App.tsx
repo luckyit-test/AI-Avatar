@@ -308,7 +308,7 @@ function buildPromptsByContext(
     
     const constraints = gender === 'female'
         ? 'No facial hair. No beard. No mustache.'
-        : 'Preserve facial hair exactly as shown in the original photo. If there is no facial hair (no beard, no mustache) in the original photo, do not add any facial hair. Do not remove facial hair if it exists in the original. Grooming should be neat and professional, maintaining the original facial hair pattern.';
+        : 'CRITICAL: Preserve facial hair EXACTLY as shown in the original photo. If the person is clean-shaven (no beard, no mustache) in the original photo, the generated portrait MUST also be clean-shaven with NO facial hair. If the person has a beard or mustache in the original photo, preserve it exactly. Do NOT add facial hair if there is none in the original. Do NOT remove facial hair if it exists in the original. The facial hair pattern, style, and grooming must match the original photo precisely.';
     const roleDesc = describeRole(role);
     const companyDesc = describeCompany(company);
     const attire = attireByContext(gender, role, company);
@@ -327,7 +327,12 @@ function buildPromptsByContext(
             ? 'CRITICAL: This is a FEMALE person. Generate a FEMALE portrait. The person must be clearly female with feminine features. Do NOT generate a male portrait.'
             : '';
         
-        return `Create a professional, high-resolution ${gender === 'female' ? 'female ' : gender === 'male' ? 'male ' : ''}business portrait of the person in the photo, suitable for a LinkedIn profile. ${genderInstruction} The style should be ${tone}. ${constraints} Attire: ${attire}. Lighting: ${v.lighting}. Lens & crop: ${v.lens}. Background: ${v.background}. Color grade: ${v.grade}. Pose: ${v.pose}. ${naturality} ${skinDetail} Each image in this batch must show a distinct outfit and feel; avoid repeating garments across images. Context: ${roleDesc}; ${companyDesc}.`;
+        // Дополнительная инструкция о сохранении растительности на лице для мужчин
+        const facialHairPreservation = gender === 'male'
+            ? 'CRITICAL: Maintain the exact same facial hair as in the original photo. If clean-shaven in original, generate clean-shaven. If bearded in original, generate with the same beard style. Do not change facial hair.'
+            : '';
+        
+        return `Create a professional, high-resolution ${gender === 'female' ? 'female ' : gender === 'male' ? 'male ' : ''}business portrait of the person in the photo, suitable for a LinkedIn profile. ${genderInstruction} ${facialHairPreservation} The style should be ${tone}. ${constraints} Attire: ${attire}. Lighting: ${v.lighting}. Lens & crop: ${v.lens}. Background: ${v.background}. Color grade: ${v.grade}. Pose: ${v.pose}. ${naturality} ${skinDetail} Each image in this batch must show a distinct outfit and feel; avoid repeating garments across images. Context: ${roleDesc}; ${companyDesc}.`;
     };
     return {
         'Классический': base('classic and formal, with traditional corporate lighting and attire against a simple, neutral background'),
