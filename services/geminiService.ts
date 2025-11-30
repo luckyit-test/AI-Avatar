@@ -533,10 +533,11 @@ export interface QueueJob {
 /**
  * Добавляет задачу генерации в очередь и возвращает jobId
  */
-export async function addGenerationToQueue(imageDataUrl: string, prompt: string): Promise<QueueJob> {
+export async function addGenerationToQueue(imageDataUrl: string, prompt: string, aggressiveLevel?: number): Promise<QueueJob> {
   const isIntermediate = prompt.includes('Change background to gray') || prompt.includes('Simple neutral gray background');
   console.log('[addGenerationToQueue] Adding job to queue', {
     isIntermediate,
+    aggressiveLevel: aggressiveLevel || 1,
     promptLength: prompt.length,
     promptPreview: prompt.substring(0, 100),
     imageDataLength: imageDataUrl.length
@@ -551,6 +552,7 @@ export async function addGenerationToQueue(imageDataUrl: string, prompt: string)
       body: JSON.stringify({
         imageData: imageDataUrl,
         prompt: prompt,
+        aggressiveLevel: aggressiveLevel || 1, // Уровень обработки: 1 = обычный, 2+ = агрессивный
       }),
     });
     

@@ -4,7 +4,7 @@
 */
 import React, { useState, ChangeEvent, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { generateImage, evaluateImage, type DetectedGender, type QueueStatus, type ImageEvaluationResult } from './services/geminiService';
+import { generateImage, evaluateImage, addGenerationToQueue, type DetectedGender, type QueueStatus, type ImageEvaluationResult } from './services/geminiService';
 import { createAlbumPage } from './lib/albumUtils';
 import { compressImage, shouldCompressImage } from './lib/imageCompression';
 import { errorLogger } from './lib/errorLogger';
@@ -905,6 +905,73 @@ function App() {
                 console.log('[App] ========================================');
                 console.log('[App] Retry attempts completed');
                 console.log('[App] ========================================');
+            } else if (successfulPortraits.length === 0 && failedStyles.length > 0) {
+                // Если ВСЕ портреты провалились - обрабатываем промежуточное изображение агрессивнее и повторяем попытку
+                console.log('[App] ========================================');
+                console.log('[App] STEP 4: All portraits failed. Processing intermediate image more aggressively');
+                console.log('[App] ========================================');
+                
+                try {
+                    // Обрабатываем промежуточное изображение более агрессивно (level 2)
+                    const aggressiveIntermediatePrompt = 'Change background to gray. Keep person the same.';
+                    console.log('[App] Reprocessing intermediate image with aggressive level 2');
+                    
+                    // Используем функцию generateImage с агрессивным уровнем
+                    // Для этого нужно передать aggressiveLevel через специальный параметр
+                    // Временно используем прямое обращение к API
+                    const aggressiveIntermediateResult = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://newava.pro/api'}/generate-image`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            imageData: imageToUse,
+                            prompt: aggressiveIntermediatePrompt,
+                            aggressiveLevel: 2, // Агрессивный уровень обработки
+                        }),
+                    }).then(res => res.json()).then(result => {
+                        if (result.isProcessed && result.processedImage) {
+                            return result.processedImage;
+                        }
+                        throw new Error('Failed to process intermediate image aggressively');
+                    });
+                    
+                    console.log('[App] ========================================');
+                    console.log('[App] ✅ Aggressively processed intermediate image generated!');
+                    console.log('[App] Aggressive intermediate image size:', aggressiveIntermediateResult.length, 'chars');
+                    console.log('[App] ========================================');
+                    
+                    // Обновляем промежуточное изображение
+                    setIntermediateImage(aggressiveIntermediateResult);
+                    imageToUse = aggressiveIntermediateResult;
+                    isUsingIntermediate = true;
+                    
+                    // Повторяем попытку генерации всех 6 портретов с новым промежуточным изображением
+                    console.log('[App] ========================================');
+                    console.log('[App] STEP 5: Retrying all 6 portraits with aggressively processed intermediate image');
+                    console.log('[App] ========================================');
+                    
+                    const retryResults = await Promise.all(STYLES.map(style => processStyle(style)));
+                    
+                    // Обновляем результаты
+                    retryResults.forEach(result => {
+                        if (result.success && result.url) {
+                            setGeneratedImages(prev => ({
+                                ...prev,
+                                [result.style]: { status: 'done', url: result.url },
+                            }));
+                            console.log(`[App] ✅ Retry successful for style: ${result.style}`);
+                        } else {
+                            console.log(`[App] ❌ Retry failed for style: ${result.style}`);
+                        }
+                    });
+                    
+                } catch (err) {
+                    console.error('[App] ========================================');
+                    console.error('[App] ❌ FAILED to reprocess intermediate image aggressively!');
+                    console.error('[App] Error:', err);
+                    console.error('[App] ========================================');
+                }
             } else {
                 console.log('[App] No retry needed:', {
                     successfulCount: successfulPortraits.length,

@@ -1496,6 +1496,103 @@ if (!GEMINI_API_KEY_ANALYSIS) {
 const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY_GENERATION }); // Для генерации
 const genAIAnalysis = new GoogleGenAI({ apiKey: GEMINI_API_KEY_ANALYSIS }); // Для анализа
 
+// Функция для дополнительной агрессивной обработки промежуточного изображения
+// Используется если первая попытка генерации провалилась
+async function processIntermediateImageAggressively(imageDataUrl, level = 2) {
+  try {
+    const match = imageDataUrl.match(/^data:(image\/\w+);base64,(.*)$/);
+    if (!match) {
+      throw new Error('Invalid image data URL format');
+    }
+    
+    const [, mimeType, base64Data] = match;
+    const imageBuffer = Buffer.from(base64Data, 'base64');
+    const metadata = await sharp(imageBuffer).metadata();
+    let { width, height } = metadata;
+    
+    // Уровень 2: более агрессивная обработка
+    // - Уменьшаем до 800px максимум
+    // - Сильно снижаем качество JPEG (до 75)
+    // - Более сильное размытие и изменение параметров
+    const maxDimension = level === 2 ? 800 : 600; // Уровень 2: 800px, уровень 3: 600px
+    const jpegQuality = level === 2 ? 75 : 65;
+    const blurAmount = level === 2 ? 0.5 : 0.8;
+    
+    let processedBuffer = imageBuffer;
+    
+    if (width > maxDimension || height > maxDimension) {
+      const scale = Math.min(maxDimension / width, maxDimension / height);
+      processedBuffer = await sharp(imageBuffer)
+        .resize(Math.round(width * scale), Math.round(height * scale), {
+          fit: 'inside',
+          withoutEnlargement: true
+        })
+        .modulate({
+          brightness: 1.10, // Еще больше увеличиваем яркость
+          saturation: 0.85, // Еще больше уменьшаем насыщенность
+          hue: 0
+        })
+        .sharpen({ sigma: 0.3 })
+        .blur(blurAmount) // Более сильное размытие
+        .toBuffer();
+      
+      const resizedMetadata = await sharp(processedBuffer).metadata();
+      width = resizedMetadata.width;
+      height = resizedMetadata.height;
+    } else {
+      processedBuffer = await sharp(imageBuffer)
+        .modulate({
+          brightness: 1.10,
+          saturation: 0.85,
+          hue: 0
+        })
+        .sharpen({ sigma: 0.3 })
+        .blur(blurAmount)
+        .toBuffer();
+    }
+    
+    // Создаем серый фон
+    const grayBackground = sharp({
+      create: {
+        width: width,
+        height: height,
+        channels: 3,
+        background: { r: 128, g: 128, b: 128 }
+      }
+    }).jpeg({ quality: jpegQuality });
+    
+    // Накладываем обработанное изображение
+    const finalImage = await grayBackground
+      .composite([{
+        input: processedBuffer,
+        blend: 'over'
+      }])
+      .jpeg({ quality: jpegQuality })
+      .toBuffer();
+    
+    const processedBase64 = finalImage.toString('base64');
+    const processedDataUrl = `data:image/jpeg;base64,${processedBase64}`;
+    
+    safeLog('Aggressively processed intermediate image', {
+      level,
+      originalSize: imageBuffer.length,
+      processedSize: finalImage.length,
+      originalWidth: metadata.width,
+      originalHeight: metadata.height,
+      finalWidth: width,
+      finalHeight: height,
+      jpegQuality,
+      sizeReduction: ((1 - finalImage.length / imageBuffer.length) * 100).toFixed(1) + '%'
+    });
+    
+    return processedDataUrl;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    safeLog('Failed to aggressively process intermediate image', { level, error: errorMessage });
+    throw new Error(`Не удалось обработать изображение: ${errorMessage}`);
+  }
+}
+
 // Функция для программной замены фона на серый (для промежуточного изображения)
 // Используем более агрессивную обработку для уменьшения вероятности IMAGE_OTHER
 async function replaceBackgroundWithGray(imageDataUrl) {
@@ -1513,16 +1610,17 @@ async function replaceBackgroundWithGray(imageDataUrl) {
     const metadata = await sharp(imageBuffer).metadata();
     let { width, height } = metadata;
     
-    // Более агрессивная обработка для уменьшения вероятности IMAGE_OTHER:
-    // 1. Немного уменьшаем разрешение (если большое)
-    // 2. Слегка изменяем контраст и яркость
-    // 3. Создаем серый фон
-    // 4. Накладываем обработанное изображение
+    // Максимально агрессивная обработка для уменьшения вероятности IMAGE_OTHER:
+    // 1. Сильно уменьшаем разрешение (до 1024px максимум)
+    // 2. Изменяем контраст, яркость, насыщенность
+    // 3. Применяем легкое размытие для "смягчения" изображения
+    // 4. Создаем серый фон
+    // 5. Накладываем обработанное изображение с низким качеством JPEG
     
     let processedBuffer = imageBuffer;
     
-    // Если изображение большое - немного уменьшаем (но не слишком сильно)
-    const maxDimension = 2048;
+    // Агрессивно уменьшаем размер - максимум 1024px по большей стороне
+    const maxDimension = 1024;
     if (width > maxDimension || height > maxDimension) {
       const scale = Math.min(maxDimension / width, maxDimension / height);
       processedBuffer = await sharp(imageBuffer)
@@ -1531,21 +1629,27 @@ async function replaceBackgroundWithGray(imageDataUrl) {
           withoutEnlargement: true
         })
         .modulate({
-          brightness: 1.05, // Слегка увеличиваем яркость
-          saturation: 0.95, // Слегка уменьшаем насыщенность
+          brightness: 1.08, // Увеличиваем яркость
+          saturation: 0.90, // Уменьшаем насыщенность
+          hue: 0
         })
+        .sharpen({ sigma: 0.5 }) // Легкая резкость для компенсации уменьшения
+        .blur(0.3) // Легкое размытие для "смягчения"
         .toBuffer();
       
       const resizedMetadata = await sharp(processedBuffer).metadata();
       width = resizedMetadata.width;
       height = resizedMetadata.height;
     } else {
-      // Если размер нормальный - все равно немного изменяем параметры
+      // Если размер нормальный - все равно применяем обработку
       processedBuffer = await sharp(imageBuffer)
         .modulate({
-          brightness: 1.05,
-          saturation: 0.95,
+          brightness: 1.08,
+          saturation: 0.90,
+          hue: 0
         })
+        .sharpen({ sigma: 0.5 })
+        .blur(0.3)
         .toBuffer();
     }
     
@@ -1694,8 +1798,20 @@ app.post(`${API_PREFIX}/generate-image`, async (req, res) => {
     // Для промежуточных изображений - обрабатываем программно, без API
     if (isIntermediatePrompt) {
       try {
-        safeLog('Processing intermediate image with background replacement', { clientIp });
-        const processedImage = await replaceBackgroundWithGray(imageData);
+        // Проверяем, нужна ли агрессивная обработка (level 2)
+        const aggressiveLevel = req.body.aggressiveLevel || 1; // По умолчанию уровень 1
+        
+        safeLog('Processing intermediate image with background replacement', { 
+          clientIp, 
+          aggressiveLevel 
+        });
+        
+        let processedImage;
+        if (aggressiveLevel === 1) {
+          processedImage = await replaceBackgroundWithGray(imageData);
+        } else {
+          processedImage = await processIntermediateImageAggressively(imageData, aggressiveLevel);
+        }
         
         // Возвращаем обработанное изображение сразу, без очереди
         return res.json({
