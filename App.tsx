@@ -737,10 +737,16 @@ function App() {
             // Собираем результаты напрямую из промисов, а не из состояния React
             const firstStageResults: Array<{ style: string; success: boolean; url?: string; error?: string }> = [];
 
-            const processStyle = async (style: string): Promise<{ style: string; success: boolean; url?: string; error?: string }> => {
+            const processStyle = async (style: string, retryCount = 0): Promise<{ style: string; success: boolean; url?: string; error?: string }> => {
+                const maxRetriesForJobNotFound = 2; // Максимум 2 повторные попытки при "Задача не найдена"
+                
                 try {
                     const prompt = prompts[style];
-                    console.log(`[App] Starting generation for style: ${style}`);
+                    if (retryCount === 0) {
+                        console.log(`[App] Starting generation for style: ${style}`);
+                    } else {
+                        console.log(`[App] Retrying generation for style: ${style} (attempt ${retryCount + 1})`);
+                    }
                     console.log(`[App] Prompt length: ${prompt.length} chars`);
                     console.log(`[App] Prompt preview: ${prompt.substring(0, 150)}...`);
                     // Проверяем наличие инструкций по бороде/усам в каждом промпте
@@ -792,10 +798,26 @@ function App() {
                     return { style, success: true, url: resultUrl };
                 } catch (err) {
                     const errorMessage = err instanceof Error ? err.message : "Произошла неизвестная ошибка.";
+                    const isJobNotFoundError = errorMessage.includes('Задача не найдена') || errorMessage.includes('не найдена');
+                    
+                    // Если это ошибка "Задача не найдена" и еще есть попытки - пробуем снова
+                    if (isJobNotFoundError && retryCount < maxRetriesForJobNotFound) {
+                        console.warn(`[App] ⚠️ Job not found for style: ${style}. Retrying... (attempt ${retryCount + 1}/${maxRetriesForJobNotFound})`);
+                        // Небольшая задержка перед повторной попыткой
+                        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+                        // Рекурсивно вызываем функцию с увеличенным счетчиком попыток
+                        return processStyle(style, retryCount + 1);
+                    }
+                    
                     console.error(`[App] ❌ Failed to generate image for style: ${style}`);
                     console.error(`[App] Error:`, err);
                     console.error(`[App] Error message:`, errorMessage);
                     console.error(`[App] Error stack:`, err instanceof Error ? err.stack : 'no stack');
+                    
+                    if (isJobNotFoundError) {
+                        console.error(`[App] ⚠️ Job not found error after ${retryCount + 1} attempts. This may indicate server issues.`);
+                    }
+                    
                     setGeneratedImages(prev => ({
                         ...prev,
                         [style]: { status: 'error', error: errorMessage },
