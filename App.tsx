@@ -308,7 +308,7 @@ function buildPromptsByContext(
     
     const constraints = gender === 'female'
         ? 'No facial hair. No beard. No mustache.'
-        : 'CRITICAL: Preserve facial hair EXACTLY as shown in the original photo. If the person is clean-shaven (no beard, no mustache) in the original photo, the generated portrait MUST also be clean-shaven with NO facial hair. If the person has a beard or mustache in the original photo, preserve it exactly. Do NOT add facial hair if there is none in the original. Do NOT remove facial hair if it exists in the original. The facial hair pattern, style, and grooming must match the original photo precisely.';
+        : 'CRITICAL: Preserve facial hair EXACTLY as shown in the original photo - including style, length, thickness, and density. If the person is clean-shaven (no beard, no mustache) in the original photo, the generated portrait MUST also be clean-shaven with NO facial hair. If the person has a short, subtle beard in the original, the generated portrait MUST have the SAME short, subtle beard - do NOT make it longer, thicker, or more prominent. If the person has short, barely visible mustache in the original, preserve it as short and barely visible - do NOT make it longer or more noticeable. The facial hair length, thickness, density, style, and grooming must match the original photo EXACTLY. Do NOT enhance, lengthen, thicken, or make facial hair more prominent than in the original. Do NOT add facial hair if there is none in the original. Do NOT remove facial hair if it exists in the original.';
     const roleDesc = describeRole(role);
     const companyDesc = describeCompany(company);
     const attire = attireByContext(gender, role, company);
@@ -329,7 +329,7 @@ function buildPromptsByContext(
         
         // Дополнительная инструкция о сохранении растительности на лице для мужчин
         const facialHairPreservation = gender === 'male'
-            ? 'CRITICAL: Maintain the exact same facial hair as in the original photo. If clean-shaven in original, generate clean-shaven. If bearded in original, generate with the same beard style. Do not change facial hair.'
+            ? 'CRITICAL: Maintain the EXACT same facial hair style, length, thickness, and density as in the original photo. If the original shows a short, subtle beard - keep it short and subtle. If the original shows barely visible mustache - keep it barely visible. If clean-shaven in original, generate clean-shaven. Do NOT lengthen, thicken, or enhance facial hair beyond what is visible in the original photo. The facial hair must look identical to the original in terms of length, fullness, and prominence.'
             : '';
         
         return `Create a professional, high-resolution ${gender === 'female' ? 'female ' : gender === 'male' ? 'male ' : ''}business portrait of the person in the photo, suitable for a LinkedIn profile. ${genderInstruction} ${facialHairPreservation} The style should be ${tone}. ${constraints} Attire: ${attire}. Lighting: ${v.lighting}. Lens & crop: ${v.lens}. Background: ${v.background}. Color grade: ${v.grade}. Pose: ${v.pose}. ${naturality} ${skinDetail} Each image in this batch must show a distinct outfit and feel; avoid repeating garments across images. Context: ${roleDesc}; ${companyDesc}.`;
