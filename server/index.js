@@ -1311,6 +1311,9 @@ function getJobStatus(jobId) {
       return {
         status: 'error',
         error: completedJob.error.message || 'Ошибка генерации',
+        errorDetails: completedJob.errorDetails || null,
+        finishReason: completedJob.errorDetails?.finishReason || null,
+        safetyRatings: completedJob.errorDetails?.safetyRatings || null,
       };
     }
     return {
@@ -1329,6 +1332,9 @@ function getJobStatus(jobId) {
         return {
           status: 'error',
           error: completedJob.error.message || 'Ошибка генерации',
+          errorDetails: completedJob.errorDetails || null,
+          finishReason: completedJob.errorDetails?.finishReason || null,
+          safetyRatings: completedJob.errorDetails?.safetyRatings || null,
         };
       }
       return {
