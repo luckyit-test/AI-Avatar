@@ -308,7 +308,7 @@ function buildPromptsByContext(
     
     const constraints = gender === 'female'
         ? 'No facial hair. No beard. No mustache.'
-        : 'CRITICAL: Preserve facial hair EXACTLY as shown in the original photo - including style, length, thickness, and density. If the person is clean-shaven (no beard, no mustache) in the original photo, the generated portrait MUST also be clean-shaven with NO facial hair. If the person has a short, subtle beard in the original, the generated portrait MUST have the SAME short, subtle beard - do NOT make it longer, thicker, or more prominent. If the person has short, barely visible mustache in the original, preserve it as short and barely visible - do NOT make it longer or more noticeable. The facial hair length, thickness, density, style, and grooming must match the original photo EXACTLY. Do NOT enhance, lengthen, thicken, or make facial hair more prominent than in the original. Do NOT add facial hair if there is none in the original. Do NOT remove facial hair if it exists in the original.';
+        : 'CRITICAL FACIAL HAIR PRESERVATION: You MUST preserve the facial hair EXACTLY as shown in the original photo - including style, length, thickness, density, and visibility. If the person is clean-shaven (no beard, no mustache) in the original photo, the generated portrait MUST also be clean-shaven with NO facial hair. If the person has a short, subtle, barely visible beard in the original, the generated portrait MUST have the EXACT SAME short, subtle, barely visible beard - do NOT make it longer, thicker, denser, or more prominent. If the person has short, barely visible mustache in the original, preserve it as EXACTLY short and barely visible - do NOT make it longer, thicker, or more noticeable. The facial hair length, thickness, density, style, visibility, and grooming must match the original photo EXACTLY. Do NOT enhance, lengthen, thicken, densify, or make facial hair more prominent than in the original. Do NOT add facial hair if there is none in the original. Do NOT remove facial hair if it exists in the original. The beard and mustache must look IDENTICAL to the original in every aspect - length, fullness, thickness, and visibility.';
     const roleDesc = describeRole(role);
     const companyDesc = describeCompany(company);
     const attire = attireByContext(gender, role, company);
@@ -329,10 +329,12 @@ function buildPromptsByContext(
         
         // Дополнительная инструкция о сохранении растительности на лице для мужчин
         const facialHairPreservation = gender === 'male'
-            ? 'CRITICAL: Maintain the EXACT same facial hair style, length, thickness, and density as in the original photo. If the original shows a short, subtle beard - keep it short and subtle. If the original shows barely visible mustache - keep it barely visible. If clean-shaven in original, generate clean-shaven. Do NOT lengthen, thicken, or enhance facial hair beyond what is visible in the original photo. The facial hair must look identical to the original in terms of length, fullness, and prominence.'
+            ? 'CRITICAL FACIAL HAIR RULE: Maintain the EXACT same facial hair style, length, thickness, density, and visibility as in the original photo. If the original shows a short, subtle, barely visible beard - keep it EXACTLY short, subtle, and barely visible. If the original shows barely visible mustache - keep it EXACTLY barely visible. If clean-shaven in original, generate clean-shaven. Do NOT lengthen, thicken, densify, or enhance facial hair beyond what is visible in the original photo. Do NOT make the beard or mustache more prominent, longer, or thicker than in the original. The facial hair must look IDENTICAL to the original in terms of length, fullness, thickness, density, and prominence. This is a CRITICAL requirement - any deviation will result in an incorrect portrait.'
             : '';
         
-        return `Create a professional, high-resolution ${gender === 'female' ? 'female ' : gender === 'male' ? 'male ' : ''}business portrait of the person in the photo, suitable for a LinkedIn profile. ${genderInstruction} ${facialHairPreservation} The style should be ${tone}. ${constraints} Attire: ${attire}. Lighting: ${v.lighting}. Lens & crop: ${v.lens}. Background: ${v.background}. Color grade: ${v.grade}. Pose: ${v.pose}. ${naturality} ${skinDetail} Each image in this batch must show a distinct outfit and feel; avoid repeating garments across images. Context: ${roleDesc}; ${companyDesc}.`;
+        const fullPrompt = `Create a professional, high-resolution ${gender === 'female' ? 'female ' : gender === 'male' ? 'male ' : ''}business portrait of the person in the photo, suitable for a LinkedIn profile. ${genderInstruction} ${facialHairPreservation} The style should be ${tone}. ${constraints} Attire: ${attire}. Lighting: ${v.lighting}. Lens & crop: ${v.lens}. Background: ${v.background}. Color grade: ${v.grade}. Pose: ${v.pose}. ${naturality} ${skinDetail} Each image in this batch must show a distinct outfit and feel; avoid repeating garments across images. Context: ${roleDesc}; ${companyDesc}.`;
+        
+        return fullPrompt;
     };
     return {
         'Классический': base('classic and formal, with traditional corporate lighting and attire against a simple, neutral background'),
@@ -708,6 +710,23 @@ function App() {
             // ШАГ 2: Генерируем все 6 стилей параллельно на основе промежуточного изображения
             const prompts = buildPromptsByContext(getEffectiveGender(), selectedRole, selectedCompany, variability, naturalLook);
 
+            // Логируем информацию о промптах для проверки инструкций по бороде/усам
+            console.log('[App] ========================================');
+            console.log('[App] PROMPT VERIFICATION: Facial hair preservation instructions');
+            console.log('[App] ========================================');
+            const samplePrompt = prompts[Object.keys(prompts)[0]];
+            const hasFacialHairInstructions = samplePrompt.includes('CRITICAL FACIAL HAIR') || 
+                                             samplePrompt.includes('facial hair EXACTLY') ||
+                                             samplePrompt.includes('Do NOT lengthen, thicken');
+            console.log(`[App] ✅ Facial hair preservation instructions found: ${hasFacialHairInstructions}`);
+            if (hasFacialHairInstructions) {
+                const facialHairMatch = samplePrompt.match(/CRITICAL.*?facial hair.*?(?=\.|Attire|The style)/is);
+                if (facialHairMatch) {
+                    console.log(`[App] Facial hair instruction preview: ${facialHairMatch[0].substring(0, 200)}...`);
+                }
+            }
+            console.log('[App] ========================================');
+
             // Собираем результаты напрямую из промисов, а не из состояния React
             const firstStageResults: Array<{ style: string; success: boolean; url?: string; error?: string }> = [];
 
@@ -717,6 +736,11 @@ function App() {
                     console.log(`[App] Starting generation for style: ${style}`);
                     console.log(`[App] Prompt length: ${prompt.length} chars`);
                     console.log(`[App] Prompt preview: ${prompt.substring(0, 150)}...`);
+                    // Проверяем наличие инструкций по бороде/усам в каждом промпте
+                    const hasFacialHairInPrompt = prompt.includes('CRITICAL FACIAL HAIR') || 
+                                                 prompt.includes('facial hair EXACTLY') ||
+                                                 prompt.includes('Do NOT lengthen, thicken');
+                    console.log(`[App] ✅ Facial hair preservation in prompt: ${hasFacialHairInPrompt}`);
                     
                     // Callback для обновления статуса в реальном времени
                     const onStatusUpdate = (status: QueueStatus) => {
@@ -812,6 +836,11 @@ function App() {
                         const prompt = prompts[style];
                         console.log(`[App] Retrying generation for style: ${style}`);
                         console.log(`[App] Using successful portrait as source (from style: ${successfulPortraits[0].style})`);
+                        // Проверяем наличие инструкций по бороде/усам в промпте для retry
+                        const hasFacialHairInRetryPrompt = prompt.includes('CRITICAL FACIAL HAIR') || 
+                                                          prompt.includes('facial hair EXACTLY') ||
+                                                          prompt.includes('Do NOT lengthen, thicken');
+                        console.log(`[App] ✅ Facial hair preservation in retry prompt: ${hasFacialHairInRetryPrompt}`);
                         
                         // Обновляем статус на "processing" для повторной попытки
                         setGeneratedImages(prev => ({
