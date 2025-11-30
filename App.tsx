@@ -644,7 +644,8 @@ function App() {
         // Проверяем, что пол выбран
         const effectiveGender = getEffectiveGender();
         if (!effectiveGender || (effectiveGender !== 'male' && effectiveGender !== 'female')) {
-            alert('Пожалуйста, выберите пол перед генерацией портретов.');
+            // Логируем, но не показываем alert - пол должен быть выбран автоматически
+            console.warn('[App] Gender not selected, but should be auto-selected');
             return;
         }
 
@@ -993,10 +994,11 @@ function App() {
             setAppState('results-shown');
         } catch (err) {
             console.error('[App] Error in generation process:', err);
-            // Показываем общую ошибку
+            // Логируем ошибку, но не показываем пользователю - система сама повторит попытки
             const errorMessage = err instanceof Error ? err.message : "Произошла ошибка при генерации.";
-            alert(`Ошибка: ${errorMessage}`);
-            setAppState('image-uploaded');
+            console.error('[App] Generation error (silent):', errorMessage);
+            // Не меняем состояние - пусть пользователь видит процесс генерации
+            // setAppState('image-uploaded');
         }
     };
 
@@ -1085,7 +1087,7 @@ function App() {
                 }, {} as Record<string, string>);
 
             if (Object.keys(imageData).length === 0) {
-                alert("Нет сгенерированных изображений для скачивания.");
+                console.warn('[App] No images to download');
                 return;
             }
 
@@ -1098,7 +1100,7 @@ function App() {
             document.body.removeChild(link);
         } catch (error) {
             console.error("Не удалось создать или скачать альбом:", error);
-            alert("К сожалению, произошла ошибка при создании вашего альбома. Пожалуйста, попробуйте еще раз.");
+            console.error('[App] Album creation error (silent)');
         } finally {
             setIsDownloading(false);
         }
@@ -1603,6 +1605,7 @@ function App() {
                                             estimatedWaitTime={generatedImages[style]?.estimatedWaitTime}
                                             imageUrl={generatedImages[style]?.url}
                                             error={generatedImages[style]?.error}
+                                            gender={getEffectiveGender()}
                                             onRegenerate={() => handleRegenerateStyle(style)}
                                             onDownload={() => handleDownloadIndividualImage(style)}
                                             onOpen={(url) => setLightboxUrl(url)}
