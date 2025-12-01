@@ -158,7 +158,9 @@ const ImageCard: React.FC<ImageCardProps> = ({
                     borderWidth: '2px',
                 };
             case 'processing':
-                // Специальный стиль для всех мужских портретов во время генерации
+            case 'error':
+                // Специальный стиль для всех мужских портретов во время генерации,
+                // для пользователя ошибка выглядит как продолжение процесса
                 if (gender === 'male') {
                     return {
                         background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
@@ -200,8 +202,9 @@ const ImageCard: React.FC<ImageCardProps> = ({
         >
             <div className="w-full aspect-square relative overflow-hidden">
                 <AnimatePresence mode="wait">
-                    {/* Специальный режим: видеофон для мужских портретов во время генерации */}
-                    {status === 'processing' && gender === 'male' && STYLE_VIDEO_MAP[caption] && (
+                    {/* Специальный режим: видеофон для мужских портретов во время генерации
+                        (ошибки тоже считаем частью процесса, чтобы не было визуальных рывков) */}
+                    {(status === 'processing' || status === 'error') && gender === 'male' && STYLE_VIDEO_MAP[caption] && (
                         <motion.div
                             key={`processing-video-${caption}`}
                             initial={{ opacity: 0 }}
@@ -216,9 +219,10 @@ const ImageCard: React.FC<ImageCardProps> = ({
                         </motion.div>
                     )}
 
-                    {/* Общий скелетон/очередь/обычная генерация для остальных случаев (включая временные ошибки) */}
+                    {/* Общий скелетон/очередь/обычная генерация для остальных случаев (включая временные ошибки)
+                        Для мужских видео-карточек этот блок не активируется, чтобы не мигать белым. */}
                     {(status === 'pending' || status === 'queued' || status === 'processing' || status === 'error') &&
-                        !(status === 'processing' && gender === 'male' && STYLE_VIDEO_MAP[caption]) && (
+                        !((status === 'processing' || status === 'error') && gender === 'male' && STYLE_VIDEO_MAP[caption]) && (
                         <motion.div
                             key={status}
                             initial={{ opacity: 0 }}
