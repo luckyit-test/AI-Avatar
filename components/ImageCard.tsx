@@ -125,26 +125,34 @@ const ProcessingVideoBackground: React.FC<{
 
                 {/* Три анимированных круга */}
                 <div className="flex gap-2 mt-1">
-                    {[0, 1, 2].map((i) => (
-                        <motion.div
-                            key={i}
-                            className="w-2.5 h-2.5 rounded-full bg-sky-400"
-                            animate={{
-                                scale: [1, 1.25, 1],
-                                opacity: [0.5, 1, 0.5],
-                                y: [0, -3, 0],
-                            }}
-                            transition={{
-                                duration: 1.1,
-                                repeat: Infinity,
-                                delay: i * 0.2,
-                                ease: 'easeInOut',
-                            }}
-                            style={{
-                                boxShadow: '0 0 10px rgba(56, 189, 248, 0.9)',
-                            }}
-                        />
-                    ))}
+                    {[0, 1, 2].map((i) => {
+                        const isMale = gender === 'male';
+                        const dotColorClass = isMale ? 'bg-sky-400' : 'bg-rose-400';
+                        const shadowColor = isMale
+                            ? '0 0 10px rgba(56, 189, 248, 0.9)'
+                            : '0 0 10px rgba(244, 114, 182, 0.9)';
+
+                        return (
+                            <motion.div
+                                key={i}
+                                className={`w-2.5 h-2.5 rounded-full ${dotColorClass}`}
+                                animate={{
+                                    scale: [1, 1.25, 1],
+                                    opacity: [0.5, 1, 0.5],
+                                    y: [0, -3, 0],
+                                }}
+                                transition={{
+                                    duration: 1.1,
+                                    repeat: Infinity,
+                                    delay: i * 0.2,
+                                    ease: 'easeInOut',
+                                }}
+                                style={{
+                                    boxShadow: shadowColor,
+                                }}
+                            />
+                        );
+                    })}
                 </div>
             </div>
         </div>
