@@ -156,103 +156,375 @@ const ImageCard: React.FC<ImageCardProps> = ({
                                     <>
                                         {/* Специальная анимация для "Классический" портрет для мужчин */}
                                         {caption === 'Классический' && gender === 'male' ? (
-                                            <div className="w-full h-full flex items-center justify-center relative">
-                                                {/* Голубой фон */}
-                                                <div className="absolute inset-0 bg-gradient-to-br from-blue-100 via-blue-50 to-blue-200" />
+                                            <div className="w-full h-full flex items-center justify-center relative overflow-hidden">
+                                                {/* Улучшенный градиентный фон с анимацией */}
+                                                <motion.div 
+                                                    className="absolute inset-0 bg-gradient-to-br from-blue-50 via-blue-100 to-indigo-100"
+                                                    animate={{
+                                                        background: [
+                                                            'linear-gradient(135deg, #eff6ff 0%, #dbeafe 50%, #bfdbfe 100%)',
+                                                            'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 50%, #93c5fd 100%)',
+                                                            'linear-gradient(135deg, #eff6ff 0%, #dbeafe 50%, #bfdbfe 100%)',
+                                                        ],
+                                                    }}
+                                                    transition={{
+                                                        duration: 4,
+                                                        repeat: Infinity,
+                                                        ease: "easeInOut"
+                                                    }}
+                                                />
                                                 
-                                                {/* Силуэт мужчины */}
+                                                {/* Декоративные световые эффекты */}
+                                                <motion.div
+                                                    className="absolute top-1/4 left-1/4 w-32 h-32 bg-blue-200 rounded-full blur-3xl opacity-30"
+                                                    animate={{
+                                                        scale: [1, 1.2, 1],
+                                                        opacity: [0.2, 0.4, 0.2],
+                                                    }}
+                                                    transition={{
+                                                        duration: 3,
+                                                        repeat: Infinity,
+                                                        ease: "easeInOut"
+                                                    }}
+                                                />
+                                                <motion.div
+                                                    className="absolute bottom-1/4 right-1/4 w-40 h-40 bg-indigo-200 rounded-full blur-3xl opacity-20"
+                                                    animate={{
+                                                        scale: [1.2, 1, 1.2],
+                                                        opacity: [0.15, 0.3, 0.15],
+                                                    }}
+                                                    transition={{
+                                                        duration: 4,
+                                                        repeat: Infinity,
+                                                        ease: "easeInOut",
+                                                        delay: 0.5
+                                                    }}
+                                                />
+                                                
+                                                {/* Основной контейнер портрета с эффектом дыхания */}
                                                 <motion.div
                                                     className="relative z-10"
-                                                    initial={{ opacity: 0, scale: 0.8 }}
-                                                    animate={{ opacity: 1, scale: 1 }}
-                                                    transition={{ duration: 0.5 }}
+                                                    initial={{ opacity: 0, scale: 0.9 }}
+                                                    animate={{ 
+                                                        opacity: 1, 
+                                                        scale: [1, 1.02, 1],
+                                                    }}
+                                                    transition={{ 
+                                                        opacity: { duration: 0.6 },
+                                                        scale: {
+                                                            duration: 3,
+                                                            repeat: Infinity,
+                                                            ease: "easeInOut"
+                                                        }
+                                                    }}
                                                 >
-                                                    {/* Голова и тело */}
-                                                    <svg width="120" height="160" viewBox="0 0 120 160" className="text-blue-600">
-                                                        {/* Голова (круг) */}
-                                                        <circle cx="60" cy="30" r="20" fill="currentColor" opacity="0.3" />
-                                                        {/* Тело (прямоугольник) */}
-                                                        <rect x="40" y="50" width="40" height="80" fill="currentColor" opacity="0.3" />
+                                                    {/* Детализированный SVG портрет с эффектом рисования */}
+                                                    <svg 
+                                                        width="140" 
+                                                        height="180" 
+                                                        viewBox="0 0 140 180" 
+                                                        className="text-blue-700"
+                                                        style={{ filter: 'drop-shadow(0 4px 12px rgba(59, 130, 246, 0.3))' }}
+                                                    >
+                                                        <defs>
+                                                            <linearGradient id="portraitGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                                                <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.8" />
+                                                                <stop offset="100%" stopColor="#1e40af" stopOpacity="0.6" />
+                                                            </linearGradient>
+                                                            <filter id="glow">
+                                                                <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                                                                <feMerge>
+                                                                    <feMergeNode in="coloredBlur"/>
+                                                                    <feMergeNode in="SourceGraphic"/>
+                                                                </feMerge>
+                                                            </filter>
+                                                        </defs>
+                                                        
+                                                        {/* Голова - с анимацией появления */}
+                                                        <motion.circle
+                                                            cx="70"
+                                                            cy="35"
+                                                            r="22"
+                                                            fill="url(#portraitGradient)"
+                                                            filter="url(#glow)"
+                                                            initial={{ opacity: 0, scale: 0.8 }}
+                                                            animate={{ 
+                                                                opacity: [0, 0.8, 0.8, 0.8],
+                                                                scale: [0.8, 1, 1.02, 1]
+                                                            }}
+                                                            transition={{
+                                                                opacity: { duration: 0.6, delay: 0.2 },
+                                                                scale: { 
+                                                                    duration: 0.8, 
+                                                                    delay: 0.2,
+                                                                    repeat: Infinity,
+                                                                    repeatDelay: 2.5,
+                                                                    ease: "easeOut"
+                                                                }
+                                                            }}
+                                                        />
+                                                        
+                                                        {/* Плечи и верхняя часть костюма */}
+                                                        <motion.path
+                                                            d="M 45 60 Q 45 55 50 57 L 90 57 Q 95 55 95 60 L 95 75 L 45 75 Z"
+                                                            fill="url(#portraitGradient)"
+                                                            filter="url(#glow)"
+                                                            initial={{ opacity: 0, scaleY: 0.7 }}
+                                                            animate={{ 
+                                                                opacity: [0, 0.7, 0.7, 0.7],
+                                                                scaleY: [0.7, 1, 1.01, 1]
+                                                            }}
+                                                            transition={{
+                                                                opacity: { duration: 0.5, delay: 0.9 },
+                                                                scaleY: { 
+                                                                    duration: 0.7, 
+                                                                    delay: 0.9,
+                                                                    repeat: Infinity,
+                                                                    repeatDelay: 2.5,
+                                                                    ease: "easeOut"
+                                                                }
+                                                            }}
+                                                        />
+                                                        
+                                                        {/* Тело костюма */}
+                                                        <motion.rect
+                                                            x="50"
+                                                            y="75"
+                                                            width="40"
+                                                            height="70"
+                                                            rx="3"
+                                                            fill="url(#portraitGradient)"
+                                                            filter="url(#glow)"
+                                                            initial={{ opacity: 0, scaleY: 0.6 }}
+                                                            animate={{ 
+                                                                opacity: [0, 0.6, 0.6, 0.6],
+                                                                scaleY: [0.6, 1, 1.01, 1]
+                                                            }}
+                                                            transition={{
+                                                                opacity: { duration: 0.6, delay: 1.4 },
+                                                                scaleY: { 
+                                                                    duration: 0.8, 
+                                                                    delay: 1.4,
+                                                                    repeat: Infinity,
+                                                                    repeatDelay: 2.5,
+                                                                    ease: "easeOut"
+                                                                }
+                                                            }}
+                                                        />
+                                                        
                                                         {/* Ноги */}
-                                                        <rect x="45" y="130" width="12" height="30" fill="currentColor" opacity="0.3" />
-                                                        <rect x="63" y="130" width="12" height="30" fill="currentColor" opacity="0.3" />
+                                                        <motion.rect
+                                                            x="55"
+                                                            y="145"
+                                                            width="14"
+                                                            height="35"
+                                                            rx="2"
+                                                            fill="url(#portraitGradient)"
+                                                            filter="url(#glow)"
+                                                            initial={{ opacity: 0, scaleY: 0.5 }}
+                                                            animate={{ 
+                                                                opacity: [0, 0.5, 0.5, 0.5],
+                                                                scaleY: [0.5, 1, 1.01, 1]
+                                                            }}
+                                                            transition={{
+                                                                opacity: { duration: 0.5, delay: 2.0 },
+                                                                scaleY: { 
+                                                                    duration: 0.6, 
+                                                                    delay: 2.0,
+                                                                    repeat: Infinity,
+                                                                    repeatDelay: 2.5,
+                                                                    ease: "easeOut"
+                                                                }
+                                                            }}
+                                                        />
+                                                        <motion.rect
+                                                            x="71"
+                                                            y="145"
+                                                            width="14"
+                                                            height="35"
+                                                            rx="2"
+                                                            fill="url(#portraitGradient)"
+                                                            filter="url(#glow)"
+                                                            initial={{ opacity: 0, scaleY: 0.5 }}
+                                                            animate={{ 
+                                                                opacity: [0, 0.5, 0.5, 0.5],
+                                                                scaleY: [0.5, 1, 1.01, 1]
+                                                            }}
+                                                            transition={{
+                                                                opacity: { duration: 0.5, delay: 2.2 },
+                                                                scaleY: { 
+                                                                    duration: 0.6, 
+                                                                    delay: 2.2,
+                                                                    repeat: Infinity,
+                                                                    repeatDelay: 2.5,
+                                                                    ease: "easeOut"
+                                                                }
+                                                            }}
+                                                        />
                                                     </svg>
                                                     
-                                                    {/* Анимация сборки: шляпа */}
+                                                    {/* Шляпа - с плавной анимацией появления */}
                                                     <motion.div
-                                                        className="absolute top-0 left-1/2 -translate-x-1/2"
-                                                        initial={{ y: -30, opacity: 0, rotate: -15 }}
-                                                        animate={{ y: 0, opacity: 1, rotate: 0 }}
-                                                        transition={{ 
-                                                            delay: 0.5,
-                                                            duration: 0.6,
-                                                            type: "spring",
-                                                            stiffness: 200
+                                                        className="absolute top-[-8px] left-1/2 -translate-x-1/2"
+                                                        initial={{ y: -25, opacity: 0, rotate: -12, scale: 0.8 }}
+                                                        animate={{ 
+                                                            y: [0, -3, 0],
+                                                            opacity: [0, 1, 1],
+                                                            rotate: [0, -2, 0],
+                                                            scale: [1, 1.05, 1]
                                                         }}
+                                                        transition={{ 
+                                                            y: { duration: 2.5, repeat: Infinity, ease: "easeInOut", delay: 0.5 },
+                                                            opacity: { duration: 0.8, delay: 0.5 },
+                                                            rotate: { duration: 2.5, repeat: Infinity, ease: "easeInOut", delay: 0.5 },
+                                                            scale: { duration: 2.5, repeat: Infinity, ease: "easeInOut", delay: 0.5 },
+                                                            repeat: Infinity,
+                                                            repeatDelay: 0.5
+                                                        }}
+                                                        style={{ filter: 'drop-shadow(0 2px 8px rgba(59, 130, 246, 0.4))' }}
                                                     >
-                                                        <svg width="50" height="30" viewBox="0 0 50 30" className="text-blue-700">
-                                                            <path d="M10 25 Q25 5 40 25 L40 30 L10 30 Z" fill="currentColor" opacity="0.6" />
+                                                        <svg width="56" height="34" viewBox="0 0 56 34" className="text-blue-800">
+                                                            <defs>
+                                                                <linearGradient id="hatGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                                                    <stop offset="0%" stopColor="#1e40af" stopOpacity="0.9" />
+                                                                    <stop offset="100%" stopColor="#1e3a8a" stopOpacity="0.7" />
+                                                                </linearGradient>
+                                                            </defs>
+                                                            <path 
+                                                                d="M12 28 Q28 8 44 28 L44 34 L12 34 Z" 
+                                                                fill="url(#hatGradient)"
+                                                                style={{ filter: 'drop-shadow(0 2px 4px rgba(30, 64, 175, 0.3))' }}
+                                                            />
                                                         </svg>
                                                     </motion.div>
                                                     
-                                                    {/* Анимация сборки: усы */}
+                                                    {/* Усы - с анимацией рисования */}
                                                     <motion.div
-                                                        className="absolute top-[45px] left-1/2 -translate-x-1/2"
-                                                        initial={{ x: -20, opacity: 0 }}
-                                                        animate={{ x: 0, opacity: 1 }}
+                                                        className="absolute top-[50px] left-1/2 -translate-x-1/2"
+                                                        initial={{ x: -25, opacity: 0, scaleX: 0 }}
+                                                        animate={{ 
+                                                            x: [0, 2, 0],
+                                                            opacity: [0, 1, 1],
+                                                            scaleX: [0, 1, 1]
+                                                        }}
                                                         transition={{ 
-                                                            delay: 1.2,
-                                                            duration: 0.5,
-                                                            type: "spring"
+                                                            x: { duration: 2, repeat: Infinity, ease: "easeInOut", delay: 1.2 },
+                                                            opacity: { duration: 0.6, delay: 1.2 },
+                                                            scaleX: { duration: 0.5, delay: 1.2 },
+                                                            repeat: Infinity,
+                                                            repeatDelay: 1.8
                                                         }}
                                                     >
-                                                        <svg width="40" height="8" viewBox="0 0 40 8" className="text-blue-800">
-                                                            <path d="M5 4 Q15 2 20 4 Q25 6 35 4" stroke="currentColor" strokeWidth="2" fill="none" opacity="0.7" />
+                                                        <svg width="44" height="10" viewBox="0 0 44 10" className="text-blue-900">
+                                                            <motion.path 
+                                                                d="M6 5 Q16 2.5 22 5 Q28 7.5 38 5" 
+                                                                stroke="currentColor" 
+                                                                strokeWidth="2.5" 
+                                                                fill="none"
+                                                                strokeLinecap="round"
+                                                                initial={{ pathLength: 0, opacity: 0 }}
+                                                                animate={{ 
+                                                                    pathLength: [0, 1, 1],
+                                                                    opacity: [0, 0.9, 0.9]
+                                                                }}
+                                                                transition={{
+                                                                    pathLength: { duration: 0.6, delay: 1.2, repeat: Infinity, repeatDelay: 1.8 },
+                                                                    opacity: { duration: 0.4, delay: 1.2 }
+                                                                }}
+                                                                style={{ filter: 'drop-shadow(0 1px 3px rgba(30, 58, 138, 0.4))' }}
+                                                            />
                                                         </svg>
                                                     </motion.div>
                                                     
-                                                    {/* Анимация сборки: галстук */}
+                                                    {/* Галстук - с плавной анимацией */}
                                                     <motion.div
-                                                        className="absolute top-[70px] left-1/2 -translate-x-1/2"
-                                                        initial={{ y: -20, opacity: 0, scale: 0.5 }}
-                                                        animate={{ y: 0, opacity: 1, scale: 1 }}
-                                                        transition={{ 
-                                                            delay: 1.8,
-                                                            duration: 0.6,
-                                                            type: "spring"
+                                                        className="absolute top-[78px] left-1/2 -translate-x-1/2"
+                                                        initial={{ y: -18, opacity: 0, scale: 0.4 }}
+                                                        animate={{ 
+                                                            y: [0, -2, 0],
+                                                            opacity: [0, 1, 1],
+                                                            scale: [1, 1.05, 1]
                                                         }}
+                                                        transition={{ 
+                                                            y: { duration: 2, repeat: Infinity, ease: "easeInOut", delay: 1.8 },
+                                                            opacity: { duration: 0.7, delay: 1.8 },
+                                                            scale: { duration: 2, repeat: Infinity, ease: "easeInOut", delay: 1.8 },
+                                                            repeat: Infinity,
+                                                            repeatDelay: 1.2
+                                                        }}
+                                                        style={{ filter: 'drop-shadow(0 2px 6px rgba(59, 130, 246, 0.35))' }}
                                                     >
-                                                        <svg width="12" height="40" viewBox="0 0 12 40" className="text-blue-700">
-                                                            <path d="M6 0 L8 15 L6 40 L4 15 Z" fill="currentColor" opacity="0.6" />
+                                                        <svg width="14" height="45" viewBox="0 0 14 45" className="text-blue-700">
+                                                            <defs>
+                                                                <linearGradient id="tieGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                                                    <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.8" />
+                                                                    <stop offset="50%" stopColor="#2563eb" stopOpacity="0.7" />
+                                                                    <stop offset="100%" stopColor="#1e40af" stopOpacity="0.6" />
+                                                                </linearGradient>
+                                                            </defs>
+                                                            <path 
+                                                                d="M7 0 L9 18 L7 45 L5 18 Z" 
+                                                                fill="url(#tieGradient)"
+                                                            />
                                                         </svg>
                                                     </motion.div>
                                                     
-                                                    {/* Анимация сборки: пиджак (плечи) */}
+                                                    {/* Пиджак (плечи) - с эффектом расширения */}
                                                     <motion.div
-                                                        className="absolute top-[55px] left-1/2 -translate-x-1/2"
-                                                        initial={{ scaleX: 0 }}
-                                                        animate={{ scaleX: 1 }}
+                                                        className="absolute top-[62px] left-1/2 -translate-x-1/2"
+                                                        initial={{ scaleX: 0, opacity: 0 }}
+                                                        animate={{ 
+                                                            scaleX: [0, 1, 1],
+                                                            opacity: [0, 0.6, 0.6]
+                                                        }}
                                                         transition={{ 
-                                                            delay: 2.4,
-                                                            duration: 0.5
+                                                            scaleX: { duration: 0.6, delay: 2.4, repeat: Infinity, repeatDelay: 1.6 },
+                                                            opacity: { duration: 0.5, delay: 2.4 },
+                                                            repeat: Infinity,
+                                                            repeatDelay: 1.6
                                                         }}
                                                     >
-                                                        <svg width="60" height="20" viewBox="0 0 60 20" className="text-blue-600">
-                                                            <rect x="0" y="0" width="60" height="20" rx="5" fill="currentColor" opacity="0.4" />
+                                                        <svg width="65" height="22" viewBox="0 0 65 22" className="text-blue-600">
+                                                            <rect 
+                                                                x="0" 
+                                                                y="0" 
+                                                                width="65" 
+                                                                height="22" 
+                                                                rx="6" 
+                                                                fill="currentColor" 
+                                                                opacity="0.5"
+                                                                style={{ filter: 'drop-shadow(0 2px 4px rgba(59, 130, 246, 0.25))' }}
+                                                            />
                                                         </svg>
                                                     </motion.div>
                                                 </motion.div>
                                                 
-                                                {/* Текст "Генерация..." */}
+                                                {/* Текст "Генерация..." с улучшенной анимацией */}
                                                 <motion.div
                                                     className="absolute bottom-8 left-0 right-0 text-center z-20"
-                                                    initial={{ opacity: 0 }}
-                                                    animate={{ opacity: 1 }}
-                                                    transition={{ delay: 0.3 }}
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ 
+                                                        opacity: [0, 1, 1],
+                                                        y: [10, 0, 0]
+                                                    }}
+                                                    transition={{ 
+                                                        opacity: { duration: 0.5, delay: 0.3 },
+                                                        y: { duration: 0.5, delay: 0.3 }
+                                                    }}
                                                 >
-                                                    <p className="text-sm font-semibold text-blue-900 mb-1">
+                                                    <motion.p 
+                                                        className="text-sm font-semibold text-blue-900 mb-1"
+                                                        animate={{
+                                                            opacity: [0.8, 1, 0.8]
+                                                        }}
+                                                        transition={{
+                                                            duration: 2,
+                                                            repeat: Infinity,
+                                                            ease: "easeInOut"
+                                                        }}
+                                                    >
                                                         Генерация...
-                                                    </p>
+                                                    </motion.p>
                                                     {estimatedWaitTime !== undefined && estimatedWaitTime > 0 && (
                                                         <p className="text-xs text-blue-700">
                                                             Осталось ~{formatWaitTime(estimatedWaitTime)}
@@ -260,20 +532,25 @@ const ImageCard: React.FC<ImageCardProps> = ({
                                                     )}
                                                 </motion.div>
                                                 
-                                                {/* Пульсирующие точки */}
-                                                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1 z-20">
+                                                {/* Улучшенные пульсирующие точки */}
+                                                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
                                                     {[0, 1, 2].map((i) => (
                                                         <motion.div
                                                             key={i}
-                                                            className="w-2 h-2 bg-blue-500 rounded-full"
+                                                            className="w-2.5 h-2.5 bg-blue-500 rounded-full"
                                                             animate={{
-                                                                scale: [1, 1.2, 1],
-                                                                opacity: [0.5, 1, 0.5],
+                                                                scale: [1, 1.3, 1],
+                                                                opacity: [0.4, 1, 0.4],
+                                                                y: [0, -3, 0]
                                                             }}
                                                             transition={{
-                                                                duration: 1,
+                                                                duration: 1.2,
                                                                 repeat: Infinity,
-                                                                delay: i * 0.2,
+                                                                delay: i * 0.25,
+                                                                ease: "easeInOut"
+                                                            }}
+                                                            style={{ 
+                                                                boxShadow: '0 0 8px rgba(59, 130, 246, 0.6)'
                                                             }}
                                                         />
                                                     ))}
