@@ -56,8 +56,15 @@ const ProcessingVideoBackground: React.FC<{
         if (!video) return;
 
         const handleTimeUpdate = () => {
-            if (video.currentTime >= 4) {
-                video.currentTime = 0;
+            // как только подходим к концу фрагмента, мягко перескакиваем в начало,
+            // чтобы избежать чёрного кадра на стыке
+            if (video.currentTime >= 3.95) {
+                video.currentTime = 0.01;
+                if (video.paused) {
+                    void video.play().catch(() => {
+                        // игнорируем возможные ошибки автоплея
+                    });
+                }
             }
         };
 
@@ -85,7 +92,6 @@ const ProcessingVideoBackground: React.FC<{
                 muted
                 playsInline
                 autoPlay
-                loop
                 preload="auto"
             />
 
