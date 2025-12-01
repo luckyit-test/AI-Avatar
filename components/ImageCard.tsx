@@ -152,8 +152,8 @@ const ImageCard: React.FC<ImageCardProps> = ({
                     borderWidth: '2px',
                 };
             case 'processing':
-                // Специальный стиль для "Классический" портрет для мужчин
-                if (caption === 'Классический' && gender === 'male') {
+                // Специальный стиль для всех мужских портретов во время генерации
+                if (gender === 'male') {
                     return {
                         background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
                         borderColor: '#93c5fd',
@@ -200,7 +200,25 @@ const ImageCard: React.FC<ImageCardProps> = ({
         >
             <div className="w-full aspect-square relative overflow-hidden">
                 <AnimatePresence mode="wait">
-                    {(status === 'pending' || status === 'queued' || status === 'processing') && (
+                    {/* Специальный режим: видеофон для мужских портретов во время генерации */}
+                    {status === 'processing' && gender === 'male' && STYLE_VIDEO_MAP[caption] && (
+                        <motion.div
+                            key={`processing-video-${caption}`}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0"
+                        >
+                            <ProcessingVideoBackground
+                                styleName={caption}
+                                estimatedWaitTime={estimatedWaitTime}
+                            />
+                        </motion.div>
+                    )}
+
+                    {/* Общий скелетон/очередь/обычная генерация для остальных случаев */}
+                    {(status === 'pending' || status === 'queued' || status === 'processing') &&
+                        !(status === 'processing' && gender === 'male' && STYLE_VIDEO_MAP[caption]) && (
                         <motion.div
                             key={status}
                             initial={{ opacity: 0 }}
@@ -374,11 +392,11 @@ const ImageCard: React.FC<ImageCardProps> = ({
                 className="p-4 border-t transition-colors duration-200"
                 style={{
                     borderColor: status === 'queued' ? '#bae6fd' :
-                                status === 'processing' ? (caption === 'Классический' && gender === 'male' ? '#93c5fd' : '#fcd34d') :
+                                status === 'processing' ? (gender === 'male' ? '#93c5fd' : '#fcd34d') :
                                 status === 'error' ? '#fca5a5' :
                                 '#e5e7eb',
                     background: status === 'queued' ? 'rgba(239, 246, 255, 0.8)' :
-                               status === 'processing' ? (caption === 'Классический' && gender === 'male' ? 'rgba(219, 234, 254, 0.8)' : 'rgba(254, 243, 199, 0.8)') :
+                               status === 'processing' ? (gender === 'male' ? 'rgba(219, 234, 254, 0.8)' : 'rgba(254, 243, 199, 0.8)') :
                                status === 'error' ? 'rgba(254, 226, 226, 0.8)' :
                                '#ffffff',
                 }}
@@ -387,7 +405,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
                     className="font-semibold text-center truncate text-sm"
                     style={{
                         color: status === 'queued' ? '#1e3a8a' :
-                               status === 'processing' ? (caption === 'Классический' && gender === 'male' ? '#1e40af' : '#78350f') :
+                               status === 'processing' ? (gender === 'male' ? '#1e40af' : '#78350f') :
                                status === 'error' ? '#991b1b' :
                                '#1f2937',
                     }}
