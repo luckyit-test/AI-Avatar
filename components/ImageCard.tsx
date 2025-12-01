@@ -35,7 +35,7 @@ function formatWaitTime(ms: number): string {
     return `${minutes} мин ${remainingSeconds} сек`;
 }
 
-const STYLE_VIDEO_MAP: Record<string, string> = {
+const STYLE_VIDEO_MAP_MALE: Record<string, string> = {
     'Классический': '/videos/001.mp4',
     'Современный': '/videos/002.mp4',
     'Креативный': '/videos/003.mp4',
@@ -44,11 +44,26 @@ const STYLE_VIDEO_MAP: Record<string, string> = {
     'Уверенный': '/videos/006.mp4',
 };
 
+const STYLE_VIDEO_MAP_FEMALE: Record<string, string> = {
+    'Классический': '/videos/w001.mp4',
+    'Современный': '/videos/w002.mp4',
+    'Креативный': '/videos/w003.mp4',
+    'Технологичный': '/videos/w004.mp4',
+    'Дружелюбный': '/videos/w005.mp4',
+    'Уверенный': '/videos/w006.mp4',
+};
+
 const ProcessingVideoBackground: React.FC<{
     styleName: string;
     estimatedWaitTime?: number;
-}> = ({ styleName, estimatedWaitTime }) => {
-    const videoSrc = STYLE_VIDEO_MAP[styleName];
+    gender?: 'male' | 'female' | null;
+}> = ({ styleName, estimatedWaitTime, gender }) => {
+    const videoSrc =
+        gender === 'male'
+            ? STYLE_VIDEO_MAP_MALE[styleName]
+            : gender === 'female'
+            ? STYLE_VIDEO_MAP_FEMALE[styleName]
+            : undefined;
     const videoRef = React.useRef<HTMLVideoElement | null>(null);
 
     React.useEffect(() => {
@@ -159,12 +174,19 @@ const ImageCard: React.FC<ImageCardProps> = ({
                 };
             case 'processing':
             case 'error':
-                // Специальный стиль для всех мужских портретов во время генерации,
+                // Специальный стиль для всех портретов во время генерации/ошибок,
                 // для пользователя ошибка выглядит как продолжение процесса
                 if (gender === 'male') {
                     return {
                         background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
                         borderColor: '#93c5fd',
+                        borderWidth: '2px',
+                    };
+                }
+                if (gender === 'female') {
+                    return {
+                        background: 'linear-gradient(135deg, #ffe4eb 0%, #f3adb7 100%)',
+                        borderColor: '#f3adb7',
                         borderWidth: '2px',
                     };
                 }
@@ -202,9 +224,11 @@ const ImageCard: React.FC<ImageCardProps> = ({
         >
             <div className="w-full aspect-square relative overflow-hidden">
                 <AnimatePresence mode="wait">
-                    {/* Специальный режим: видеофон для мужских портретов во время генерации
+                    {/* Специальный режим: видеофон для мужских и женских портретов во время генерации
                         (ошибки тоже считаем частью процесса, чтобы не было визуальных рывков) */}
-                    {(status === 'processing' || status === 'error') && gender === 'male' && STYLE_VIDEO_MAP[caption] && (
+                    {(status === 'processing' || status === 'error') &&
+                        ((gender === 'male' && STYLE_VIDEO_MAP_MALE[caption]) ||
+                         (gender === 'female' && STYLE_VIDEO_MAP_FEMALE[caption])) && (
                         <motion.div
                             key={`processing-video-${caption}`}
                             initial={{ opacity: 0 }}
@@ -215,6 +239,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
                             <ProcessingVideoBackground
                                 styleName={caption}
                                 estimatedWaitTime={estimatedWaitTime}
+                                gender={gender}
                             />
                         </motion.div>
                     )}
@@ -380,10 +405,22 @@ const ImageCard: React.FC<ImageCardProps> = ({
                 className="p-4 border-t transition-colors duration-200"
                 style={{
                     borderColor: status === 'queued' ? '#bae6fd' :
-                                status === 'processing' ? (gender === 'male' ? '#93c5fd' : '#fcd34d') :
+                                status === 'processing' || status === 'error'
+                                    ? (gender === 'male'
+                                        ? '#93c5fd'
+                                        : gender === 'female'
+                                        ? '#f3adb7'
+                                        : '#fcd34d')
+                                    :
                                 '#e5e7eb',
                     background: status === 'queued' ? 'rgba(239, 246, 255, 0.8)' :
-                               status === 'processing' ? (gender === 'male' ? 'rgba(219, 234, 254, 0.8)' : 'rgba(254, 243, 199, 0.8)') :
+                               status === 'processing' || status === 'error'
+                                   ? (gender === 'male'
+                                        ? 'rgba(219, 234, 254, 0.8)'
+                                        : gender === 'female'
+                                        ? 'rgba(243, 173, 183, 0.15)'
+                                        : 'rgba(254, 243, 199, 0.8)')
+                                   :
                                '#ffffff',
                 }}
             >
@@ -391,7 +428,13 @@ const ImageCard: React.FC<ImageCardProps> = ({
                     className="font-semibold text-center truncate text-sm"
                     style={{
                         color: status === 'queued' ? '#1e3a8a' :
-                               status === 'processing' ? (gender === 'male' ? '#1e40af' : '#78350f') :
+                               status === 'processing' || status === 'error'
+                                   ? (gender === 'male'
+                                        ? '#1e40af'
+                                        : gender === 'female'
+                                        ? '#9b1c40'
+                                        : '#78350f')
+                                   :
                                '#1f2937',
                     }}
                 >
