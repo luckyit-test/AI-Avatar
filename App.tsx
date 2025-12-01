@@ -1555,8 +1555,15 @@ function App() {
                                     {/* Вариативность и естественность зафиксированы в коде (Высокая, включено) */}
                                 </div>
                                 <div data-onboarding="generate">
-                                <h2 className="text-lg font-semibold text-gray-900 mb-1">2. Сгенерируйте портреты</h2>
-                                <p className="text-sm text-gray-500 mb-4">Мы создадим 6 профессиональных портретов в разных стилях.</p>
+                                    <h2 className="text-lg font-semibold text-gray-900 mb-1">
+                                        2. Сгенерируйте портреты
+                                    </h2>
+                                    <p className="text-sm text-gray-500 mb-1">
+                                        Мы создадим 6 профессиональных портретов в разных стилях.
+                                    </p>
+                                    <p className="text-xs text-gray-500 mb-4">
+                                        Стоимость одной генерации портретов — <span className="font-semibold text-gray-800">100 ₽</span>.
+                                    </p>
                                 </div>
                                 {appState === 'image-uploaded' && (
                                     <div className="flex items-center gap-3">
