@@ -171,12 +171,6 @@ const ImageCard: React.FC<ImageCardProps> = ({
                     borderColor: '#fcd34d',
                     borderWidth: '2px',
                 };
-            case 'error':
-                return {
-                    background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)',
-                    borderColor: '#fca5a5',
-                    borderWidth: '2px',
-                };
             default:
                 return {};
         }
@@ -222,8 +216,8 @@ const ImageCard: React.FC<ImageCardProps> = ({
                         </motion.div>
                     )}
 
-                    {/* Общий скелетон/очередь/обычная генерация для остальных случаев */}
-                    {(status === 'pending' || status === 'queued' || status === 'processing') &&
+                    {/* Общий скелетон/очередь/обычная генерация для остальных случаев (включая временные ошибки) */}
+                    {(status === 'pending' || status === 'queued' || status === 'processing' || status === 'error') &&
                         !(status === 'processing' && gender === 'male' && STYLE_VIDEO_MAP[caption]) && (
                         <motion.div
                             key={status}
@@ -328,22 +322,6 @@ const ImageCard: React.FC<ImageCardProps> = ({
                             </div>
                         </motion.div>
                     )}
-                    {status === 'error' && (
-                        <motion.div
-                            key="error"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="absolute inset-0 flex items-center justify-center flex-col p-4 text-center"
-                        >
-                            {/* Не показываем ошибку пользователю - система сама повторит попытку */}
-                            <div className="mb-3 p-3 rounded-full bg-gray-100">
-                                <Icons.spinner className="w-10 h-10 text-gray-400 animate-spin" />
-                            </div>
-                            <p className="text-sm font-semibold text-gray-700">Повторная попытка...</p>
-                            <p className="mt-1 text-xs text-gray-600">Система автоматически повторит генерацию</p>
-                        </motion.div>
-                    )}
                     {status === 'done' && imageUrl && (
                          <motion.div
                             key="done"
@@ -399,11 +377,9 @@ const ImageCard: React.FC<ImageCardProps> = ({
                 style={{
                     borderColor: status === 'queued' ? '#bae6fd' :
                                 status === 'processing' ? (gender === 'male' ? '#93c5fd' : '#fcd34d') :
-                                status === 'error' ? '#fca5a5' :
                                 '#e5e7eb',
                     background: status === 'queued' ? 'rgba(239, 246, 255, 0.8)' :
                                status === 'processing' ? (gender === 'male' ? 'rgba(219, 234, 254, 0.8)' : 'rgba(254, 243, 199, 0.8)') :
-                               status === 'error' ? 'rgba(254, 226, 226, 0.8)' :
                                '#ffffff',
                 }}
             >
@@ -412,7 +388,6 @@ const ImageCard: React.FC<ImageCardProps> = ({
                     style={{
                         color: status === 'queued' ? '#1e3a8a' :
                                status === 'processing' ? (gender === 'male' ? '#1e40af' : '#78350f') :
-                               status === 'error' ? '#991b1b' :
                                '#1f2937',
                     }}
                 >
