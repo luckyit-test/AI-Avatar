@@ -214,6 +214,15 @@ const ImageCard: React.FC<ImageCardProps> = ({
         }
     };
 
+    const hasVideoForGender =
+        gender === 'male'
+            ? !!STYLE_VIDEO_MAP_MALE[caption]
+            : gender === 'female'
+            ? !!STYLE_VIDEO_MAP_FEMALE[caption]
+            : false;
+
+    const isVideoPhase = (status === 'processing' || status === 'error') && hasVideoForGender;
+
     return (
         <div 
             className={getCardClasses()}
@@ -224,11 +233,8 @@ const ImageCard: React.FC<ImageCardProps> = ({
         >
             <div className="w-full aspect-square relative overflow-hidden">
                 <AnimatePresence mode="wait">
-                    {/* Специальный режим: видеофон для мужских и женских портретов во время генерации
-                        (ошибки тоже считаем частью процесса, чтобы не было визуальных рывков) */}
-                    {(status === 'processing' || status === 'error') &&
-                        ((gender === 'male' && STYLE_VIDEO_MAP_MALE[caption]) ||
-                         (gender === 'female' && STYLE_VIDEO_MAP_FEMALE[caption])) && (
+                    {/* Специальный режим: видеофон для портретов с привязанными видео (м/ж) */}
+                    {isVideoPhase && (
                         <motion.div
                             key={`processing-video-${caption}`}
                             initial={{ opacity: 0 }}
@@ -244,10 +250,11 @@ const ImageCard: React.FC<ImageCardProps> = ({
                         </motion.div>
                     )}
 
-                    {/* Общий скелетон/очередь/обычная генерация для остальных случаев (включая временные ошибки)
-                        Для мужских видео-карточек этот блок не активируется, чтобы не мигать белым. */}
-                    {(status === 'pending' || status === 'queued' || status === 'processing' || status === 'error') &&
-                        !((status === 'processing' || status === 'error') && gender === 'male' && STYLE_VIDEO_MAP[caption]) && (
+                    {/* Общий скелетон/очередь/обычная генерация для случаев без видеофона */}
+                    {(status === 'pending' ||
+                        status === 'queued' ||
+                        (status === 'processing' && !hasVideoForGender) ||
+                        (status === 'error' && !hasVideoForGender)) && (
                         <motion.div
                             key={status}
                             initial={{ opacity: 0 }}
@@ -296,47 +303,38 @@ const ImageCard: React.FC<ImageCardProps> = ({
                                 
                                 {status === 'processing' && (
                                     <>
-                                        {gender === 'male' && STYLE_VIDEO_MAP[caption] ? (
-                                            <ProcessingVideoBackground
-                                                styleName={caption}
-                                                estimatedWaitTime={estimatedWaitTime}
-                                            />
-                                        ) : (
-                                            /* Обычная анимация для остальных случаев */
-                                            <>
-                                                <div className="mb-4 p-3 rounded-full bg-amber-100">
-                                                    <Icons.lightning className="w-8 h-8 text-amber-600 animate-pulse" />
-                                                </div>
-                                                <div className="text-center">
-                                                    <p className="text-sm font-semibold text-amber-900 mb-1">
-                                                        Генерация...
-                                                    </p>
-                                                    {estimatedWaitTime !== undefined && estimatedWaitTime > 0 && (
-                                                        <p className="text-xs text-amber-700">
-                                                            Осталось ~{formatWaitTime(estimatedWaitTime)}
-                                                        </p>
-                                                    )}
-                                                    {/* Пульсирующий индикатор */}
-                                                    <div className="mt-3 flex gap-1 justify-center">
-                                                        {[0, 1, 2].map((i) => (
-                                                            <motion.div
-                                                                key={i}
-                                                                className="w-2 h-2 bg-amber-500 rounded-full"
-                                                                animate={{
-                                                                    scale: [1, 1.2, 1],
-                                                                    opacity: [0.5, 1, 0.5],
-                                                                }}
-                                                                transition={{
-                                                                    duration: 1,
-                                                                    repeat: Infinity,
-                                                                    delay: i * 0.2,
-                                                                }}
-                                                            />
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            </>
-                                        )}
+                                        {/* Обычная анимация для стилей без видеофона */}
+                                        <div className="mb-4 p-3 rounded-full bg-amber-100">
+                                            <Icons.lightning className="w-8 h-8 text-amber-600 animate-pulse" />
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-sm font-semibold text-amber-900 mb-1">
+                                                Генерация...
+                                            </p>
+                                            {estimatedWaitTime !== undefined && estimatedWaitTime > 0 && (
+                                                <p className="text-xs text-amber-700">
+                                                    Осталось ~{formatWaitTime(estimatedWaitTime)}
+                                                </p>
+                                            )}
+                                            {/* Пульсирующий индикатор */}
+                                            <div className="mt-3 flex gap-1 justify-center">
+                                                {[0, 1, 2].map((i) => (
+                                                    <motion.div
+                                                        key={i}
+                                                        className="w-2 h-2 bg-amber-500 rounded-full"
+                                                        animate={{
+                                                            scale: [1, 1.2, 1],
+                                                            opacity: [0.5, 1, 0.5],
+                                                        }}
+                                                        transition={{
+                                                            duration: 1,
+                                                            repeat: Infinity,
+                                                            delay: i * 0.2,
+                                                        }}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
                                     </>
                                 )}
                                 
