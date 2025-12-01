@@ -735,6 +735,13 @@ function App() {
             }
             console.log('[App] ========================================');
 
+            // Ограничения на количество попыток (чтобы не убить квоту)
+            const MAX_ATTEMPTS_PER_STYLE = 4;
+            const MAX_SOURCES_PER_FAILED_STYLE = 3;
+            const MAX_TOTAL_RETRY_REQUESTS = 8;
+            const attempts: Record<string, number> = {};
+            let totalRetryRequests = 0;
+
             // Собираем результаты напрямую из промисов, а не из состояния React
             const firstStageResults: Array<{ style: string; success: boolean; url?: string; error?: string }> = [];
 
@@ -742,6 +749,13 @@ function App() {
                 const maxRetriesForJobNotFound = 2; // Максимум 2 повторные попытки при "Задача не найдена"
                 
                 try {
+                    // Учитываем попытку для этого стиля
+                    attempts[style] = (attempts[style] ?? 0) + 1;
+                    if (attempts[style] > MAX_ATTEMPTS_PER_STYLE) {
+                        console.warn(`[App] Max attempts reached for style: ${style}. Skipping further generation attempts.`);
+                        return { style, success: false, error: 'Превышено максимальное количество попыток для этого стиля.' };
+                    }
+
                     const prompt = prompts[style];
                     if (retryCount === 0) {
                         console.log(`[App] Starting generation for style: ${style}`);
@@ -849,23 +863,38 @@ function App() {
                     console.log(`[App] ❌ Failed portrait: ${result.style}`);
                 }
             });
+
+            // Итоговая карта результатов для финального анализа
+            const finalResultsMap: Record<string, { success: boolean; url?: string }> = {};
+            results.forEach(result => {
+                finalResultsMap[result.style] = { success: result.success, url: result.url };
+            });
             
-            // Если есть успешные портреты и неудачные - делаем повторную попытку
+            // Если есть успешные портреты и неудачные - делаем расширенную повторную попытку
             if (successfulPortraits.length > 0 && failedStyles.length > 0) {
                 console.log('[App] ========================================');
-                console.log(`[App] Retrying ${failedStyles.length} failed portraits using successful portrait as source`);
-                console.log(`[App] Using successful portrait from style: ${successfulPortraits[0].style}`);
+                console.log(`[App] Retrying ${failedStyles.length} failed portraits using successful portraits as sources (with limits)`);
                 console.log('[App] ========================================');
                 
-                // Используем первый успешный портрет как исходник для повторной попытки
-                const successfulImageUrl = successfulPortraits[0].url;
-                
-                // Функция для повторной попытки с успешным изображением
-                const retryFailedStyle = async (style: string) => {
-                    try {
-                        const prompt = prompts[style];
-                        console.log(`[App] Retrying generation for style: ${style}`);
-                        console.log(`[App] Using successful portrait as source (from style: ${successfulPortraits[0].style})`);
+                // Функция для повторной попытки с использованием одного или нескольких успешных изображений
+                const retryFailedStyle = async (style: string): Promise<{ style: string; success: boolean; url?: string }> => {
+                    const prompt = prompts[style];
+                    let sourcesTried = 0;
+                    let sourceIndex = 0;
+
+                    while (
+                        sourcesTried < MAX_SOURCES_PER_FAILED_STYLE &&
+                        sourceIndex < successfulPortraits.length &&
+                        (attempts[style] ?? 0) < MAX_ATTEMPTS_PER_STYLE &&
+                        totalRetryRequests < MAX_TOTAL_RETRY_REQUESTS
+                    ) {
+                        const source = successfulPortraits[sourceIndex];
+                        console.log(`[App] Retrying generation for style: ${style} using source style: ${source.style} (attempt ${attempts[style] ?? 0 + 1})`);
+
+                        // Учитываем попытку и глобальный лимит
+                        attempts[style] = (attempts[style] ?? 0) + 1;
+                        totalRetryRequests += 1;
+
                         // Проверяем наличие инструкций по бороде/усам в промпте для retry
                         const hasFacialHairInRetryPrompt = prompt.includes('CRITICAL FACIAL HAIR') || 
                                                           prompt.includes('facial hair EXACTLY') ||
@@ -904,30 +933,51 @@ function App() {
                             });
                         };
                         
-                        const resultUrl = await generateImage(successfulImageUrl, prompt, onStatusUpdate);
-                        console.log(`[App] ✅ Successfully retried generation for style: ${style}`);
-                        setGeneratedImages(prev => ({
-                            ...prev,
-                            [style]: { status: 'done', url: resultUrl },
-                        }));
-                    } catch (err) {
-                        const errorMessage = err instanceof Error ? err.message : "Произошла неизвестная ошибка.";
-                        console.error(`[App] ❌ Retry failed for style: ${style}`);
-                        console.error(`[App] Error:`, err);
-                        // Оставляем ошибку, но не перезаписываем статус на error, чтобы пользователь видел что была попытка
-                        setGeneratedImages(prev => ({
-                            ...prev,
-                            [style]: { status: 'error', error: `Повторная попытка не удалась: ${errorMessage}` },
-                        }));
+                        try {
+                            const resultUrl = await generateImage(source.url, prompt, onStatusUpdate);
+                            console.log(`[App] ✅ Successfully retried generation for style: ${style} using source style: ${source.style}`);
+                            setGeneratedImages(prev => ({
+                                ...prev,
+                                [style]: { status: 'done', url: resultUrl },
+                            }));
+
+                            // Добавляем этот успешный портрет в пул источников
+                            successfulPortraits.push({ style, url: resultUrl });
+                            finalResultsMap[style] = { success: true, url: resultUrl };
+
+                            return { style, success: true, url: resultUrl };
+                        } catch (err) {
+                            const errorMessage = err instanceof Error ? err.message : "Произошла неизвестная ошибка.";
+                            console.error(`[App] ❌ Retry failed for style: ${style} using source style: ${source.style}`);
+                            console.error(`[App] Error:`, err);
+                            // Оставляем ошибку, но не перезаписываем статус на error, чтобы пользователь видел что была попытка
+                            setGeneratedImages(prev => ({
+                                ...prev,
+                                [style]: { status: 'error', error: `Повторная попытка не удалась: ${errorMessage}` },
+                            }));
+
+                            sourcesTried += 1;
+                            sourceIndex += 1;
+                        }
                     }
+
+                    console.warn(`[App] Exhausted retry options for style: ${style}. Attempts: ${attempts[style] ?? 0}, sourcesTried: ${sourcesTried}`);
+                    return { style, success: false };
                 };
                 
                 // Запускаем повторные попытки для всех неудачных стилей
-                await Promise.all(failedStyles.map(style => retryFailedStyle(style)));
+                const retryResultsForFailed = await Promise.all(failedStyles.map(style => retryFailedStyle(style)));
                 
                 console.log('[App] ========================================');
                 console.log('[App] Retry attempts completed');
                 console.log('[App] ========================================');
+
+                // Обновляем финальную карту результатов с учетом ретраев
+                retryResultsForFailed.forEach(result => {
+                    if (result.success && result.url) {
+                        finalResultsMap[result.style] = { success: true, url: result.url };
+                    }
+                });
             } else if (successfulPortraits.length === 0 && failedStyles.length > 0) {
                 // Если ВСЕ портреты провалились - обрабатываем промежуточное изображение агрессивнее и повторяем попытку
                 console.log('[App] ========================================');
@@ -977,6 +1027,14 @@ function App() {
                             console.log(`[App] ❌ Retry failed for style: ${result.style}`);
                         }
                     });
+
+                    // Обновляем финальную карту результатов на основе агрессивного ретрая
+                    STYLES.forEach(style => {
+                        const match = retryResults.find(r => r.style === style);
+                        if (match) {
+                            finalResultsMap[style] = { success: match.success, url: match.url };
+                        }
+                    });
                     
                 } catch (err) {
                     console.error('[App] ========================================');
@@ -989,8 +1047,54 @@ function App() {
                     successfulCount: successfulPortraits.length,
                     failedCount: failedStyles.length
                 });
+
+                // Если ретраев не было, финальная карта совпадает с исходными результатами
+                STYLES.forEach(style => {
+                    if (!finalResultsMap[style]) {
+                        const match = results.find(r => r.style === style);
+                        if (match) {
+                            finalResultsMap[style] = { success: match.success, url: match.url };
+                        }
+                    }
+                });
             }
-            
+
+            // ФИНАЛЬНЫЙ FALLBACK: гарантируем 6 портретов любой ценой
+            const finalSuccessfulStyles: Array<{ style: string; url: string }> = [];
+            const finalFailedStyles: string[] = [];
+
+            STYLES.forEach(style => {
+                const entry = finalResultsMap[style];
+                if (entry && entry.success && entry.url) {
+                    finalSuccessfulStyles.push({ style, url: entry.url });
+                } else {
+                    finalFailedStyles.push(style);
+                }
+            });
+
+            console.log('[App] Final results before fallback:', {
+                successfulCount: finalSuccessfulStyles.length,
+                failedCount: finalFailedStyles.length,
+                failedStyles: finalFailedStyles,
+            });
+
+            if (finalFailedStyles.length > 0 && finalSuccessfulStyles.length > 0) {
+                console.warn('[App] Applying final fallback duplication to guarantee 6 portraits.');
+
+                setGeneratedImages(prev => {
+                    const updated = { ...prev };
+                    finalFailedStyles.forEach((style, index) => {
+                        const source = finalSuccessfulStyles[index % finalSuccessfulStyles.length];
+                        updated[style] = {
+                            status: 'done',
+                            url: source.url,
+                        };
+                        console.log(`[App] Fallback: using portrait from style "${source.style}" for failed style "${style}"`);
+                    });
+                    return updated;
+                });
+            }
+
             setAppState('results-shown');
         } catch (err) {
             console.error('[App] Error in generation process:', err);
