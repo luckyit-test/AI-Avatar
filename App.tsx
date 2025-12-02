@@ -9,6 +9,7 @@ import { createAlbumPage } from './lib/albumUtils';
 import { compressImage, shouldCompressImage } from './lib/imageCompression';
 import { errorLogger } from './lib/errorLogger';
 import Footer from './components/Footer';
+import AdminOrders from './components/AdminOrders';
 import Uploader from './components/Uploader';
 import ImageCard from './components/ImageCard';
 import { Icons } from './components/Icons';
@@ -358,6 +359,10 @@ interface GeneratedImage {
 type AppState = 'idle' | 'image-uploaded' | 'generating' | 'results-shown';
 
 function App() {
+    const isAdminView = typeof window !== 'undefined' && window.location.pathname === '/admin';
+    if (isAdminView) {
+        return <AdminOrders />;
+    }
     const onboarding = useOnboarding();
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     

@@ -1500,15 +1500,26 @@ app.post(`${API_PREFIX}/evaluate-image`, rateLimit);
 // --- Robokassa payment endpoints ---
 
 // Инициация платежа: создаёт заказ и возвращает URL для редиректа на Robokassa
+// На этом этапе мы уже можем сохранить исходное изображение и настройки пользователя,
+// чтобы позже можно было повторить генерацию или посмотреть заказ в админке.
 app.post(`${API_PREFIX}/payment/create`, async (req, res) => {
   try {
     const invId = createNextInvId();
     const outSum = ROBOKASSA_PAYMENT_AMOUNT.toFixed(2);
 
+    const { imageData, gender, role, company } = req.body || {};
+
     payments.set(String(invId), {
       status: 'created',
       amount: outSum,
       createdAt: Date.now(),
+      imageData: typeof imageData === 'string' ? imageData : null,
+      gender: typeof gender === 'string' ? gender : null,
+      role: typeof role === 'string' ? role : null,
+      company: typeof company === 'string' ? company : null,
+      generatedImages: null,
+      failureReason: null,
+      retries: 0,
     });
 
     const signature = crypto
@@ -1560,6 +1571,13 @@ app.post(`${API_PREFIX}/robokassa/result`, express.urlencoded({ extended: false 
         status: 'paid',
         amount: outSum,
         createdAt: Date.now(),
+        imageData: null,
+        gender: null,
+        role: null,
+        company: null,
+        generatedImages: null,
+        failureReason: 'order_not_found_on_payment',
+        retries: 0,
       });
     } else {
       payment.status = 'paid';
@@ -1587,7 +1605,58 @@ app.get(`${API_PREFIX}/payment/status`, (req, res) => {
   if (!payment) {
     return res.json({ paid: false });
   }
-  return res.json({ paid: payment.status === 'paid' });
+  return res.json({ paid: payment.status === 'paid' || payment.status === 'processing' || payment.status === 'completed' });
+});
+
+// Публичная информация о заказе по InvId
+app.get(`${API_PREFIX}/order/:invId`, (req, res) => {
+  const { invId } = req.params;
+  const payment = payments.get(String(invId));
+  if (!payment) {
+    return res.status(404).json({ error: 'Заказ не найден' });
+  }
+
+  const { status, amount, createdAt, gender, role, company, generatedImages, failureReason, retries } = payment;
+
+  res.json({
+    invId,
+    status,
+    amount,
+    createdAt,
+    gender,
+    role,
+    company,
+    hasImageData: !!payment.imageData,
+    generatedImages: generatedImages || null,
+    failureReason: failureReason || null,
+    retries: retries || 0,
+  });
+});
+
+// Простейшая "админка": список всех заказов
+app.get(`${API_PREFIX}/admin/orders`, (req, res) => {
+  const items = [];
+  for (const [invId, value] of payments.entries()) {
+    const { status, amount, createdAt, gender, role, company, generatedImages, failureReason, retries } = value;
+    items.push({
+      invId,
+      status,
+      amount,
+      createdAt,
+      gender,
+      role,
+      company,
+      hasImageData: !!value.imageData,
+      imagesCount: Array.isArray(generatedImages) ? generatedImages.length : 0,
+      failureReason: failureReason || null,
+      retries: retries || 0,
+    });
+  }
+
+  // Сортируем по дате создания (новые сверху)
+  items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+  res.json({ orders: items });
 });
 
 // Получаем API ключи из переменных окружения
@@ -1617,8 +1686,9 @@ if (!GEMINI_API_KEY_ANALYSIS) {
 const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY_GENERATION }); // Для генерации
 const genAIAnalysis = new GoogleGenAI({ apiKey: GEMINI_API_KEY_ANALYSIS }); // Для анализа
 
-// In-memory хранилище платежей Robokassa (для тестового режима и простого прода без БД)
-const payments = new Map(); // key: invId, value: { status, amount, createdAt }
+// In-memory хранилище платежей Robokassa (минимальный учёт заказов без БД)
+// Для реального продакшена это следует заменить на БД.
+const payments = new Map(); // key: invId, value: { status, amount, createdAt, imageData, gender, role, company, generatedImages, failureReason, retries }
 let lastInvId = Date.now();
 
 function createNextInvId() {
