@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import React, { useState, ChangeEvent, useEffect } from 'react';
+import React, { useState, ChangeEvent, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { generateImage, evaluateImage, addGenerationToQueue, createPayment, checkPaymentStatus, type DetectedGender, type QueueStatus, type ImageEvaluationResult } from './services/geminiService';
 import { createAlbumPage } from './lib/albumUtils';
@@ -390,6 +390,8 @@ function App() {
     const [selectedRole, setSelectedRole] = useState<typeof IT_ROLES[number]>('Разработчик');
     const [selectedCompany, setSelectedCompany] = useState<typeof COMPANY_TYPES[number]>('Стартап');
     const [hasActivePayment, setHasActivePayment] = useState<boolean>(false);
+    const autoGenerationStartedRef = useRef<boolean>(false);
+    const PENDING_GENERATION_KEY = 'newava_pending_generation';
     // Промежуточное изображение для стабильной генерации
     const [intermediateImage, setIntermediateImage] = useState<string | null>(null);
     const [isGeneratingIntermediate, setIsGeneratingIntermediate] = useState<boolean>(false);
@@ -411,17 +413,51 @@ function App() {
 
         if (invId) {
             // Для UX считаем, что раз нас вернули с InvId, оплата прошла успешно.
-            // Дополнительная серверная проверка может быть добавлена позже.
             setHasActivePayment(true);
 
-            // Чистим служебные параметры Robokassa из URL,
-            // чтобы не мешали дальнейшей работе приложения
+            // Восстанавливаем сохранённые перед оплатой настройки
+            try {
+                const raw = window.localStorage.getItem(PENDING_GENERATION_KEY);
+                if (raw) {
+                    const data = JSON.parse(raw);
+                    if (data?.uploadedImage) {
+                        setUploadedImage(data.uploadedImage);
+                    }
+                    if (data?.genderOverride === 'male' || data?.genderOverride === 'female') {
+                        setGenderOverride(data.genderOverride);
+                    }
+                    if (data?.selectedRole && (IT_ROLES as readonly string[]).includes(data.selectedRole)) {
+                        setSelectedRole(data.selectedRole as (typeof IT_ROLES)[number]);
+                    }
+                    if (data?.selectedCompany && (COMPANY_TYPES as readonly string[]).includes(data.selectedCompany)) {
+                        setSelectedCompany(data.selectedCompany as (typeof COMPANY_TYPES)[number]);
+                    }
+                    setAppState('image-uploaded');
+                }
+            } catch (e) {
+                console.warn('[App] Failed to restore pending generation from storage:', e);
+            }
+
+            // Чистим служебные параметры Robokassa из URL
             ['payment', 'invId', 'InvId', 'OutSum', 'SignatureValue', 'IsTest', 'Culture'].forEach((key) =>
                 url.searchParams.delete(key),
             );
             window.history.replaceState({}, '', url.toString());
         }
     }, []);
+
+    // Как только есть оплаченный заказ и восстановленное изображение — автоматически запускаем генерацию
+    useEffect(() => {
+        if (autoGenerationStartedRef.current) return;
+        if (!hasActivePayment) return;
+        if (!uploadedImage) return;
+        const effectiveGender = getEffectiveGender();
+        if (!effectiveGender || (effectiveGender !== 'male' && effectiveGender !== 'female')) return;
+        if (appState !== 'idle' && appState !== 'image-uploaded') return;
+
+        autoGenerationStartedRef.current = true;
+        void handleGenerateClick();
+    }, [hasActivePayment, uploadedImage, genderOverride, appState]);
 
     // Таймер для оценки изображения - обратный отсчет от 10 до 1
     useEffect(() => {
@@ -674,6 +710,23 @@ function App() {
         if (!hasActivePayment) {
             try {
                 console.log('[App] No active payment found, creating Robokassa payment...');
+
+                // Сохраняем текущие настройки перед редиректом на оплату
+                try {
+                    const payload = {
+                        uploadedImage,
+                        genderOverride,
+                        selectedRole,
+                        selectedCompany,
+                        timestamp: Date.now(),
+                    };
+                    if (typeof window !== 'undefined') {
+                        window.localStorage.setItem(PENDING_GENERATION_KEY, JSON.stringify(payload));
+                    }
+                } catch (storageError) {
+                    console.warn('[App] Failed to persist pending generation before payment:', storageError);
+                }
+
                 const payment = await createPayment();
                 if (payment?.redirectUrl) {
                     window.location.href = payment.redirectUrl;
@@ -684,6 +737,17 @@ function App() {
             }
             // Если платёж не удалось создать - не запускаем генерацию
             return;
+        }
+
+        // Оплата подтверждена — "съедаем" платёж и очищаем сохранённое состояние
+        setHasActivePayment(false);
+        autoGenerationStartedRef.current = true;
+        try {
+            if (typeof window !== 'undefined') {
+                window.localStorage.removeItem(PENDING_GENERATION_KEY);
+            }
+        } catch (e) {
+            console.warn('[App] Failed to clear pending generation from storage:', e);
         }
 
         setAppState('generating');
