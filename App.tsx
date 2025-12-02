@@ -407,10 +407,9 @@ function App() {
     useEffect(() => {
         if (typeof window === 'undefined') return;
         const url = new URL(window.location.href);
-        const paymentStatus = url.searchParams.get('payment');
-        const invId = url.searchParams.get('invId');
+        const invId = url.searchParams.get('invId') || url.searchParams.get('InvId');
 
-        if (paymentStatus === 'success' && invId) {
+        if (invId) {
             checkPaymentStatus(invId)
                 .then((res) => {
                     if (res.paid) {
@@ -418,9 +417,11 @@ function App() {
                     }
                 })
                 .finally(() => {
-                    // Чистим параметры из URL, чтобы не мешали дальше
-                    url.searchParams.delete('payment');
-                    url.searchParams.delete('invId');
+                    // Чистим служебные параметры Robokassa из URL,
+                    // чтобы не мешали дальнейшей работе приложения
+                    ['payment', 'invId', 'InvId', 'OutSum', 'SignatureValue', 'IsTest', 'Culture'].forEach((key) =>
+                        url.searchParams.delete(key),
+                    );
                     window.history.replaceState({}, '', url.toString());
                 });
         }
