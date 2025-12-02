@@ -12,6 +12,7 @@ import express from 'express';
 import cors from 'cors';
 import { GoogleGenAI, Modality } from '@google/genai';
 import sharp from 'sharp';
+import crypto from 'crypto';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -1381,6 +1382,24 @@ function getJobStatus(jobId) {
   return null; // Задача не найдена
 }
 
+// --- Robokassa success / fail redirects ---
+
+app.get('/payment/success', (req, res) => {
+  const invId = req.query.InvId || req.query.invId;
+  if (!invId) {
+    return res.redirect('/?payment=success');
+  }
+  return res.redirect(`/?payment=success&invId=${encodeURIComponent(invId)}`);
+});
+
+app.get('/payment/fail', (req, res) => {
+  const invId = req.query.InvId || req.query.invId;
+  if (!invId) {
+    return res.redirect('/?payment=fail');
+  }
+  return res.redirect(`/?payment=fail&invId=${encodeURIComponent(invId)}`);
+});
+
 // Безопасная конфигурация CORS - только с разрешенных доменов
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
   ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
@@ -1478,9 +1497,111 @@ app.post(`${API_PREFIX}/validate-image`, rateLimit);
 app.post(`${API_PREFIX}/evaluate-image`, rateLimit);
 // app.post(`${API_PREFIX}/generate-image`, rateLimit); // Убрано - генерация платная, не ограничиваем
 
+// --- Robokassa payment endpoints ---
+
+// Инициация платежа: создаёт заказ и возвращает URL для редиректа на Robokassa
+app.post(`${API_PREFIX}/payment/create`, async (req, res) => {
+  try {
+    const invId = createNextInvId();
+    const outSum = ROBOKASSA_PAYMENT_AMOUNT.toFixed(2);
+
+    payments.set(String(invId), {
+      status: 'created',
+      amount: outSum,
+      createdAt: Date.now(),
+    });
+
+    const signature = crypto
+      .createHash('md5')
+      .update(`${ROBOKASSA_LOGIN}:${outSum}:${invId}:${ROBOKASSA_PASSWORD1}`, 'utf8')
+      .digest('hex');
+
+    const isTestParam = ROBOKASSA_IS_TEST ? '&IsTest=1' : '';
+    const descriptionEncoded = encodeURIComponent(ROBOKASSA_PAYMENT_DESC);
+
+    const redirectUrl =
+      `https://auth.robokassa.ru/Merchant/Index.aspx?MerchantLogin=${encodeURIComponent(ROBOKASSA_LOGIN)}` +
+      `&OutSum=${outSum}&InvId=${invId}&Description=${descriptionEncoded}&SignatureValue=${signature}${isTestParam}`;
+
+    res.json({ redirectUrl, invId });
+  } catch (err) {
+    console.error('[Robokassa] payment/create error:', err);
+    res.status(500).json({ error: 'Не удалось создать платёж. Попробуйте позже.' });
+  }
+});
+
+// Callback от Robokassa после обработки платежа (ResultURL)
+app.post(`${API_PREFIX}/robokassa/result`, express.urlencoded({ extended: false }), (req, res) => {
+  try {
+    const params = Object.keys(req.body || {}).length > 0 ? req.body : req.query;
+    const outSum = params.OutSum;
+    const invId = params.InvId;
+    const signature = (params.SignatureValue || '').toString().toLowerCase();
+
+    if (!outSum || !invId || !signature) {
+      console.warn('[Robokassa] Result: missing params', params);
+      return res.status(400).send('Bad Request');
+    }
+
+    const expectedSignature = crypto
+      .createHash('md5')
+      .update(`${outSum}:${invId}:${ROBOKASSA_PASSWORD2}`, 'utf8')
+      .digest('hex')
+      .toLowerCase();
+
+    if (signature !== expectedSignature) {
+      console.warn('[Robokassa] Result: invalid signature', { invId, outSum });
+      return res.status(400).send('Bad signature');
+    }
+
+    const payment = payments.get(String(invId));
+    if (!payment) {
+      payments.set(String(invId), {
+        status: 'paid',
+        amount: outSum,
+        createdAt: Date.now(),
+      });
+    } else {
+      payment.status = 'paid';
+      payment.amount = outSum;
+      payments.set(String(invId), payment);
+    }
+
+    console.log('[Robokassa] Payment confirmed', { invId, outSum });
+
+    // По протоколу Robokassa нужно вернуть OK + InvId
+    res.send(`OK${invId}`);
+  } catch (err) {
+    console.error('[Robokassa] Result handler error:', err);
+    res.status(500).send('Internal error');
+  }
+});
+
+// Статус платежа (используется фронтендом после возврата пользователя)
+app.get(`${API_PREFIX}/payment/status`, (req, res) => {
+  const invId = req.query.invId;
+  if (!invId) {
+    return res.status(400).json({ paid: false, error: 'invId is required' });
+  }
+  const payment = payments.get(String(invId));
+  if (!payment) {
+    return res.json({ paid: false });
+  }
+  return res.json({ paid: payment.status === 'paid' });
+});
+
 // Получаем API ключи из переменных окружения
 const GEMINI_API_KEY_GENERATION = process.env.GEMINI_API_KEY; // Основной ключ для генерации
 const GEMINI_API_KEY_ANALYSIS = process.env.GEMINI_API_KEY_ANALYSIS; // Ключ для анализа изображений
+
+// Robokassa config (используем тестовый режим на старте)
+const ROBOKASSA_LOGIN = process.env.ROBOKASSA_LOGIN || 'NEWAVA.pro';
+const ROBOKASSA_PASSWORD1 = process.env.ROBOKASSA_PASSWORD1 || 'KY7OIEK8fhLn1G95NYaH';
+const ROBOKASSA_PASSWORD2 = process.env.ROBOKASSA_PASSWORD2 || 'm8G0UNfjydU08B0wnhbY';
+const ROBOKASSA_IS_TEST = process.env.ROBOKASSA_IS_TEST === '0' ? 0 : 1;
+const ROBOKASSA_PAYMENT_AMOUNT = parseFloat(process.env.ROBOKASSA_PAYMENT_AMOUNT || '100.00');
+const ROBOKASSA_PAYMENT_DESC =
+  process.env.ROBOKASSA_PAYMENT_DESC || 'Генерация бизнес‑портретов (1 пакет из 6 изображений)';
 
 if (!GEMINI_API_KEY_GENERATION) {
   console.error('ERROR: GEMINI_API_KEY не установлен в переменных окружения');
@@ -1495,6 +1616,15 @@ if (!GEMINI_API_KEY_ANALYSIS) {
 // Инициализируем два клиента Gemini
 const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY_GENERATION }); // Для генерации
 const genAIAnalysis = new GoogleGenAI({ apiKey: GEMINI_API_KEY_ANALYSIS }); // Для анализа
+
+// In-memory хранилище платежей Robokassa (для тестового режима и простого прода без БД)
+const payments = new Map(); // key: invId, value: { status, amount, createdAt }
+let lastInvId = Date.now();
+
+function createNextInvId() {
+  lastInvId += 1;
+  return lastInvId;
+}
 
 // Функция для дополнительной агрессивной обработки промежуточного изображения
 // Используется если первая попытка генерации провалилась

@@ -4,7 +4,7 @@
 */
 import React, { useState, ChangeEvent, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { generateImage, evaluateImage, addGenerationToQueue, type DetectedGender, type QueueStatus, type ImageEvaluationResult } from './services/geminiService';
+import { generateImage, evaluateImage, addGenerationToQueue, createPayment, checkPaymentStatus, type DetectedGender, type QueueStatus, type ImageEvaluationResult } from './services/geminiService';
 import { createAlbumPage } from './lib/albumUtils';
 import { compressImage, shouldCompressImage } from './lib/imageCompression';
 import { errorLogger } from './lib/errorLogger';
@@ -389,6 +389,7 @@ function App() {
     const [genderOverride, setGenderOverride] = useState<'male' | 'female' | null>(null);
     const [selectedRole, setSelectedRole] = useState<typeof IT_ROLES[number]>('Разработчик');
     const [selectedCompany, setSelectedCompany] = useState<typeof COMPANY_TYPES[number]>('Стартап');
+    const [hasActivePayment, setHasActivePayment] = useState<boolean>(false);
     // Промежуточное изображение для стабильной генерации
     const [intermediateImage, setIntermediateImage] = useState<string | null>(null);
     const [isGeneratingIntermediate, setIsGeneratingIntermediate] = useState<boolean>(false);
@@ -401,6 +402,29 @@ function App() {
         // Если null - пол не выбран, генерация недоступна
         return genderOverride;
     };
+
+    // Проверяем, не вернулся ли пользователь после оплаты Robokassa
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const url = new URL(window.location.href);
+        const paymentStatus = url.searchParams.get('payment');
+        const invId = url.searchParams.get('invId');
+
+        if (paymentStatus === 'success' && invId) {
+            checkPaymentStatus(invId)
+                .then((res) => {
+                    if (res.paid) {
+                        setHasActivePayment(true);
+                    }
+                })
+                .finally(() => {
+                    // Чистим параметры из URL, чтобы не мешали дальше
+                    url.searchParams.delete('payment');
+                    url.searchParams.delete('invId');
+                    window.history.replaceState({}, '', url.toString());
+                });
+        }
+    }, []);
 
     // Таймер для оценки изображения - обратный отсчет от 10 до 1
     useEffect(() => {
@@ -646,6 +670,22 @@ function App() {
         if (!effectiveGender || (effectiveGender !== 'male' && effectiveGender !== 'female')) {
             // Логируем, но не показываем alert - пол должен быть выбран автоматически
             console.warn('[App] Gender not selected, but should be auto-selected');
+            return;
+        }
+
+        // Если оплаты ещё не было - инициируем платёж через Robokassa
+        if (!hasActivePayment) {
+            try {
+                console.log('[App] No active payment found, creating Robokassa payment...');
+                const payment = await createPayment();
+                if (payment?.redirectUrl) {
+                    window.location.href = payment.redirectUrl;
+                    return;
+                }
+            } catch (err) {
+                console.error('[App] Failed to create payment:', err);
+            }
+            // Если платёж не удалось создать - не запускаем генерацию
             return;
         }
 

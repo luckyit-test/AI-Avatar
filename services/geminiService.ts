@@ -530,6 +530,16 @@ export interface QueueJob {
   processedImage?: string; // Для обработанных промежуточных изображений
 }
 
+export interface CreatePaymentResponse {
+  redirectUrl: string;
+  invId: string | number;
+}
+
+export interface PaymentStatusResponse {
+  paid: boolean;
+  error?: string;
+}
+
 /**
  * Добавляет задачу генерации в очередь и возвращает jobId
  */
@@ -594,6 +604,46 @@ export async function addGenerationToQueue(imageDataUrl: string, prompt: string,
     const errorMessage = error instanceof Error ? error.message : String(error);
     throw new Error(`Не удалось добавить задачу в очередь: ${errorMessage}`);
   }
+}
+
+/**
+ * Создаёт платёж в Robokassa и возвращает URL для редиректа
+ */
+export async function createPayment(): Promise<CreatePaymentResponse> {
+  const response = await fetch(`${API_BASE_URL}/payment/create`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '');
+    throw new Error(errorText || 'Не удалось создать платёж');
+  }
+
+  return response.json();
+}
+
+/**
+ * Проверяет статус платежа по invId
+ */
+export async function checkPaymentStatus(invId: string): Promise<PaymentStatusResponse> {
+  const url = new URL(`${API_BASE_URL}/payment/status`);
+  url.searchParams.set('invId', invId);
+
+  const response = await fetch(url.toString(), {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    return { paid: false, error: 'Ошибка запроса статуса платежа' };
+  }
+
+  return response.json();
 }
 
 /**
