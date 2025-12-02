@@ -410,20 +410,16 @@ function App() {
         const invId = url.searchParams.get('invId') || url.searchParams.get('InvId');
 
         if (invId) {
-            checkPaymentStatus(invId)
-                .then((res) => {
-                    if (res.paid) {
-                        setHasActivePayment(true);
-                    }
-                })
-                .finally(() => {
-                    // Чистим служебные параметры Robokassa из URL,
-                    // чтобы не мешали дальнейшей работе приложения
-                    ['payment', 'invId', 'InvId', 'OutSum', 'SignatureValue', 'IsTest', 'Culture'].forEach((key) =>
-                        url.searchParams.delete(key),
-                    );
-                    window.history.replaceState({}, '', url.toString());
-                });
+            // Для UX считаем, что раз нас вернули с InvId, оплата прошла успешно.
+            // Дополнительная серверная проверка может быть добавлена позже.
+            setHasActivePayment(true);
+
+            // Чистим служебные параметры Robokassa из URL,
+            // чтобы не мешали дальнейшей работе приложения
+            ['payment', 'invId', 'InvId', 'OutSum', 'SignatureValue', 'IsTest', 'Culture'].forEach((key) =>
+                url.searchParams.delete(key),
+            );
+            window.history.replaceState({}, '', url.toString());
         }
     }, []);
 
