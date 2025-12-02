@@ -359,10 +359,6 @@ interface GeneratedImage {
 type AppState = 'idle' | 'image-uploaded' | 'generating' | 'results-shown';
 
 function App() {
-    const isAdminView = typeof window !== 'undefined' && window.location.pathname === '/admin';
-    if (isAdminView) {
-        return <AdminOrders />;
-    }
     const onboarding = useOnboarding();
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     
@@ -404,11 +400,25 @@ function App() {
     const variability: VariabilityLevel = 'high';
     const naturalLook: boolean = true;
 
+    const [isAdminView, setIsAdminView] = useState<boolean>(false);
+
     const getEffectiveGender = (): DetectedGender | null => {
         // Возвращаем выбранный пол (автоматически или вручную)
         // Если null - пол не выбран, генерация недоступна
         return genderOverride;
     };
+
+    // Определяем режим админки по query-параметру ?admin=1
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        try {
+            const url = new URL(window.location.href);
+            const adminFlag = url.searchParams.get('admin');
+            setIsAdminView(adminFlag === '1');
+        } catch (e) {
+            console.warn('[App] Failed to detect admin mode:', e);
+        }
+    }, []);
 
     // Проверяем, не вернулся ли пользователь после оплаты Robokassa
     useEffect(() => {
@@ -463,6 +473,10 @@ function App() {
         autoGenerationStartedRef.current = true;
         void handleGenerateClick();
     }, [hasActivePayment, uploadedImage, genderOverride, appState]);
+
+    if (isAdminView) {
+        return <AdminOrders />;
+    }
 
     // Таймер для оценки изображения - обратный отсчет от 10 до 1
     useEffect(() => {
