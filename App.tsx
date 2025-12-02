@@ -474,10 +474,6 @@ function App() {
         void handleGenerateClick();
     }, [hasActivePayment, uploadedImage, genderOverride, appState]);
 
-    if (isAdminView) {
-        return <AdminOrders />;
-    }
-
     // Таймер для оценки изображения - обратный отсчет от 10 до 1
     useEffect(() => {
         let intervalId: NodeJS.Timeout | null = null;
@@ -1341,6 +1337,10 @@ function App() {
         window.addEventListener('keydown', onKeyDown);
         return () => window.removeEventListener('keydown', onKeyDown);
     }, []);
+
+    if (isAdminView) {
+        return <AdminOrders />;
+    }
 
     return (
         <div 
