@@ -89,11 +89,9 @@ const AdminOrders: React.FC = () => {
     const entries = Object.entries(order.generatedImages);
     if (entries.length === 0) return '—';
 
-    const preview = entries.slice(0, 3);
-
     return (
       <div className="flex items-center gap-1">
-        {preview.map(([style, url]) => (
+        {entries.map(([style, url]) => (
           <a
             key={style}
             href={url}
@@ -110,9 +108,6 @@ const AdminOrders: React.FC = () => {
             />
           </a>
         ))}
-        {entries.length > preview.length && (
-          <span className="ml-1 text-[10px] text-slate-500">+{entries.length - preview.length}</span>
-        )}
       </div>
     );
   };
