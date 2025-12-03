@@ -4,7 +4,7 @@
 */
 import React, { useState, ChangeEvent, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { generateImage, evaluateImage, addGenerationToQueue, createPayment, checkPaymentStatus, fetchOrder, type DetectedGender, type QueueStatus, type ImageEvaluationResult, type OrderInfo } from './services/geminiService';
+import { generateImage, evaluateImage, addGenerationToQueue, createPayment, checkPaymentStatus, fetchOrder, usePromoCode, type DetectedGender, type QueueStatus, type ImageEvaluationResult, type OrderInfo } from './services/geminiService';
 import { createAlbumPage } from './lib/albumUtils';
 import { compressImage, shouldCompressImage } from './lib/imageCompression';
 import { errorLogger } from './lib/errorLogger';
@@ -397,6 +397,11 @@ function App() {
     const CURRENT_ORDER_KEY = 'newava_current_order';
     const [currentOrder, setCurrentOrder] = useState<OrderInfo | null>(null);
     const [currentInvId, setCurrentInvId] = useState<string | null>(null);
+    const [promoCodeInput, setPromoCodeInput] = useState<string>('');
+    const [promoMessage, setPromoMessage] = useState<string | null>(null);
+    const [promoError, setPromoError] = useState<string | null>(null);
+    const [promoLoading, setPromoLoading] = useState<boolean>(false);
+    const [promoApplied, setPromoApplied] = useState<boolean>(false);
     // Промежуточное изображение для стабильной генерации
     const [intermediateImage, setIntermediateImage] = useState<string | null>(null);
     const [isGeneratingIntermediate, setIsGeneratingIntermediate] = useState<boolean>(false);
@@ -405,6 +410,7 @@ function App() {
     const naturalLook: boolean = true;
 
     const [isAdminView, setIsAdminView] = useState<boolean>(false);
+    const [adminMode, setAdminMode] = useState<'orders' | 'promos'>('orders');
 
     const getEffectiveGender = (): DetectedGender | null => {
         // Возвращаем выбранный пол (автоматически или вручную)
@@ -418,7 +424,15 @@ function App() {
         try {
             const url = new URL(window.location.href);
             const adminFlag = url.searchParams.get('admin');
-            setIsAdminView(adminFlag === '1');
+            if (adminFlag === '1' || adminFlag === 'orders') {
+                setIsAdminView(true);
+                setAdminMode('orders');
+            } else if (adminFlag === 'promo' || adminFlag === 'promos' || adminFlag === '2') {
+                setIsAdminView(true);
+                setAdminMode('promos');
+            } else {
+                setIsAdminView(false);
+            }
         } catch (e) {
             console.warn('[App] Failed to detect admin mode:', e);
         }
@@ -1518,7 +1532,26 @@ function App() {
     }, []);
 
     if (isAdminView) {
+      if (adminMode === 'orders') {
         return <AdminOrders />;
+      }
+      // Временный заглушка для будущей админки промокодов
+      return (
+        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+          <div className="max-w-xl mx-auto bg-white rounded-xl shadow-sm p-8">
+            <h1 className="text-2xl font-semibold mb-4">Админка промокодов (в разработке)</h1>
+            <p className="text-sm text-slate-600">
+              Управление промокодами будет доступно по адресу <code>?admin=promo</code>. Бэкенд уже готов, UI будет
+              добавлен на следующем шаге.
+            </p>
+            <div className="mt-4">
+              <a href="/?admin=1" className="text-sm text-blue-600 hover:underline">
+                Перейти к заказам
+              </a>
+            </div>
+          </div>
+        </div>
+      );
     }
 
     return (
@@ -1862,6 +1895,125 @@ function App() {
                                         />
                                     </div>
                                     {/* Вариативность и естественность зафиксированы в коде (Высокая, включено) */}
+                                </div>
+                                {/* Блок промокода */}
+                                <div className="mb-4">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="text-sm font-medium text-gray-900">Есть промокод?</span>
+                                        {promoMessage && (
+                                            <span className="text-xs text-emerald-600">
+                                                {promoMessage}
+                                            </span>
+                                        )}
+                                        {!promoMessage && promoError && (
+                                            <span className="text-xs text-red-600">
+                                                {promoError}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={promoCodeInput}
+                                            onChange={(e) => {
+                                                setPromoCodeInput(e.target.value.toUpperCase().slice(0, 6));
+                                                setPromoMessage(null);
+                                                setPromoError(null);
+                                            }}
+                                            placeholder="Например, ABC123"
+                                            className="flex-1 h-10 px-3 rounded-lg border border-gray-300 text-sm tracking-[0.2em] uppercase"
+                                        />
+                                        <button
+                                            type="button"
+                                            disabled={
+                                                promoLoading ||
+                                                !promoCodeInput ||
+                                                promoCodeInput.length !== 6 ||
+                                                !uploadedImage ||
+                                                !getEffectiveGender() ||
+                                                (getEffectiveGender() !== 'male' && getEffectiveGender() !== 'female')
+                                            }
+                                            onClick={async () => {
+                                                setPromoMessage(null);
+                                                setPromoError(null);
+                                                if (!uploadedImage) return;
+                                                const effectiveGender = getEffectiveGender();
+                                                if (!effectiveGender || (effectiveGender !== 'male' && effectiveGender !== 'female')) return;
+
+                                                // Ограничение на количество попыток промокода на клиенте
+                                                const ATTEMPTS_KEY = 'newava_promo_attempts';
+                                                try {
+                                                    const raw = typeof window !== 'undefined' ? window.localStorage.getItem(ATTEMPTS_KEY) : null;
+                                                    const parsed = raw ? JSON.parse(raw) as { count: number } : { count: 0 };
+                                                    if (parsed.count >= 5) {
+                                                        setPromoError('Превышено количество попыток ввода промокода. Попробуйте позже.');
+                                                        return;
+                                                    }
+                                                } catch {
+                                                    // если что-то не так с хранилищем, просто продолжаем
+                                                }
+
+                                                try {
+                                                    setPromoLoading(true);
+                                                    const response = await usePromoCode(
+                                                        promoCodeInput,
+                                                        uploadedImage,
+                                                        effectiveGender,
+                                                        selectedRole || '',
+                                                        selectedCompany || ''
+                                                    );
+
+                                                    if (!response.ok || !response.invId) {
+                                                        setPromoError(response.error || 'Промокод недействителен или исчерпал лимит.');
+                                                        // Инкрементируем счётчик попыток
+                                                        try {
+                                                            if (typeof window !== 'undefined') {
+                                                                const raw = window.localStorage.getItem(ATTEMPTS_KEY);
+                                                                const parsed = raw ? JSON.parse(raw) as { count: number } : { count: 0 };
+                                                                parsed.count = (parsed.count || 0) + 1;
+                                                                window.localStorage.setItem(ATTEMPTS_KEY, JSON.stringify(parsed));
+                                                            }
+                                                        } catch {
+                                                            // игнорируем
+                                                        }
+                                                        return;
+                                                    }
+
+                                                    // Успех: промокод применён, генерация стартовала на бэкенде
+                                                    setPromoApplied(true);
+                                                    setPromoMessage(
+                                                        response.remainingUses !== undefined
+                                                            ? `Промокод применён. Осталось активаций: ${response.remainingUses}.`
+                                                            : 'Промокод применён. Генерация началась.'
+                                                    );
+
+                                                    const invId = String(response.invId);
+                                                    setCurrentInvId(invId);
+                                                    setHasActivePayment(true);
+                                                    if (typeof window !== 'undefined') {
+                                                        window.localStorage.setItem(CURRENT_ORDER_KEY, invId);
+                                                    }
+
+                                                    // Сразу подгружаем информацию о заказе, чтобы включить текущую логику polling
+                                                    try {
+                                                        const order = await fetchOrder(invId);
+                                                        setCurrentOrder(order);
+                                                    } catch (e) {
+                                                        console.warn('[App] Failed to fetch order after promo apply:', e);
+                                                    }
+                                                } finally {
+                                                    setPromoLoading(false);
+                                                }
+                                            }}
+                                            className="inline-flex items-center justify-center h-10 px-3 rounded-lg text-xs font-medium text-white disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed"
+                                            style={{
+                                                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                                boxShadow: '0 4px 10px rgba(16,185,129,0.35)',
+                                            }}
+                                        >
+                                            {promoLoading ? 'Проверяем…' : 'Применить'}
+                                        </button>
+                                    </div>
                                 </div>
                                 <div data-onboarding="generate">
                                     <h2 className="text-lg font-semibold text-gray-900 mb-1">

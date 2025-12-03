@@ -540,6 +540,13 @@ export interface PaymentStatusResponse {
   error?: string;
 }
 
+export interface PromoUseResponse {
+  ok: boolean;
+  invId?: string | number;
+  remainingUses?: number;
+  error?: string;
+}
+
 /**
  * Добавляет задачу генерации в очередь и возвращает jobId
  */
@@ -631,6 +638,38 @@ export async function createPayment(
   if (!response.ok) {
     const errorText = await response.text().catch(() => '');
     throw new Error(errorText || 'Не удалось создать платёж');
+  }
+
+  return response.json();
+}
+
+/**
+ * Применяет промокод для бесплатной генерации (обходит оплату Robokassa)
+ */
+export async function usePromoCode(
+  code: string,
+  imageData: string,
+  gender: DetectedGender,
+  role: string,
+  company: string
+): Promise<PromoUseResponse> {
+  const response = await fetch(`${API_BASE_URL}/promo/use`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      code,
+      imageData,
+      gender,
+      role,
+      company,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    return { ok: false, error: text || 'Ошибка применения промокода' };
   }
 
   return response.json();

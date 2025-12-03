@@ -1,3 +1,61 @@
+// --- Promo codes storage ---
+const getPromoByCodeStmt = db.prepare(`SELECT * FROM promo_codes WHERE code = ?`);
+const insertPromoStmt = db.prepare(`
+INSERT INTO promo_codes (code, isActive, maxUses, usedCount, createdAt, updatedAt, expiresAt, note)
+VALUES (@code, @isActive, @maxUses, @usedCount, @createdAt, @updatedAt, @expiresAt, @note)
+ON CONFLICT(code) DO UPDATE SET
+  isActive = excluded.isActive,
+  maxUses = excluded.maxUses,
+  usedCount = excluded.usedCount,
+  updatedAt = excluded.updatedAt,
+  expiresAt = excluded.expiresAt,
+  note = excluded.note
+;
+`);
+const listPromosStmt = db.prepare(`SELECT * FROM promo_codes ORDER BY createdAt DESC`);
+const deletePromoStmt = db.prepare(`DELETE FROM promo_codes WHERE code = ?`);
+
+function normalizePromoCode(raw) {
+  return String(raw || '').trim().toUpperCase();
+}
+
+function mapPromoRow(row) {
+  if (!row) return null;
+  return {
+    code: row.code,
+    isActive: !!row.isActive,
+    maxUses: row.maxUses,
+    usedCount: row.usedCount,
+    remainingUses: Math.max(0, (row.maxUses || 0) - (row.usedCount || 0)),
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    expiresAt: row.expiresAt || null,
+    note: row.note || null,
+  };
+}
+
+function getPromoByCode(code) {
+  const row = getPromoByCodeStmt.get(normalizePromoCode(code));
+  return mapPromoRow(row);
+}
+
+function savePromo(promo) {
+  const now = Date.now();
+  insertPromoStmt.run({
+    code: normalizePromoCode(promo.code),
+    isActive: promo.isActive ? 1 : 0,
+    maxUses: promo.maxUses,
+    usedCount: promo.usedCount ?? 0,
+    createdAt: promo.createdAt ?? now,
+    updatedAt: now,
+    expiresAt: promo.expiresAt ?? null,
+    note: promo.note ?? null,
+  });
+}
+
+function listPromos() {
+  return listPromosStmt.all().map(mapPromoRow);
+}
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -1918,11 +1976,173 @@ app.get(`${API_PREFIX}/order/:invId`, (req, res) => {
 // Простейшая "админка": список всех заказов
 app.get(`${API_PREFIX}/admin/orders`, (req, res) => {
   try {
-    const orders = listOrders();
+    const { from, to, status } = req.query;
+    const filters = {};
+    if (from) {
+      const fromNum = Number(from);
+      if (!Number.isNaN(fromNum) && fromNum > 0) filters.from = fromNum;
+    }
+    if (to) {
+      const toNum = Number(to);
+      if (!Number.isNaN(toNum) && toNum > 0) filters.to = toNum;
+    }
+    if (status && typeof status === 'string') {
+      filters.status = status;
+    }
+
+    const orders = listOrders(filters);
     res.json({ orders });
   } catch (err) {
     console.error('[Admin] Failed to list orders:', err);
     res.status(500).json({ error: 'Не удалось загрузить список заказов' });
+  }
+});
+
+// Админка промокодов
+app.get(`${API_PREFIX}/admin/promocodes`, (req, res) => {
+  try {
+    const promos = listPromos();
+    res.json({ promos });
+  } catch (err) {
+    console.error('[Admin] Failed to list promo codes:', err);
+    res.status(500).json({ error: 'Не удалось загрузить список промокодов' });
+  }
+});
+
+app.post(`${API_PREFIX}/admin/promocodes`, express.json(), (req, res) => {
+  try {
+    const { code, maxUses, isActive, expiresAt, note } = req.body || {};
+    const normalized = normalizePromoCode(code);
+    if (!normalized || normalized.length !== 6 || !/^[A-Z0-9]{6}$/.test(normalized)) {
+      return res.status(400).json({ error: 'Промокод должен состоять из 6 символов (латинские буквы и цифры)' });
+    }
+    const maxUsesNum = Number(maxUses) || 0;
+    if (maxUsesNum <= 0) {
+      return res.status(400).json({ error: 'Максимальное количество активаций должно быть больше 0' });
+    }
+    const existing = getPromoByCode(normalized);
+    const promo = {
+      code: normalized,
+      isActive: isActive !== false,
+      maxUses: maxUsesNum,
+      usedCount: existing?.usedCount ?? 0,
+      createdAt: existing?.createdAt ?? Date.now(),
+      expiresAt: expiresAt ? Number(expiresAt) : null,
+      note: note || existing?.note || null,
+    };
+    savePromo(promo);
+    res.json({ promo: getPromoByCode(normalized) });
+  } catch (err) {
+    console.error('[Admin] Failed to create/update promo code:', err);
+    res.status(500).json({ error: 'Не удалось сохранить промокод' });
+  }
+});
+
+app.delete(`${API_PREFIX}/admin/promocodes/:code`, (req, res) => {
+  try {
+    const code = normalizePromoCode(req.params.code);
+    deletePromoStmt.run(code);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[Admin] Failed to delete promo code:', err);
+    res.status(500).json({ error: 'Не удалось удалить промокод' });
+  }
+});
+
+// Применение промокода для бесплатной генерации
+app.post(`${API_PREFIX}/promo/use`, express.json({ limit: '11mb' }), async (req, res) => {
+  try {
+    const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
+    const { code, imageData, gender, role, company } = req.body || {};
+
+    if (!code || typeof code !== 'string') {
+      return res.status(400).json({ ok: false, error: 'Промокод обязателен' });
+    }
+    if (!imageData || typeof imageData !== 'string') {
+      return res.status(400).json({ ok: false, error: 'Отсутствует исходное изображение' });
+    }
+    if (!gender || (gender !== 'male' && gender !== 'female')) {
+      return res.status(400).json({ ok: false, error: 'Не указан пол' });
+    }
+
+    // Проверка попыток по IP
+    const attempts = promoAttemptsByIp.get(clientIp) || { count: 0 };
+    if (attempts.count >= 5) {
+      return res.status(429).json({ ok: false, error: 'Превышено количество попыток ввода промокода. Попробуйте позже.' });
+    }
+
+    const normalizedCode = normalizePromoCode(code);
+    const promo = getPromoByCode(normalizedCode);
+
+    const now = Date.now();
+    const isExpired = promo?.expiresAt && promo.expiresAt < now;
+    const noUsesLeft = !promo || !promo.isActive || (promo.maxUses > 0 && promo.usedCount >= promo.maxUses) || isExpired;
+
+    if (noUsesLeft) {
+      attempts.count += 1;
+      promoAttemptsByIp.set(clientIp, attempts);
+      return res.status(400).json({ ok: false, error: 'Промокод недействителен или исчерпал лимит активаций.' });
+    }
+
+    // Промокод валиден — создаём заказ и запускаем генерацию
+    const invId = createNextInvId();
+
+    const order = {
+      invId,
+      status: 'processing',
+      amount: 0,
+      createdAt: Date.now(),
+      gender,
+      role: typeof role === 'string' ? role : null,
+      company: typeof company === 'string' ? company : null,
+      photoSessionType: 'Деловая фотосессия',
+      hasImageData: true,
+      generatedImages: null,
+      failureReason: null,
+      retries: 0,
+      paymentType: 'promo',
+      promoCode: normalizedCode,
+    };
+
+    saveOrder(order);
+    orderImages.set(String(invId), imageData);
+
+    // Обновляем счётчики промокода
+    const updatedPromo = {
+      ...promo,
+      usedCount: (promo.usedCount || 0) + 1,
+    };
+    if (updatedPromo.usedCount >= updatedPromo.maxUses) {
+      updatedPromo.isActive = false;
+    }
+    savePromo(updatedPromo);
+
+    console.log('[Promo] Promo code applied', {
+      code: normalizedCode,
+      invId,
+      usedCount: updatedPromo.usedCount,
+      remaining: Math.max(0, updatedPromo.maxUses - updatedPromo.usedCount),
+    });
+
+    // Запускаем генерацию асинхронно
+    generatePortraitsForOrder(invId).catch(err => {
+      console.error('[Promo] Error in portrait generation with promo:', err);
+      const failedOrder = loadOrder(invId);
+      if (failedOrder) {
+        failedOrder.status = 'failed';
+        failedOrder.failureReason = err instanceof Error ? err.message : String(err);
+        saveOrder(failedOrder);
+      }
+    });
+
+    res.json({
+      ok: true,
+      invId,
+      remainingUses: Math.max(0, updatedPromo.maxUses - updatedPromo.usedCount),
+    });
+  } catch (err) {
+    console.error('[Promo] Failed to apply promo code:', err);
+    res.status(500).json({ ok: false, error: 'Не удалось применить промокод. Попробуйте позже.' });
   }
 });
 
@@ -1978,6 +2198,39 @@ CREATE TABLE IF NOT EXISTS orders (
 );
 `);
 
+// Расширение схемы orders для новых полей (без потери данных)
+try {
+  db.exec(`ALTER TABLE orders ADD COLUMN paymentType TEXT`);
+} catch (e) {
+  // Игнорируем ошибку "duplicate column name", любые другие логируем
+  if (!String(e.message || e).includes('duplicate column')) {
+    console.error('[DB] Failed to add paymentType column to orders:', e);
+  }
+}
+
+try {
+  db.exec(`ALTER TABLE orders ADD COLUMN promoCode TEXT`);
+} catch (e) {
+  if (!String(e.message || e).includes('duplicate column')) {
+    console.error('[DB] Failed to add promoCode column to orders:', e);
+  }
+}
+
+// Таблица промокодов
+db.exec(`
+CREATE TABLE IF NOT EXISTS promo_codes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  code TEXT UNIQUE NOT NULL,
+  isActive INTEGER NOT NULL DEFAULT 1,
+  maxUses INTEGER NOT NULL,
+  usedCount INTEGER NOT NULL DEFAULT 0,
+  createdAt INTEGER NOT NULL,
+  updatedAt INTEGER NOT NULL,
+  expiresAt INTEGER,
+  note TEXT
+);
+`);
+
 const insertOrderStmt = db.prepare(`
 INSERT INTO orders (invId, status, amount, createdAt, gender, role, company, photoSessionType, hasImageData, generatedImagesJson, failureReason, retries)
 VALUES (@invId, @status, @amount, @createdAt, @gender, @role, @company, @photoSessionType, @hasImageData, @generatedImagesJson, @failureReason, @retries)
@@ -1991,7 +2244,9 @@ ON CONFLICT(invId) DO UPDATE SET
   hasImageData = COALESCE(excluded.hasImageData, orders.hasImageData),
   generatedImagesJson = COALESCE(excluded.generatedImagesJson, orders.generatedImagesJson),
   failureReason = excluded.failureReason,
-  retries = excluded.retries
+  retries = excluded.retries,
+  paymentType = COALESCE(excluded.paymentType, orders.paymentType),
+  promoCode = COALESCE(excluded.promoCode, orders.promoCode)
 ;
 `);
 
@@ -2030,6 +2285,8 @@ function loadOrder(invId) {
     generatedImages: row.generatedImagesJson ? JSON.parse(row.generatedImagesJson) : null,
     failureReason: row.failureReason,
     retries: row.retries ?? 0,
+    paymentType: row.paymentType || null,
+    promoCode: row.promoCode || null,
   };
 }
 
@@ -2047,6 +2304,8 @@ function mapOrderRow(row) {
     generatedImages: row.generatedImagesJson ? JSON.parse(row.generatedImagesJson) : null,
     failureReason: row.failureReason,
     retries: row.retries ?? 0,
+    paymentType: row.paymentType || null,
+    promoCode: row.promoCode || null,
   };
 }
 
@@ -2054,6 +2313,9 @@ function mapOrderRow(row) {
 // которые не кладём в SQLite, чтобы не раздувать БД и не упираться в размер.
 // Ключ: invId, значение: строка data URL.
 const orderImages = new Map();
+
+// In-memory защита от перебора промокодов: максимум 5 неуспешных попыток на IP за время жизни процесса.
+const promoAttemptsByIp = new Map(); // key: ip, value: { count }
 
 function listOrders(filters = {}) {
   const { from, to, status } = filters;
