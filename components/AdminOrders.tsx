@@ -172,76 +172,74 @@ const AdminOrders: React.FC<AdminOrdersProps> = ({ embedded }) => {
             <p className="text-sm text-slate-500">Заказы пока не найдены.</p>
           )}
 
-          {orders.length > 0 && (
-            <div className="overflow-x-auto rounded-lg border bg-white">
-              <table className="min-w-full text-xs sm:text-sm">
-                <thead className="bg-slate-100 text-slate-600">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">InvId</th>
-                    <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Статус</th>
-                    <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Сумма</th>
-                    <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Создан</th>
-                    <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Пол</th>
-                    <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Роль</th>
-                    <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Компания</th>
-                    <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Вид фотосессии</th>
-                    <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Исходник</th>
-                    <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Портреты</th>
-                    <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Ошибка / Повторы</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {orders.map((order) => (
-                    <tr key={order.invId} className="hover:bg-slate-50">
-                      <td className="px-3 py-2 font-mono text-[11px] text-slate-700">
-                        {order.invId}
-                      </td>
-                      <td className="px-3 py-2 text-slate-700 whitespace-nowrap">
-                        {order.status}
-                      </td>
-                      <td className="px-3 py-2 text-slate-700 whitespace-nowrap">
-                        {order.amount} ₽
-                      </td>
-                      <td className="px-3 py-2 text-slate-600 whitespace-nowrap">
-                        {formatDate(order.createdAt)}
-                      </td>
-                      <td className="px-3 py-2 text-slate-700 whitespace-nowrap">
-                        {order.gender || '-'}
-                      </td>
-                      <td className="px-3 py-2 text-slate-700">
-                        {order.role || '-'}
-                      </td>
-                      <td className="px-3 py-2 text-slate-700">
-                        {order.company || '-'}
-                      </td>
-                      <td className="px-3 py-2 text-slate-700 whitespace-nowrap">
-                        {order.photoSessionType || 'Деловая фотосессия'}
-                      </td>
-                      <td className="px-3 py-2 text-slate-700 whitespace-nowrap">
-                        {order.hasImageData ? 'Да' : 'Нет'}
-                      </td>
-                      <td className="px-3 py-2 text-slate-700 whitespace-nowrap">
-                        {renderThumbnails(order)}
-                      </td>
-                      <td className="px-3 py-2 text-slate-700">
-                        {order.failureReason ? (
-                          <span className="text-red-600">
-                            {order.failureReason} (ретраев: {order.retries || 0})
-                          </span>
-                        ) : (
-                          <span className="text-slate-500">
-                            ретраев: {order.retries || 0}
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+      {orders.length > 0 && (
+        <div className="overflow-x-auto rounded-lg border bg-white">
+          <table className="min-w-full text-xs sm:text-sm">
+            <thead className="bg-slate-100 text-slate-600">
+              <tr>
+                <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">InvId</th>
+                <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Статус</th>
+                <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Сумма</th>
+                <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Создан</th>
+                <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Пол</th>
+                <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Роль</th>
+                <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Компания</th>
+                <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Вид фотосессии</th>
+                <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Исходник</th>
+                <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Портреты</th>
+                <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Ошибка / Повторы</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {orders.map((order) => (
+                <tr key={order.invId} className="hover:bg-slate-50">
+                  <td className="px-3 py-2 font-mono text-[11px] text-slate-700">
+                    {order.invId}
+                  </td>
+                  <td className="px-3 py-2 text-slate-700 whitespace-nowrap">
+                    {order.status}
+                  </td>
+                  <td className="px-3 py-2 text-slate-700 whitespace-nowrap">
+                    {order.amount} ₽
+                  </td>
+                  <td className="px-3 py-2 text-slate-600 whitespace-nowrap">
+                    {formatDate(order.createdAt)}
+                  </td>
+                  <td className="px-3 py-2 text-slate-700 whitespace-nowrap">
+                    {order.gender || '-'}
+                  </td>
+                  <td className="px-3 py-2 text-slate-700">
+                    {order.role || '-'}
+                  </td>
+                  <td className="px-3 py-2 text-slate-700">
+                    {order.company || '-'}
+                  </td>
+                  <td className="px-3 py-2 text-slate-700 whitespace-nowrap">
+                    {order.photoSessionType || 'Деловая фотосессия'}
+                  </td>
+                  <td className="px-3 py-2 text-slate-700 whitespace-nowrap">
+                    {order.hasImageData ? 'Да' : 'Нет'}
+                  </td>
+                  <td className="px-3 py-2 text-slate-700 whitespace-nowrap">
+                    {renderThumbnails(order)}
+                  </td>
+                  <td className="px-3 py-2 text-slate-700">
+                    {order.failureReason ? (
+                      <span className="text-red-600">
+                        {order.failureReason} (ретраев: {order.retries || 0})
+                      </span>
+                    ) : (
+                      <span className="text-slate-500">
+                        ретраев: {order.retries || 0}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      </main>
+      )}
     </div>
   );
 
