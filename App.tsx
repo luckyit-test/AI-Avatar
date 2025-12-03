@@ -742,7 +742,13 @@ function App() {
                     console.warn('[App] Failed to persist pending generation before payment:', storageError);
                 }
 
-                const payment = await createPayment();
+                const effectiveGender = getEffectiveGender();
+                const payment = await createPayment(
+                    uploadedImage,
+                    effectiveGender || 'unknown',
+                    selectedRole || '',
+                    selectedCompany || ''
+                );
                 if (payment?.redirectUrl) {
                     window.location.href = payment.redirectUrl;
                     return;

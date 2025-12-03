@@ -609,12 +609,23 @@ export async function addGenerationToQueue(imageDataUrl: string, prompt: string,
 /**
  * Создаёт платёж в Robokassa и возвращает URL для редиректа
  */
-export async function createPayment(): Promise<CreatePaymentResponse> {
+export async function createPayment(
+  imageData: string,
+  gender: DetectedGender,
+  role: string,
+  company: string
+): Promise<CreatePaymentResponse> {
   const response = await fetch(`${API_BASE_URL}/payment/create`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
+    body: JSON.stringify({
+      imageData,
+      gender,
+      role,
+      company,
+    }),
   });
 
   if (!response.ok) {

@@ -1541,6 +1541,145 @@ app.post(`${API_PREFIX}/payment/create`, async (req, res) => {
   }
 });
 
+// Функции для построения промптов портретов (упрощенная версия с фронтенда)
+function buildPortraitPrompts(gender, role, company) {
+  const STYLES = ['Классический', 'Современный', 'Креативный', 'Технологичный', 'Дружелюбный', 'Уверенный'];
+  
+  if (!gender || (gender !== 'male' && gender !== 'female')) {
+    throw new Error('Пол должен быть выбран перед генерацией');
+  }
+  
+  const constraints = gender === 'female'
+    ? 'No facial hair. No beard. No mustache.'
+    : 'CRITICAL FACIAL HAIR PRESERVATION: You MUST preserve the facial hair EXACTLY as shown in the original photo - including style, length, thickness, density, and visibility. If the person is clean-shaven (no beard, no mustache) in the original photo, the generated portrait MUST also be clean-shaven with NO facial hair. If the person has a short, subtle, barely visible beard in the original, the generated portrait MUST have the EXACT SAME short, subtle, barely visible beard - do NOT make it longer, thicker, denser, or more prominent.';
+  
+  const genderInstruction = gender === 'male' 
+    ? 'CRITICAL: This is a MALE person. Generate a MALE portrait. The person must be clearly male with masculine features. Do NOT generate a female portrait.'
+    : 'CRITICAL: This is a FEMALE person. Generate a FEMALE portrait. The person must be clearly female with feminine features. Do NOT generate a male portrait.';
+  
+  const facialHairPreservation = gender === 'male'
+    ? 'CRITICAL FACIAL HAIR RULE: Maintain the EXACT same facial hair style, length, thickness, density, and visibility as in the original photo. If the original shows a short, subtle, barely visible beard - keep it EXACTLY short, subtle, and barely visible. If clean-shaven in original, generate clean-shaven. Do NOT lengthen, thicken, densify, or enhance facial hair beyond what is visible in the original photo.'
+    : '';
+  
+  const base = (tone) => {
+    return `Create a professional, high-resolution ${gender === 'female' ? 'female ' : 'male '}business portrait of the person in the photo, suitable for a LinkedIn profile. ${genderInstruction} ${facialHairPreservation} The style should be ${tone}. ${constraints} Attire: smart-casual, solid neutral colors, no large logos. Lighting: soft, even high-key lighting. Lens & crop: 85mm head-and-shoulders. Background: neutral gradient backdrop. Color grade: clean editorial grade. Pose: facing camera, subtle smile or neutral confident expression. Photorealistic and authentic. Preserve identity and facial features EXACTLY as in the original photo. Context: ${role || 'technology professional'}; ${company || 'professional context'}.`;
+  };
+  
+  return {
+    'Классический': base('classic and formal, with traditional corporate lighting and attire against a simple, neutral background'),
+    'Современный': base('modern and approachable, with natural lighting and a slightly blurred, contemporary office or neutral background'),
+    'Креативный': base('expressive and creative lighting, allowing for subtle artistic choices while remaining professional'),
+    'Технологичный': base('clean and minimalist, with bright, even lighting and a simple, light gray or white background; attire smart-casual'),
+    'Дружелюбный': base('warm and friendly, with soft lighting and a genuine smile'),
+    'Уверенный': base('confident and powerful, strong pose, sharp business formal attire, determined expression'),
+  };
+}
+
+// Функция генерации портретов (запускается асинхронно после подтверждения оплаты)
+async function generatePortraitsForOrder(invId) {
+  const order = payments.get(String(invId));
+  if (!order || !order.imageData) {
+    console.error(`[generatePortraitsForOrder] Order ${invId} not found or missing imageData`);
+    return;
+  }
+  
+  const { imageData, gender, role, company } = order;
+  
+  // Обновляем статус на processing
+  order.status = 'processing';
+  order.generatedImages = {};
+  payments.set(String(invId), order);
+  
+  console.log(`[generatePortraitsForOrder] Starting generation for order ${invId}`, { gender, role, company });
+  
+  try {
+    // ШАГ 1: Генерируем промежуточное изображение
+    let intermediateImage;
+    try {
+      intermediateImage = await replaceBackgroundWithGray(imageData);
+      console.log(`[generatePortraitsForOrder] Intermediate image generated for order ${invId}`);
+    } catch (err) {
+      console.error(`[generatePortraitsForOrder] Failed to generate intermediate image for order ${invId}:`, err);
+      intermediateImage = imageData; // Используем оригинал если промежуточное не удалось
+    }
+    
+    // ШАГ 2: Строим промпты для всех 6 стилей
+    const prompts = buildPortraitPrompts(gender, role, company);
+    const STYLES = Object.keys(prompts);
+    
+    // ШАГ 3: Генерируем все 6 портретов параллельно
+    const generationPromises = STYLES.map(async (style) => {
+      const prompt = prompts[style];
+      try {
+        // Добавляем задачу в очередь
+        const queueResult = addToQueue(intermediateImage, prompt);
+        const jobId = queueResult.jobId;
+        
+        // Ждем завершения генерации (polling)
+        const maxWaitTime = 300000; // 5 минут
+        const startTime = Date.now();
+        const pollInterval = 2000; // Проверяем каждые 2 секунды
+        
+        while (Date.now() - startTime < maxWaitTime) {
+          const status = getJobStatus(jobId);
+          
+          if (status && status.status === 'completed' && status.result) {
+            // Успешно сгенерировано
+            order.generatedImages[style] = status.result.imageDataUrl;
+            payments.set(String(invId), order);
+            console.log(`[generatePortraitsForOrder] Successfully generated ${style} for order ${invId}`);
+            return { style, success: true, url: status.result.imageDataUrl };
+          }
+          
+          if (status && status.status === 'error') {
+            console.error(`[generatePortraitsForOrder] Failed to generate ${style} for order ${invId}:`, status.error);
+            return { style, success: false, error: status.error };
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+        }
+        
+        // Таймаут
+        console.error(`[generatePortraitsForOrder] Timeout generating ${style} for order ${invId}`);
+        return { style, success: false, error: 'Таймаут генерации' };
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        console.error(`[generatePortraitsForOrder] Error generating ${style} for order ${invId}:`, errorMessage);
+        return { style, success: false, error: errorMessage };
+      }
+    });
+    
+    // Ждем завершения всех генераций
+    const results = await Promise.all(generationPromises);
+    
+    // Подсчитываем успешные и неудачные
+    const successful = results.filter(r => r.success);
+    const failed = results.filter(r => !r.success);
+    
+    console.log(`[generatePortraitsForOrder] Generation completed for order ${invId}: ${successful.length} successful, ${failed.length} failed`);
+    
+    // Обновляем статус заказа
+    if (successful.length === 6) {
+      order.status = 'completed';
+    } else if (successful.length > 0) {
+      order.status = 'completed'; // Частично выполнено, но считаем выполненным
+      order.failureReason = `Сгенерировано ${successful.length} из 6 портретов`;
+    } else {
+      order.status = 'failed';
+      order.failureReason = 'Не удалось сгенерировать ни одного портрета';
+    }
+    
+    payments.set(String(invId), order);
+    
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error(`[generatePortraitsForOrder] Fatal error for order ${invId}:`, errorMessage);
+    order.status = 'failed';
+    order.failureReason = errorMessage;
+    payments.set(String(invId), order);
+  }
+}
+
 // Callback от Robokassa после обработки платежа (ResultURL)
 app.post(`${API_PREFIX}/robokassa/result`, express.urlencoded({ extended: false }), (req, res) => {
   try {
@@ -1579,13 +1718,35 @@ app.post(`${API_PREFIX}/robokassa/result`, express.urlencoded({ extended: false 
         failureReason: 'order_not_found_on_payment',
         retries: 0,
       });
+      console.log('[Robokassa] Payment confirmed but order not found', { invId, outSum });
     } else {
       payment.status = 'paid';
       payment.amount = outSum;
       payments.set(String(invId), payment);
+      console.log('[Robokassa] Payment confirmed', { invId, outSum });
+      
+      // Запускаем генерацию портретов асинхронно (не блокируем ответ Robokassa)
+      if (payment.imageData && payment.gender && payment.role && payment.company) {
+        console.log('[Robokassa] Starting portrait generation for order', { invId });
+        generatePortraitsForOrder(invId).catch(err => {
+          console.error('[Robokassa] Error in portrait generation:', err);
+          const order = payments.get(String(invId));
+          if (order) {
+            order.status = 'failed';
+            order.failureReason = err instanceof Error ? err.message : String(err);
+            payments.set(String(invId), order);
+          }
+        });
+      } else {
+        console.warn('[Robokassa] Cannot start generation: missing data', { 
+          invId, 
+          hasImageData: !!payment.imageData,
+          hasGender: !!payment.gender,
+          hasRole: !!payment.role,
+          hasCompany: !!payment.company
+        });
+      }
     }
-
-    console.log('[Robokassa] Payment confirmed', { invId, outSum });
 
     // По протоколу Robokassa нужно вернуть OK + InvId
     res.send(`OK${invId}`);
