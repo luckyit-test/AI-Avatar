@@ -1909,7 +1909,10 @@ function App() {
                             <div className="mt-6">
                                 {!isValidatingImage && !imageValidationError && uploadedImage && (appState === 'image-uploaded' || appState === 'generating' || appState === 'results-shown') && (
                                     <div className="mb-6" data-onboarding="gender">
-                                        <h2 className="text-lg font-semibold text-gray-900 mb-1">Пол</h2>
+                                        <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900 mb-1">
+                                            <Icons.career className="w-4 h-4 text-blue-500" />
+                                            Пол
+                                        </h2>
                                         <p className="text-sm text-gray-500 mb-3">
                                             {genderOverride === null 
                                                 ? 'Выберите пол для генерации портретов' 
@@ -1960,7 +1963,12 @@ function App() {
                                 <div className="mb-6 grid grid-cols-1 gap-4">
                                     <div data-onboarding="role">
                                         <CustomSelect
-                                            label="Должность в ИТ"
+                                            label={(
+                                                <span className="inline-flex items-center gap-2">
+                                                    <Icons.career className="w-4 h-4 text-blue-500" />
+                                                    <span>Должность в ИТ</span>
+                                                </span>
+                                            ) as unknown as string}
                                             options={IT_ROLES}
                                             value={selectedRole}
                                             onChange={(value) => setSelectedRole(value as typeof IT_ROLES[number])}
@@ -1969,7 +1977,12 @@ function App() {
                                     </div>
                                     <div data-onboarding="company">
                                         <CustomSelect
-                                            label="Тип компании"
+                                            label={(
+                                                <span className="inline-flex items-center gap-2">
+                                                    <Icons.logo className="w-4 h-4 text-blue-500" />
+                                                    <span>Тип компании</span>
+                                                </span>
+                                            ) as unknown as string}
                                             options={COMPANY_TYPES}
                                             value={selectedCompany}
                                             onChange={(value) => setSelectedCompany(value as typeof COMPANY_TYPES[number])}
@@ -1981,17 +1994,10 @@ function App() {
                                 {/* Блок промокода */}
                                 <div className="mb-4">
                                     <div className="flex items-center justify-between mb-1">
-                                        <span className="text-sm font-medium text-gray-900">Есть промокод?</span>
-                                        {promoMessage && (
-                                            <span className="text-xs text-emerald-600">
-                                                {promoMessage}
-                                            </span>
-                                        )}
-                                        {!promoMessage && promoError && (
-                                            <span className="text-xs text-red-600">
-                                                {promoError}
-                                            </span>
-                                        )}
+                                        <span className="inline-flex items-center gap-2 text-sm font-medium text-gray-900">
+                                            <Icons.sparkles className="w-4 h-4 text-emerald-500" />
+                                            <span>Промокод</span>
+                                        </span>
                                     </div>
                                     <div className="flex gap-2">
                                         <input
@@ -2002,8 +2008,8 @@ function App() {
                                                 setPromoMessage(null);
                                                 setPromoError(null);
                                             }}
-                                            placeholder="Например, ABC123"
-                                            className="flex-1 h-10 px-3 rounded-lg border border-gray-300 text-sm tracking-[0.2em] uppercase"
+                                            placeholder="Введите промокод"
+                                            className="flex-1 h-10 px-3 rounded-lg border border-gray-300 text-sm tracking-[0.24em] uppercase"
                                         />
                                         <button
                                             type="button"
@@ -2090,12 +2096,23 @@ function App() {
                                             className="inline-flex items-center justify-center h-10 px-3 rounded-lg text-xs font-medium text-white disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed"
                                             style={{
                                                 background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                                boxShadow: '0 4px 10px rgba(16,185,129,0.35)',
+                                                boxShadow: '0 6px 14px rgba(16,185,129,0.35)',
                                             }}
                                         >
                                             {promoLoading ? 'Проверяем…' : 'Применить'}
                                         </button>
                                     </div>
+                                    {promoMessage && (
+                                        <div className="mt-2 flex items-center text-[11px] text-emerald-600">
+                                            <Icons.checkCircle className="w-3.5 h-3.5 mr-1.5" />
+                                            <span>{promoMessage}</span>
+                                        </div>
+                                    )}
+                                    {!promoMessage && promoError && (
+                                        <p className="mt-2 text-[11px] text-red-600">
+                                            {promoError}
+                                        </p>
+                                    )}
                                 </div>
                                 <div data-onboarding="generate">
                                     <h2 className="text-lg font-semibold text-gray-900 mb-1">
