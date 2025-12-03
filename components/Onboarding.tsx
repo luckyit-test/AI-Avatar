@@ -141,8 +141,10 @@ export function Onboarding({ isActive, currentStep, steps, onNext, onPrev, onSki
         let tooltipLeft = 0;
 
         // Примерные размеры тултипа (будет использоваться для позиционирования)
-        const tooltipWidth = 384; // max-w-sm = 384px
-        const tooltipHeight = 200; // примерная высота
+        const tooltipWidth = 384; // max-w-sm = 384px (на десктопе)
+        const tooltipHeight = 220; // примерная высота
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
 
         switch (step.position) {
           case 'top':
@@ -162,6 +164,22 @@ export function Onboarding({ isActive, currentStep, steps, onNext, onPrev, onSki
             tooltipLeft = rect.right + scrollX + 20;
             break;
         }
+
+        // На узких экранах (мобилки) центрируем тултип по ширине экрана,
+        // чтобы он не «уезжал» за края и выглядел как модальное окно.
+        if (viewportWidth <= 640) {
+          tooltipLeft = scrollX + viewportWidth / 2;
+        }
+
+        // Жёсткие ограничения, чтобы тултип не выходил за пределы вьюпорта
+        const margin = 12;
+        const minLeft = scrollX + margin + tooltipWidth / 2;
+        const maxLeft = scrollX + viewportWidth - margin - tooltipWidth / 2;
+        tooltipLeft = Math.min(maxLeft, Math.max(minLeft, tooltipLeft));
+
+        const minTop = scrollY + margin;
+        const maxTop = scrollY + viewportHeight - margin - tooltipHeight;
+        tooltipTop = Math.min(maxTop, Math.max(minTop, tooltipTop));
 
         setTooltipPosition({ top: tooltipTop, left: tooltipLeft });
       }
@@ -234,13 +252,13 @@ export function Onboarding({ isActive, currentStep, steps, onNext, onPrev, onSki
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="fixed z-50 pointer-events-none"
+        className="fixed z-50 pointer-events-none rounded-xl"
         style={{
           top: position.top - 4,
           left: position.left - 4,
           width: position.width + 8,
           height: position.height + 8,
-          boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.6), 0 0 0 4px #3b82f6'
+          boxShadow: '0 0 0 3px #3b82f6'
         }}
       />
 
@@ -249,13 +267,14 @@ export function Onboarding({ isActive, currentStep, steps, onNext, onPrev, onSki
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.9 }}
-        className="fixed z-50 bg-gray-800 text-white rounded-lg shadow-xl max-w-sm p-6"
+        className="fixed z-50 bg-gray-800 text-white rounded-lg shadow-xl max-w-sm w-[min(90vw,384px)] p-6"
         style={{
           top: tooltipPosition.top,
           left: tooltipPosition.left,
-          transform: step.position === 'left' || step.position === 'right' 
-            ? `translateY(-50%) ${step.position === 'left' ? 'translateX(-100%)' : ''}`
-            : `translateX(-50%) ${step.position === 'top' ? 'translateY(-100%)' : ''}`
+          transform:
+            step.position === 'left' || step.position === 'right'
+              ? `translateY(-50%) ${step.position === 'left' ? 'translateX(-100%)' : ''}`
+              : `translateX(-50%) ${step.position === 'top' ? 'translateY(-100%)' : ''}`,
         }}
       >
         {/* Arrow */}
