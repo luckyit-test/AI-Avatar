@@ -449,7 +449,7 @@ function App() {
                     if (order.status === 'paid' || order.status === 'processing' || order.status === 'completed') {
                         setHasActivePayment(true);
                         
-                        // Восстанавливаем настройки из заказа или localStorage
+                        // Восстанавливаем настройки из localStorage
                         try {
                             const raw = window.localStorage.getItem(PENDING_GENERATION_KEY);
                             if (raw) {
@@ -468,6 +468,19 @@ function App() {
                                 }
                             }
                             
+                            // Если изображение не восстановилось из localStorage, но есть в заказе - используем данные из заказа
+                            // (хотя imageData не возвращается в публичном API, но можем использовать сохраненные настройки)
+                            // Восстанавливаем настройки из заказа для отображения
+                            if (order.gender && (order.gender === 'male' || order.gender === 'female')) {
+                                setGenderOverride(order.gender as 'male' | 'female');
+                            }
+                            if (order.role && (IT_ROLES as readonly string[]).includes(order.role)) {
+                                setSelectedRole(order.role as (typeof IT_ROLES)[number]);
+                            }
+                            if (order.company && (COMPANY_TYPES as readonly string[]).includes(order.company)) {
+                                setSelectedCompany(order.company as (typeof COMPANY_TYPES)[number]);
+                            }
+                            
                             // Если заказ завершен - показываем результаты
                             if (order.status === 'completed' && order.generatedImages) {
                                 const images: Record<string, GeneratedImage> = {};
@@ -480,8 +493,9 @@ function App() {
                                 });
                                 setGeneratedImages(images);
                                 setAppState('results-shown');
-                            } else if (order.status === 'processing') {
-                                // Показываем состояние генерации
+                            } else if (order.status === 'processing' || order.status === 'paid') {
+                                // Показываем состояние генерации сразу (даже если заказ еще в статусе paid)
+                                // Показываем генерацию даже если изображение не восстановилось - пользователь должен видеть прогресс
                                 const images: Record<string, GeneratedImage> = {};
                                 STYLES.forEach(style => {
                                     images[style] = { status: 'processing' };
@@ -512,14 +526,24 @@ function App() {
         }
     }, []);
 
-    // Polling статуса заказа, если он в состоянии processing
+    // Polling статуса заказа, если он в состоянии paid или processing
     useEffect(() => {
-        if (!currentInvId || !currentOrder || currentOrder.status !== 'processing') return;
+        if (!currentInvId || !currentOrder || (currentOrder.status !== 'processing' && currentOrder.status !== 'paid')) return;
 
         const pollInterval = setInterval(async () => {
             try {
                 const order = await fetchOrder(currentInvId);
                 setCurrentOrder(order);
+
+                // Если заказ перешел в processing - обновляем UI
+                if (order.status === 'processing' && appState !== 'generating') {
+                    const images: Record<string, GeneratedImage> = {};
+                    STYLES.forEach(style => {
+                        images[style] = { status: 'processing' };
+                    });
+                    setGeneratedImages(images);
+                    setAppState('generating');
+                }
 
                 // Если заказ завершен - обновляем UI
                 if (order.status === 'completed' && order.generatedImages) {
@@ -542,10 +566,10 @@ function App() {
             } catch (err) {
                 console.error('[App] Failed to poll order status:', err);
             }
-        }, 3000); // Проверяем каждые 3 секунды
+        }, 2000); // Проверяем каждые 2 секунды для более быстрого обновления
 
         return () => clearInterval(pollInterval);
-    }, [currentInvId, currentOrder]);
+    }, [currentInvId, currentOrder, appState]);
 
     // Таймер для оценки изображения - обратный отсчет от 10 до 1
     useEffect(() => {
