@@ -107,9 +107,18 @@ interface OnboardingProps {
 export function Onboarding({ isActive, currentStep, steps, onNext, onPrev, onSkip }: OnboardingProps) {
   const [position, setPosition] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ top: number; left: number } | null>(null);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
 
   useEffect(() => {
     if (!isActive || currentStep >= steps.length) return;
+
+    // Определяем, мобильный ли режим (по ширине вьюпорта)
+    const checkIsMobile = () => {
+      if (typeof window === 'undefined') return;
+      setIsMobile(window.innerWidth <= 640);
+    };
+
+    checkIsMobile();
 
     const updatePosition = () => {
       const step = steps[currentStep];
@@ -165,10 +174,11 @@ export function Onboarding({ isActive, currentStep, steps, onNext, onPrev, onSki
             break;
         }
 
-        // На узких экранах (мобилки) центрируем тултип по ширине экрана,
-        // чтобы он не «уезжал» за края и выглядел как модальное окно.
+        // На узких экранах (мобилки) показываем тултип как модальное окно по центру
+        // и не привязываем его жёстко к таргету.
         if (viewportWidth <= 640) {
           tooltipLeft = scrollX + viewportWidth / 2;
+          tooltipTop = scrollY + viewportHeight / 2;
         }
 
         // Жёсткие ограничения, чтобы тултип не выходил за пределы вьюпорта
@@ -209,7 +219,7 @@ export function Onboarding({ isActive, currentStep, steps, onNext, onPrev, onSki
     };
   }, [isActive, currentStep, steps]);
 
-  if (!isActive || currentStep >= steps.length || !position || !tooltipPosition) {
+  if (!isActive || currentStep >= steps.length || !tooltipPosition) {
     return null;
   }
 
@@ -247,20 +257,22 @@ export function Onboarding({ isActive, currentStep, steps, onNext, onPrev, onSki
         onClick={onSkip}
       />
 
-      {/* Highlight box */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="fixed z-50 pointer-events-none rounded-xl"
-        style={{
-          top: position.top - 4,
-          left: position.left - 4,
-          width: position.width + 8,
-          height: position.height + 8,
-          boxShadow: '0 0 0 3px #3b82f6'
-        }}
-      />
+      {/* Highlight box (только на десктопе) */}
+      {!isMobile && position && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          className="fixed z-50 pointer-events-none rounded-xl"
+          style={{
+            top: position.top - 4,
+            left: position.left - 4,
+            width: position.width + 8,
+            height: position.height + 8,
+            boxShadow: '0 0 0 3px #3b82f6',
+          }}
+        />
+      )}
 
       {/* Tooltip */}
       <motion.div
@@ -271,14 +283,17 @@ export function Onboarding({ isActive, currentStep, steps, onNext, onPrev, onSki
         style={{
           top: tooltipPosition.top,
           left: tooltipPosition.left,
-          transform:
-            step.position === 'left' || step.position === 'right'
-              ? `translateY(-50%) ${step.position === 'left' ? 'translateX(-100%)' : ''}`
-              : `translateX(-50%) ${step.position === 'top' ? 'translateY(-100%)' : ''}`,
+          transform: isMobile
+            ? 'translate(-50%, -50%)'
+            : step.position === 'left' || step.position === 'right'
+            ? `translateY(-50%) ${step.position === 'left' ? 'translateX(-100%)' : ''}`
+            : `translateX(-50%) ${step.position === 'top' ? 'translateY(-100%)' : ''}`,
         }}
       >
         {/* Arrow */}
-        <div className={`absolute w-0 h-0 ${arrowClass}`} style={{ borderWidth: '8px' }} />
+        {!isMobile && (
+          <div className={`absolute w-0 h-0 ${arrowClass}`} style={{ borderWidth: '8px' }} />
+        )}
 
         <div className="relative">
           <h3 className="text-lg font-semibold mb-2">{step.title}</h3>
