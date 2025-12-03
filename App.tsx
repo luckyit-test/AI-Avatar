@@ -8,7 +8,7 @@ import { generateImage, evaluateImage, addGenerationToQueue, createPayment, chec
 import { createAlbumPage } from './lib/albumUtils';
 import { compressImage, shouldCompressImage } from './lib/imageCompression';
 import { errorLogger } from './lib/errorLogger';
-import Footer from './components.Footer';
+import Footer from './components/Footer';
 import AdminDashboard from './components/AdminDashboard';
 import Uploader from './components/Uploader';
 import ImageCard from './components/ImageCard';
