@@ -248,7 +248,7 @@ const AdminOrders: React.FC<AdminOrdersProps> = ({ embedded }) => {
                     {order.hasImageData ? 'Да' : 'Нет'}
                   </td>
                   <td className="px-3 py-2 text-slate-700 whitespace-nowrap">
-                    {order.imagesCount && order.imagesCount > 0 ? (
+                    {(order.imagesCount && order.imagesCount > 0) || order.status === 'completed' ? (
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
