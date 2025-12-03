@@ -467,11 +467,14 @@ function App() {
                             const raw = window.localStorage.getItem(PENDING_GENERATION_KEY);
                             if (raw) {
                                 const data = JSON.parse(raw);
+                                console.log('[App] Restoring from localStorage:', { hasImage: !!data?.uploadedImage, hasGender: !!data?.genderOverride });
                                 if (data?.uploadedImage) {
                                     setUploadedImage(data.uploadedImage);
+                                    console.log('[App] Restored uploadedImage from localStorage');
                                 }
                                 if (data?.genderOverride === 'male' || data?.genderOverride === 'female') {
                                     setGenderOverride(data.genderOverride);
+                                    console.log('[App] Restored genderOverride from localStorage:', data.genderOverride);
                                 }
                                 if (data?.selectedRole && (IT_ROLES as readonly string[]).includes(data.selectedRole)) {
                                     setSelectedRole(data.selectedRole as (typeof IT_ROLES)[number]);
@@ -479,13 +482,16 @@ function App() {
                                 if (data?.selectedCompany && (COMPANY_TYPES as readonly string[]).includes(data.selectedCompany)) {
                                     setSelectedCompany(data.selectedCompany as (typeof COMPANY_TYPES)[number]);
                                 }
+                            } else {
+                                console.warn('[App] No data in localStorage for PENDING_GENERATION_KEY');
                             }
                             
-                            // Если изображение не восстановилось из localStorage, но есть в заказе - используем данные из заказа
-                            // (хотя imageData не возвращается в публичном API, но можем использовать сохраненные настройки)
-                            // Восстанавливаем настройки из заказа для отображения
+                            // Восстанавливаем настройки из заказа (если не восстановились из localStorage)
                             if (order.gender && (order.gender === 'male' || order.gender === 'female')) {
-                                setGenderOverride(order.gender as 'male' | 'female');
+                                if (!genderOverride) {
+                                    setGenderOverride(order.gender as 'male' | 'female');
+                                    console.log('[App] Restored genderOverride from order:', order.gender);
+                                }
                             }
                             if (order.role && (IT_ROLES as readonly string[]).includes(order.role)) {
                                 setSelectedRole(order.role as (typeof IT_ROLES)[number]);
@@ -550,11 +556,21 @@ function App() {
 
     // Polling статуса заказа, если он в состоянии paid или processing
     useEffect(() => {
-        if (!currentInvId || !currentOrder || (currentOrder.status !== 'processing' && currentOrder.status !== 'paid')) return;
+        if (!currentInvId) return;
+        
+        // Если currentOrder еще не загружен, не запускаем polling
+        if (!currentOrder) return;
+        
+        // Запускаем polling только для paid или processing
+        if (currentOrder.status !== 'processing' && currentOrder.status !== 'paid') return;
+
+        console.log('[App] Starting polling for order', { invId: currentInvId, status: currentOrder.status });
 
         const pollInterval = setInterval(async () => {
             try {
+                console.log('[App] Polling order status...', { invId: currentInvId });
                 const order = await fetchOrder(currentInvId);
+                console.log('[App] Polled order status:', { status: order.status, hasGeneratedImages: !!order.generatedImages, generatedImagesCount: order.generatedImages ? Object.keys(order.generatedImages).length : 0 });
                 setCurrentOrder(order);
 
                 // Если заказ перешел в processing - обновляем UI
@@ -569,6 +585,7 @@ function App() {
 
                 // Если заказ завершен - обновляем UI
                 if (order.status === 'completed' && order.generatedImages) {
+                    console.log('[App] Order completed, updating UI with results');
                     const images: Record<string, GeneratedImage> = {};
                     STYLES.forEach(style => {
                         if (order.generatedImages && order.generatedImages[style]) {
@@ -582,6 +599,7 @@ function App() {
                     clearInterval(pollInterval);
                 } else if (order.status === 'failed') {
                     // Заказ провалился
+                    console.log('[App] Order failed');
                     setAppState('image-uploaded');
                     clearInterval(pollInterval);
                 }
@@ -590,7 +608,10 @@ function App() {
             }
         }, 2000); // Проверяем каждые 2 секунды для более быстрого обновления
 
-        return () => clearInterval(pollInterval);
+        return () => {
+            console.log('[App] Stopping polling');
+            clearInterval(pollInterval);
+        };
     }, [currentInvId, currentOrder, appState]);
 
     // Таймер для оценки изображения - обратный отсчет от 10 до 1
@@ -1730,9 +1751,19 @@ function App() {
                                         </div>
                                     </motion.div>
                                 )}
-                                {uploadedImage && (appState === 'image-uploaded' || appState === 'generating' || appState === 'results-shown') && !imageValidationError && !isValidatingImage && (
+                                {/* Показываем исходник всегда, если есть uploadedImage или если заказ в процессе генерации/завершен */}
+                                {((uploadedImage && (appState === 'image-uploaded' || appState === 'generating' || appState === 'results-shown')) || 
+                                  (appState === 'generating' || appState === 'results-shown')) && 
+                                  !imageValidationError && !isValidatingImage && (
                                      <motion.div key="preview" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                                        <img src={uploadedImage} alt="Uploaded preview" className="w-full rounded-md object-cover aspect-square" />
+                                        {uploadedImage ? (
+                                            <img src={uploadedImage} alt="Uploaded preview" className="w-full rounded-md object-cover aspect-square" />
+                                        ) : (
+                                            // Показываем placeholder, если изображение не восстановилось, но генерация идет
+                                            <div className="w-full aspect-square rounded-md border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center">
+                                                <p className="text-sm text-gray-500">Исходное изображение</p>
+                                            </div>
+                                        )}
                                     </motion.div>
                                 )}
                             </AnimatePresence>
@@ -1988,7 +2019,7 @@ function App() {
                                             estimatedWaitTime={imageState?.estimatedWaitTime}
                                             imageUrl={imageState?.url}
                                             error={imageState?.error}
-                                            gender={getEffectiveGender()}
+                                            gender={genderOverride || (currentOrder?.gender === 'male' ? 'male' : currentOrder?.gender === 'female' ? 'female' : null)}
                                             onRegenerate={() => handleRegenerateStyle(style)}
                                             onDownload={() => handleDownloadIndividualImage(style)}
                                             onOpen={(url) => setLightboxUrl(url)}
