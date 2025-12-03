@@ -657,6 +657,39 @@ export async function checkPaymentStatus(invId: string): Promise<PaymentStatusRe
   return response.json();
 }
 
+export interface OrderInfo {
+  invId: string;
+  status: 'created' | 'paid' | 'processing' | 'completed' | 'failed';
+  amount: string;
+  createdAt: number;
+  gender: string | null;
+  role: string | null;
+  company: string | null;
+  hasImageData: boolean;
+  generatedImages: Record<string, string> | null;
+  failureReason: string | null;
+  retries: number;
+}
+
+/**
+ * Получает информацию о заказе по invId
+ */
+export async function fetchOrder(invId: string): Promise<OrderInfo> {
+  const response = await fetch(`${API_BASE_URL}/order/${invId}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Неизвестная ошибка' }));
+    throw new Error(errorData.error || 'Заказ не найден');
+  }
+
+  return response.json();
+}
+
 /**
  * Проверяет статус задачи генерации
  */

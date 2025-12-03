@@ -4,7 +4,7 @@
 */
 import React, { useState, ChangeEvent, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { generateImage, evaluateImage, addGenerationToQueue, createPayment, checkPaymentStatus, type DetectedGender, type QueueStatus, type ImageEvaluationResult } from './services/geminiService';
+import { generateImage, evaluateImage, addGenerationToQueue, createPayment, checkPaymentStatus, fetchOrder, type DetectedGender, type QueueStatus, type ImageEvaluationResult, type OrderInfo } from './services/geminiService';
 import { createAlbumPage } from './lib/albumUtils';
 import { compressImage, shouldCompressImage } from './lib/imageCompression';
 import { errorLogger } from './lib/errorLogger';
@@ -393,6 +393,9 @@ function App() {
     const [hasActivePayment, setHasActivePayment] = useState<boolean>(false);
     const autoGenerationStartedRef = useRef<boolean>(false);
     const PENDING_GENERATION_KEY = 'newava_pending_generation';
+    const CURRENT_ORDER_KEY = 'newava_current_order';
+    const [currentOrder, setCurrentOrder] = useState<OrderInfo | null>(null);
+    const [currentInvId, setCurrentInvId] = useState<string | null>(null);
     // Промежуточное изображение для стабильной генерации
     const [intermediateImage, setIntermediateImage] = useState<string | null>(null);
     const [isGeneratingIntermediate, setIsGeneratingIntermediate] = useState<boolean>(false);
@@ -420,38 +423,86 @@ function App() {
         }
     }, []);
 
-    // Проверяем, не вернулся ли пользователь после оплаты Robokassa
+    // Проверяем, не вернулся ли пользователь после оплаты Robokassa или есть ли сохраненный заказ
     useEffect(() => {
         if (typeof window === 'undefined') return;
+        
         const url = new URL(window.location.href);
-        const invId = url.searchParams.get('invId') || url.searchParams.get('InvId');
+        const invIdFromUrl = url.searchParams.get('invId') || url.searchParams.get('InvId');
+        const invIdFromStorage = window.localStorage.getItem(CURRENT_ORDER_KEY);
+        const invId = invIdFromUrl || invIdFromStorage;
 
         if (invId) {
-            // Для UX считаем, что раз нас вернули с InvId, оплата прошла успешно.
-            setHasActivePayment(true);
-
-            // Восстанавливаем сохранённые перед оплатой настройки
-            try {
-                const raw = window.localStorage.getItem(PENDING_GENERATION_KEY);
-                if (raw) {
-                    const data = JSON.parse(raw);
-                    if (data?.uploadedImage) {
-                        setUploadedImage(data.uploadedImage);
-                    }
-                    if (data?.genderOverride === 'male' || data?.genderOverride === 'female') {
-                        setGenderOverride(data.genderOverride);
-                    }
-                    if (data?.selectedRole && (IT_ROLES as readonly string[]).includes(data.selectedRole)) {
-                        setSelectedRole(data.selectedRole as (typeof IT_ROLES)[number]);
-                    }
-                    if (data?.selectedCompany && (COMPANY_TYPES as readonly string[]).includes(data.selectedCompany)) {
-                        setSelectedCompany(data.selectedCompany as (typeof COMPANY_TYPES)[number]);
-                    }
-                    setAppState('image-uploaded');
-                }
-            } catch (e) {
-                console.warn('[App] Failed to restore pending generation from storage:', e);
+            // Сохраняем invId в состояние
+            setCurrentInvId(invId);
+            if (invIdFromUrl && !invIdFromStorage) {
+                // Сохраняем в localStorage если пришли с URL
+                window.localStorage.setItem(CURRENT_ORDER_KEY, invId);
             }
+
+            // Загружаем информацию о заказе с бэкенда
+            fetchOrder(invId)
+                .then((order) => {
+                    setCurrentOrder(order);
+                    
+                    // Если заказ оплачен или обрабатывается - показываем генерацию
+                    if (order.status === 'paid' || order.status === 'processing' || order.status === 'completed') {
+                        setHasActivePayment(true);
+                        
+                        // Восстанавливаем настройки из заказа или localStorage
+                        try {
+                            const raw = window.localStorage.getItem(PENDING_GENERATION_KEY);
+                            if (raw) {
+                                const data = JSON.parse(raw);
+                                if (data?.uploadedImage) {
+                                    setUploadedImage(data.uploadedImage);
+                                }
+                                if (data?.genderOverride === 'male' || data?.genderOverride === 'female') {
+                                    setGenderOverride(data.genderOverride);
+                                }
+                                if (data?.selectedRole && (IT_ROLES as readonly string[]).includes(data.selectedRole)) {
+                                    setSelectedRole(data.selectedRole as (typeof IT_ROLES)[number]);
+                                }
+                                if (data?.selectedCompany && (COMPANY_TYPES as readonly string[]).includes(data.selectedCompany)) {
+                                    setSelectedCompany(data.selectedCompany as (typeof COMPANY_TYPES)[number]);
+                                }
+                            }
+                            
+                            // Если заказ завершен - показываем результаты
+                            if (order.status === 'completed' && order.generatedImages) {
+                                const images: Record<string, GeneratedImage> = {};
+                                STYLES.forEach(style => {
+                                    if (order.generatedImages && order.generatedImages[style]) {
+                                        images[style] = { status: 'done', url: order.generatedImages[style] };
+                                    } else {
+                                        images[style] = { status: 'error', error: 'Не сгенерировано' };
+                                    }
+                                });
+                                setGeneratedImages(images);
+                                setAppState('results-shown');
+                            } else if (order.status === 'processing') {
+                                // Показываем состояние генерации
+                                const images: Record<string, GeneratedImage> = {};
+                                STYLES.forEach(style => {
+                                    images[style] = { status: 'processing' };
+                                });
+                                setGeneratedImages(images);
+                                setAppState('generating');
+                            } else {
+                                setAppState('image-uploaded');
+                            }
+                        } catch (e) {
+                            console.warn('[App] Failed to restore order state:', e);
+                        }
+                    }
+                })
+                .catch((err) => {
+                    console.error('[App] Failed to fetch order:', err);
+                    // Если заказ не найден - очищаем localStorage
+                    if (typeof window !== 'undefined') {
+                        window.localStorage.removeItem(CURRENT_ORDER_KEY);
+                    }
+                });
 
             // Чистим служебные параметры Robokassa из URL
             ['payment', 'invId', 'InvId', 'OutSum', 'SignatureValue', 'IsTest', 'Culture'].forEach((key) =>
@@ -461,18 +512,40 @@ function App() {
         }
     }, []);
 
-    // Как только есть оплаченный заказ и восстановленное изображение — автоматически запускаем генерацию
+    // Polling статуса заказа, если он в состоянии processing
     useEffect(() => {
-        if (autoGenerationStartedRef.current) return;
-        if (!hasActivePayment) return;
-        if (!uploadedImage) return;
-        const effectiveGender = getEffectiveGender();
-        if (!effectiveGender || (effectiveGender !== 'male' && effectiveGender !== 'female')) return;
-        if (appState !== 'idle' && appState !== 'image-uploaded') return;
+        if (!currentInvId || !currentOrder || currentOrder.status !== 'processing') return;
 
-        autoGenerationStartedRef.current = true;
-        void handleGenerateClick();
-    }, [hasActivePayment, uploadedImage, genderOverride, appState]);
+        const pollInterval = setInterval(async () => {
+            try {
+                const order = await fetchOrder(currentInvId);
+                setCurrentOrder(order);
+
+                // Если заказ завершен - обновляем UI
+                if (order.status === 'completed' && order.generatedImages) {
+                    const images: Record<string, GeneratedImage> = {};
+                    STYLES.forEach(style => {
+                        if (order.generatedImages && order.generatedImages[style]) {
+                            images[style] = { status: 'done', url: order.generatedImages[style] };
+                        } else {
+                            images[style] = { status: 'error', error: 'Не сгенерировано' };
+                        }
+                    });
+                    setGeneratedImages(images);
+                    setAppState('results-shown');
+                    clearInterval(pollInterval);
+                } else if (order.status === 'failed') {
+                    // Заказ провалился
+                    setAppState('image-uploaded');
+                    clearInterval(pollInterval);
+                }
+            } catch (err) {
+                console.error('[App] Failed to poll order status:', err);
+            }
+        }, 3000); // Проверяем каждые 3 секунды
+
+        return () => clearInterval(pollInterval);
+    }, [currentInvId, currentOrder]);
 
     // Таймер для оценки изображения - обратный отсчет от 10 до 1
     useEffect(() => {
@@ -721,8 +794,14 @@ function App() {
             return;
         }
 
+        // Если есть активный заказ в состоянии processing или completed - не запускаем генерацию заново
+        if (currentOrder && (currentOrder.status === 'processing' || currentOrder.status === 'completed')) {
+            console.log('[App] Order already processing or completed, skipping generation');
+            return;
+        }
+
         // Если оплаты ещё не было - инициируем платёж через Robokassa
-        if (!hasActivePayment) {
+        if (!hasActivePayment && !currentOrder) {
             try {
                 console.log('[App] No active payment found, creating Robokassa payment...');
 
@@ -750,6 +829,10 @@ function App() {
                     selectedCompany || ''
                 );
                 if (payment?.redirectUrl) {
+                    // Сохраняем invId в localStorage для восстановления после возврата
+                    if (typeof window !== 'undefined' && payment.invId) {
+                        window.localStorage.setItem(CURRENT_ORDER_KEY, String(payment.invId));
+                    }
                     window.location.href = payment.redirectUrl;
                     return;
                 }
