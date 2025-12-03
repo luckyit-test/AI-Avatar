@@ -1668,17 +1668,96 @@ async function generatePortraitsForOrder(invId) {
     const successful = results.filter(r => r.success);
     const failed = results.filter(r => !r.success);
     
-    console.log(`[generatePortraitsForOrder] Generation completed for order ${invId}: ${successful.length} successful, ${failed.length} failed`);
+    console.log(`[generatePortraitsForOrder] ========================================`);
+    console.log(`[generatePortraitsForOrder] STEP 3: Checking results and retrying failed portraits`);
+    console.log(`[generatePortraitsForOrder] Successful: ${successful.length}, Failed: ${failed.length}`);
+    console.log(`[generatePortraitsForOrder] ========================================`);
+    
+    // ШАГ 4: Retry для неудачных портретов (используя успешные как источники)
+    if (successful.length > 0 && failed.length > 0) {
+      console.log(`[generatePortraitsForOrder] Retrying ${failed.length} failed portraits using successful portraits as sources`);
+      
+      const MAX_RETRY_ATTEMPTS = 3;
+      const MAX_SOURCES_PER_FAILED_STYLE = 3;
+      
+      const retryPromises = failed.map(async (failedResult) => {
+        const style = failedResult.style;
+        const prompt = prompts[style];
+        let sourcesTried = 0;
+        let sourceIndex = 0;
+        
+        while (
+          sourcesTried < MAX_SOURCES_PER_FAILED_STYLE &&
+          sourceIndex < successful.length
+        ) {
+          const source = successful[sourceIndex];
+          console.log(`[generatePortraitsForOrder] Retrying ${style} using source: ${source.style} (attempt ${sourcesTried + 1})`);
+          
+          try {
+            const queueResult = addToQueue(source.url, prompt);
+            const jobId = queueResult.jobId;
+            
+            const maxWaitTime = 300000;
+            const startTime = Date.now();
+            const pollInterval = 2000;
+            
+            while (Date.now() - startTime < maxWaitTime) {
+              const status = getJobStatus(jobId);
+              
+              if (status && status.status === 'completed' && status.result) {
+                order.generatedImages[style] = status.result.imageDataUrl;
+                payments.set(String(invId), order);
+                console.log(`[generatePortraitsForOrder] ✅ Retry successful for ${style} using ${source.style}`);
+                successful.push({ style, success: true, url: status.result.imageDataUrl });
+                return { style, success: true, url: status.result.imageDataUrl };
+              }
+              
+              if (status && status.status === 'error') {
+                console.error(`[generatePortraitsForOrder] ❌ Retry failed for ${style} using ${source.style}`);
+                break;
+              }
+              
+              await new Promise(resolve => setTimeout(resolve, pollInterval));
+            }
+          } catch (err) {
+            console.error(`[generatePortraitsForOrder] Error in retry for ${style}:`, err);
+          }
+          
+          sourcesTried += 1;
+          sourceIndex += 1;
+        }
+        
+        return { style, success: false };
+      });
+      
+      const retryResults = await Promise.all(retryPromises);
+      retryResults.forEach(result => {
+        if (result.success) {
+          const index = failed.findIndex(f => f.style === result.style);
+          if (index >= 0) {
+            failed.splice(index, 1);
+            successful.push(result);
+          }
+        }
+      });
+    }
+    
+    console.log(`[generatePortraitsForOrder] ========================================`);
+    console.log(`[generatePortraitsForOrder] Final results: ${successful.length} successful, ${failed.length} failed`);
+    console.log(`[generatePortraitsForOrder] ========================================`);
     
     // Обновляем статус заказа
     if (successful.length === 6) {
       order.status = 'completed';
+      console.log(`[generatePortraitsForOrder] ✅ Order ${invId} completed successfully with all 6 portraits`);
     } else if (successful.length > 0) {
       order.status = 'completed'; // Частично выполнено, но считаем выполненным
       order.failureReason = `Сгенерировано ${successful.length} из 6 портретов`;
+      console.log(`[generatePortraitsForOrder] ⚠️ Order ${invId} partially completed: ${successful.length}/6`);
     } else {
       order.status = 'failed';
       order.failureReason = 'Не удалось сгенерировать ни одного портрета';
+      console.error(`[generatePortraitsForOrder] ❌ Order ${invId} failed: no portraits generated`);
     }
     
     payments.set(String(invId), order);
