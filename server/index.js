@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { dirname, join, basename } from 'path';
 import { promises as fs } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -2050,12 +2050,8 @@ app.get(`${API_PREFIX}/admin/orders/:invId/download`, requireAdminAuth, async (r
       const parts = url.split('/images/')[1];
       if (!parts) continue;
       const filePath = join(IMAGE_ROOT_DIR, parts.replace(/^orders\//, 'orders/'));
-      const styleSlug = style
-        .toString()
-        .toLowerCase()
-        .replace(/\s+/g, '_')
-        .replace(/[^a-z0-9_]/g, '');
-      const nameInArchive = `${styleSlug || 'portrait'}.jpg`;
+      // Используем фактическое имя файла на диске, чтобы избежать перезаписи
+      const nameInArchive = basename(filePath) || 'portrait.jpg';
       archive.file(filePath, { name: nameInArchive });
     }
 
