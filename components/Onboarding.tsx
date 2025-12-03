@@ -281,10 +281,10 @@ export function Onboarding({ isActive, currentStep, steps, onNext, onPrev, onSki
         exit={{ opacity: 0, scale: 0.9 }}
         className="fixed z-50 bg-gray-800 text-white rounded-lg shadow-xl max-w-sm w-[min(90vw,384px)] p-6"
         style={{
-          top: tooltipPosition.top,
-          left: tooltipPosition.left,
+          top: isMobile ? '30%' : tooltipPosition.top,
+          left: isMobile ? '5%' : tooltipPosition.left,
           transform: isMobile
-            ? 'translate(-50%, -50%)'
+            ? 'none'
             : step.position === 'left' || step.position === 'right'
             ? `translateY(-50%) ${step.position === 'left' ? 'translateX(-100%)' : ''}`
             : `translateX(-50%) ${step.position === 'top' ? 'translateY(-100%)' : ''}`,
