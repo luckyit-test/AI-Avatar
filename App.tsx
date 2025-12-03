@@ -393,6 +393,7 @@ function App() {
     const [hasActivePayment, setHasActivePayment] = useState<boolean>(false);
     const autoGenerationStartedRef = useRef<boolean>(false);
     const PENDING_GENERATION_KEY = 'newava_pending_generation';
+    const LAST_SOURCE_IMAGE_KEY = 'newava_last_source_image';
     const CURRENT_ORDER_KEY = 'newava_current_order';
     const [currentOrder, setCurrentOrder] = useState<OrderInfo | null>(null);
     const [currentInvId, setCurrentInvId] = useState<string | null>(null);
@@ -484,6 +485,19 @@ function App() {
                                 }
                             } else {
                                 console.warn('[App] No data in localStorage for PENDING_GENERATION_KEY');
+                            }
+                            
+                            // Если изображение всё ещё не восстановилось — пробуем взять последнее исходное из отдельного ключа
+                            if (!uploadedImage) {
+                                try {
+                                    const lastSource = window.localStorage.getItem(LAST_SOURCE_IMAGE_KEY);
+                                    if (lastSource) {
+                                        setUploadedImage(lastSource);
+                                        console.log('[App] Restored uploadedImage from LAST_SOURCE_IMAGE_KEY');
+                                    }
+                                } catch (e) {
+                                    console.warn('[App] Failed to restore last source image from storage:', e);
+                                }
                             }
                             
                             // Восстанавливаем настройки из заказа (если не восстановились из localStorage)
@@ -803,6 +817,15 @@ function App() {
                 setAppState('image-uploaded');
                 setIsValidatingImage(false);
                 setValidationStatusMessage('Анализируем изображение...');
+                
+                // Сохраняем исходное изображение отдельно, чтобы показать его после оплаты/перезагрузки
+                try {
+                    if (typeof window !== 'undefined') {
+                        window.localStorage.setItem(LAST_SOURCE_IMAGE_KEY, dataUrl);
+                    }
+                } catch (e) {
+                    console.warn('[App] Failed to persist last source image:', e);
+                }
                 
                 // Устанавливаем определенный пол
                 setDetectedGender(evaluation.gender);
