@@ -507,7 +507,7 @@ function App() {
             fetchOrder(invId)
                 .then((order) => {
                     setCurrentOrder(order);
-                    
+
                     // Если заказ оплачен или обрабатывается - показываем генерацию
                     if (order.status === 'paid' || order.status === 'processing' || order.status === 'completed') {
                         setHasActivePayment(true);
@@ -593,20 +593,47 @@ function App() {
                                 setAppState('generating');
                                 
                                 console.log('[App] App state set to generating, generatedImages keys:', Object.keys(images));
-                            } else {
-                                setAppState('image-uploaded');
                             }
                         } catch (e) {
                             console.warn('[App] Failed to restore order state:', e);
+                        }
+                    } else {
+                        // Заказ не был оплачен (status = created / cancelled / и т.п.) —
+                        // возвращаем пользователя на "чистую" главную страницу.
+                        console.log('[App] Order is not paid, resetting UI to idle state', { status: order.status });
+                        setHasActivePayment(false);
+                        setCurrentInvId(null);
+                        setCurrentOrder(null);
+                        setGeneratedImages({});
+                        setUploadedImage(null);
+                        setGenderOverride(null);
+                        setAppState('idle');
+                        try {
+                            window.localStorage.removeItem(CURRENT_ORDER_KEY);
+                            window.localStorage.removeItem(PENDING_GENERATION_KEY);
+                        } catch (storageErr) {
+                            console.warn('[App] Failed to clear localStorage after unpaid order:', storageErr);
                         }
                     }
                 })
                 .catch((err) => {
                     console.error('[App] Failed to fetch order:', err);
-                    // Если заказ не найден - очищаем localStorage
+                    // Если заказ не найден или ошибка — очищаем localStorage и возвращаемся на чистый экран
                     if (typeof window !== 'undefined') {
-                        window.localStorage.removeItem(CURRENT_ORDER_KEY);
+                        try {
+                            window.localStorage.removeItem(CURRENT_ORDER_KEY);
+                            window.localStorage.removeItem(PENDING_GENERATION_KEY);
+                        } catch (storageErr) {
+                            console.warn('[App] Failed to clear localStorage after fetch error:', storageErr);
+                        }
                     }
+                    setHasActivePayment(false);
+                    setCurrentInvId(null);
+                    setCurrentOrder(null);
+                    setGeneratedImages({});
+                    setUploadedImage(null);
+                    setGenderOverride(null);
+                    setAppState('idle');
                 });
 
             // Чистим служебные параметры Robokassa из URL
@@ -676,6 +703,35 @@ function App() {
             clearInterval(pollInterval);
         };
     }, [currentInvId, currentOrder, appState]);
+
+    // Предупреждение при перезагрузке страницы, когда уже есть результаты генерации.
+    // Браузер покажет стандартный диалог "Вы действительно хотите покинуть страницу?",
+    // а при подтверждении мы очищаем локальное состояние и localStorage, чтобы после перезагрузки
+    // пользователь попал на "чистую" главную.
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+            if (appState === 'results-shown') {
+                try {
+                    window.localStorage.removeItem(CURRENT_ORDER_KEY);
+                    window.localStorage.removeItem(PENDING_GENERATION_KEY);
+                } catch (e) {
+                    console.warn('[App] Failed to clear storage in beforeunload:', e);
+                }
+
+                event.preventDefault();
+                // Некоторые браузеры игнорируют кастомный текст, но для показа диалога
+                // нужно присвоить любое непустое значение.
+                event.returnValue = '';
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, [appState]);
 
     // Таймер для оценки изображения - обратный отсчет от 10 до 1
     useEffect(() => {
