@@ -1594,7 +1594,7 @@ async function generatePortraitsForOrder(invId) {
   // Обновляем статус на processing
   order.status = 'processing';
   order.generatedImages = {};
-  payments.set(String(invId), order);
+  saveOrder(order);
   
   console.log(`[generatePortraitsForOrder] Starting generation for order ${invId}`, { gender, role, company });
   
@@ -1639,7 +1639,7 @@ async function generatePortraitsForOrder(invId) {
           if (status && status.status === 'completed' && status.result) {
             // Успешно сгенерировано
             order.generatedImages[style] = status.result.imageDataUrl;
-            payments.set(String(invId), order);
+            saveOrder(order);
             console.log(`[generatePortraitsForOrder] ✅ Successfully generated ${style} for order ${invId}`);
             return { style, success: true, url: status.result.imageDataUrl };
           }
@@ -1712,7 +1712,7 @@ async function generatePortraitsForOrder(invId) {
               
               if (status && status.status === 'completed' && status.result) {
                 order.generatedImages[style] = status.result.imageDataUrl;
-                payments.set(String(invId), order);
+                saveOrder(order);
                 console.log(`[generatePortraitsForOrder] ✅ Retry successful for ${style} using ${source.style}`);
                 successful.push({ style, success: true, url: status.result.imageDataUrl });
                 return { style, success: true, url: status.result.imageDataUrl };
@@ -1766,14 +1766,14 @@ async function generatePortraitsForOrder(invId) {
       console.error(`[generatePortraitsForOrder] ❌ Order ${invId} failed: no portraits generated`);
     }
     
-    payments.set(String(invId), order);
+    saveOrder(order);
     
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     console.error(`[generatePortraitsForOrder] Fatal error for order ${invId}:`, errorMessage);
     order.status = 'failed';
     order.failureReason = errorMessage;
-    payments.set(String(invId), order);
+    saveOrder(order);
   }
 }
 
@@ -1810,46 +1810,50 @@ function handleRobokassaResult(req, res) {
       return res.status(400).send('Bad signature');
     }
 
-    const payment = payments.get(String(invId));
-    if (!payment) {
-      payments.set(String(invId), {
+    let order = loadOrder(invId);
+    if (!order) {
+      order = {
+        invId: String(invId),
         status: 'paid',
         amount: outSum,
         createdAt: Date.now(),
-        imageData: null,
         gender: null,
         role: null,
         company: null,
+        photoSessionType: 'Деловая фотосессия',
+        hasImageData: false,
         generatedImages: null,
         failureReason: 'order_not_found_on_payment',
         retries: 0,
-      });
-      console.log('[Robokassa] Payment confirmed but order not found', { invId, outSum });
+      };
+      saveOrder(order);
+      console.log('[Robokassa] Payment confirmed but order not found in DB, created stub', { invId, outSum });
     } else {
-      payment.status = 'paid';
-      payment.amount = outSum;
-      payments.set(String(invId), payment);
+      order.status = 'paid';
+      order.amount = outSum;
+      saveOrder(order);
       console.log('[Robokassa] Payment confirmed', { invId, outSum });
       
       // Запускаем генерацию портретов асинхронно (не блокируем ответ Robokassa)
-      if (payment.imageData && payment.gender && payment.role && payment.company) {
+      const hasImageData = order.hasImageData;
+      if (hasImageData && order.gender && order.role && order.company) {
         console.log('[Robokassa] Starting portrait generation for order', { invId });
         generatePortraitsForOrder(invId).catch(err => {
           console.error('[Robokassa] Error in portrait generation:', err);
-          const order = payments.get(String(invId));
-          if (order) {
-            order.status = 'failed';
-            order.failureReason = err instanceof Error ? err.message : String(err);
-            payments.set(String(invId), order);
+          const failedOrder = loadOrder(invId);
+          if (failedOrder) {
+            failedOrder.status = 'failed';
+            failedOrder.failureReason = err instanceof Error ? err.message : String(err);
+            saveOrder(failedOrder);
           }
         });
       } else {
-        console.warn('[Robokassa] Cannot start generation: missing data', { 
+        console.warn('[Robokassa] Cannot start generation: missing data in order', { 
           invId, 
-          hasImageData: !!payment.imageData,
-          hasGender: !!payment.gender,
-          hasRole: !!payment.role,
-          hasCompany: !!payment.company
+          hasImageData,
+          hasGender: !!order.gender,
+          hasRole: !!order.role,
+          hasCompany: !!order.company
         });
       }
     }
@@ -1872,35 +1876,34 @@ app.get(`${API_PREFIX}/payment/status`, (req, res) => {
   if (!invId) {
     return res.status(400).json({ paid: false, error: 'invId is required' });
   }
-  const payment = payments.get(String(invId));
-  if (!payment) {
+  const order = loadOrder(invId);
+  if (!order) {
     return res.json({ paid: false });
   }
-  return res.json({ paid: payment.status === 'paid' || payment.status === 'processing' || payment.status === 'completed' });
+  return res.json({ paid: order.status === 'paid' || order.status === 'processing' || order.status === 'completed' });
 });
 
 // Публичная информация о заказе по InvId
 app.get(`${API_PREFIX}/order/:invId`, (req, res) => {
   const { invId } = req.params;
-  const payment = payments.get(String(invId));
-  if (!payment) {
+  const order = loadOrder(invId);
+  if (!order) {
     return res.status(404).json({ error: 'Заказ не найден' });
   }
 
-  const { status, amount, createdAt, gender, role, company, generatedImages, failureReason, retries } = payment;
-
   res.json({
-    invId,
-    status,
-    amount,
-    createdAt,
-    gender,
-    role,
-    company,
-    hasImageData: !!payment.imageData,
-    generatedImages: generatedImages || null,
-    failureReason: failureReason || null,
-    retries: retries || 0,
+    invId: order.invId,
+    status: order.status,
+    amount: order.amount,
+    createdAt: order.createdAt,
+    gender: order.gender,
+    role: order.role,
+    company: order.company,
+    photoSessionType: order.photoSessionType,
+    hasImageData: order.hasImageData,
+    generatedImages: order.generatedImages || null,
+    failureReason: order.failureReason || null,
+    retries: order.retries || 0,
   });
 });
 
@@ -1985,7 +1988,6 @@ ON CONFLICT(invId) DO UPDATE SET
 `);
 
 const getOrderStmt = db.prepare(`SELECT * FROM orders WHERE invId = ?`);
-const listOrdersStmt = db.prepare(`SELECT * FROM orders ORDER BY createdAt DESC LIMIT 500`);
 
 function saveOrder(order) {
   insertOrderStmt.run({
@@ -2023,8 +2025,8 @@ function loadOrder(invId) {
   };
 }
 
-function listOrders() {
-  return listOrdersStmt.all().map(row => ({
+function mapOrderRow(row) {
+  return {
     invId: row.invId,
     status: row.status,
     amount: row.amount,
@@ -2037,7 +2039,31 @@ function listOrders() {
     generatedImages: row.generatedImagesJson ? JSON.parse(row.generatedImagesJson) : null,
     failureReason: row.failureReason,
     retries: row.retries ?? 0,
-  }));
+  };
+}
+
+function listOrders(filters = {}) {
+  const { from, to, status } = filters;
+  let sql = 'SELECT * FROM orders WHERE 1=1';
+  const params = {};
+
+  if (from) {
+    sql += ' AND createdAt >= @from';
+    params.from = from;
+  }
+  if (to) {
+    sql += ' AND createdAt <= @to';
+    params.to = to;
+  }
+  if (status) {
+    sql += ' AND status = @status';
+    params.status = status;
+  }
+
+  sql += ' ORDER BY createdAt DESC LIMIT 500';
+
+  const stmt = db.prepare(sql);
+  return stmt.all(params).map(mapOrderRow);
 }
 
 let lastInvId = Date.now();

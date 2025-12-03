@@ -12,8 +12,9 @@ interface AdminOrder {
   gender?: string | null;
   role?: string | null;
   company?: string | null;
+  photoSessionType?: string | null;
   hasImageData: boolean;
-  imagesCount: number;
+  generatedImages?: Record<string, string> | null;
   failureReason?: string | null;
   retries: number;
 }
@@ -26,36 +27,51 @@ const AdminOrders: React.FC = () => {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [fromDate, setFromDate] = useState<string>('');
+  const [toDate, setToDate] = useState<string>('');
+
+  const fetchOrders = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const params = new URLSearchParams();
+      if (statusFilter) params.set('status', statusFilter);
+      if (fromDate) params.set('from', String(new Date(fromDate).getTime()));
+      if (toDate) {
+        const end = new Date(toDate);
+        end.setHours(23, 59, 59, 999);
+        params.set('to', String(end.getTime()));
+      }
+
+      const url = `/api/admin/orders${params.toString() ? `?${params.toString()}` : ''}`;
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        throw new Error(text || `HTTP ${response.status}`);
+      }
+
+      const data = (await response.json()) as AdminOrdersResponse;
+      setOrders(data.orders || []);
+    } catch (err) {
+      console.error('[AdminOrders] Failed to fetch orders:', err);
+      setError('Не удалось загрузить список заказов. Попробуйте обновить страницу.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-
-        const response = await fetch('/api/admin/orders', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          const text = await response.text().catch(() => '');
-          throw new Error(text || `HTTP ${response.status}`);
-        }
-
-        const data = (await response.json()) as AdminOrdersResponse;
-        setOrders(data.orders || []);
-      } catch (err) {
-        console.error('[AdminOrders] Failed to fetch orders:', err);
-        setError('Не удалось загрузить список заказов. Попробуйте обновить страницу.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     void fetchOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const formatDate = (ts?: number) => {
@@ -66,6 +82,39 @@ const AdminOrders: React.FC = () => {
     } catch {
       return '-';
     }
+  };
+
+  const renderThumbnails = (order: AdminOrder) => {
+    if (!order.generatedImages) return '—';
+    const entries = Object.entries(order.generatedImages);
+    if (entries.length === 0) return '—';
+
+    const preview = entries.slice(0, 3);
+
+    return (
+      <div className="flex items-center gap-1">
+        {preview.map(([style, url]) => (
+          <a
+            key={style}
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            download={`newava_${order.invId}_${style}.png`}
+            className="block w-8 h-8 rounded-md overflow-hidden border border-slate-200 bg-slate-100"
+            title={style}
+          >
+            <img
+              src={url}
+              alt={style}
+              className="w-full h-full object-cover"
+            />
+          </a>
+        ))}
+        {entries.length > preview.length && (
+          <span className="ml-1 text-[10px] text-slate-500">+{entries.length - preview.length}</span>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -89,6 +138,49 @@ const AdminOrders: React.FC = () => {
 
       <main className="flex-1 w-full">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <label className="block text-[11px] font-medium text-slate-500 mb-1">Статус</label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="border rounded px-2 py-1 text-xs text-slate-700 bg-white"
+                >
+                  <option value="">Все</option>
+                  <option value="created">created</option>
+                  <option value="paid">paid</option>
+                  <option value="processing">processing</option>
+                  <option value="completed">completed</option>
+                  <option value="failed">failed</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium text-slate-500 mb-1">Дата от</label>
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  className="border rounded px-2 py-1 text-xs text-slate-700 bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium text-slate-500 mb-1">Дата до</label>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  className="border rounded px-2 py-1 text-xs text-slate-700 bg-white"
+                />
+              </div>
+              <button
+                onClick={() => void fetchOrders()}
+                className="inline-flex items-center px-3 py-1.5 text-xs rounded bg-slate-900 text-white hover:bg-slate-800 transition-colors"
+              >
+                Обновить
+              </button>
+            </div>
+          </div>
           {isLoading && (
             <p className="text-sm text-slate-600 mb-4">Загружаем заказы…</p>
           )}
@@ -112,6 +204,7 @@ const AdminOrders: React.FC = () => {
                     <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Пол</th>
                     <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Роль</th>
                     <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Компания</th>
+                    <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Вид фотосессии</th>
                     <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Исходник</th>
                     <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Портреты</th>
                     <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Ошибка / Повторы</th>
@@ -142,10 +235,13 @@ const AdminOrders: React.FC = () => {
                         {order.company || '-'}
                       </td>
                       <td className="px-3 py-2 text-slate-700 whitespace-nowrap">
+                        {order.photoSessionType || 'Деловая фотосессия'}
+                      </td>
+                      <td className="px-3 py-2 text-slate-700 whitespace-nowrap">
                         {order.hasImageData ? 'Да' : 'Нет'}
                       </td>
                       <td className="px-3 py-2 text-slate-700 whitespace-nowrap">
-                        {order.imagesCount > 0 ? `${order.imagesCount} шт.` : '—'}
+                        {renderThumbnails(order)}
                       </td>
                       <td className="px-3 py-2 text-slate-700">
                         {order.failureReason ? (
