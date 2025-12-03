@@ -1725,10 +1725,10 @@ function App() {
                             <div data-onboarding="upload" className="mb-4">
                                 <div className="flex items-start gap-3">
                                     <span
-                                        className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold text-white flex-shrink-0 mt-0.5"
+                                        className="flex h-12 w-12 items-center justify-center rounded-full text-base font-semibold text-white flex-shrink-0 mt-0.5"
                                         style={{
                                             background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                                            boxShadow: '0 8px 16px rgba(79,70,229,0.35)',
+                                            boxShadow: '0 10px 20px rgba(79,70,229,0.35)',
                                         }}
                                     >
                                         1
@@ -1738,7 +1738,7 @@ function App() {
                                             Загрузите ваше фото
                                         </h2>
                                         <p className="text-xs sm:text-sm text-gray-500">
-                                            Выберите чёткое изображение лица анфас.
+                                            Прикрепите фото анфас.
                                         </p>
                                     </div>
                                 </div>
@@ -1982,7 +1982,7 @@ function App() {
                                         <CustomSelect
                                             label={(
                                                 <span className="inline-flex items-center gap-2">
-                                                    <Icons.career className="w-4 h-4 text-blue-500" />
+                                                    <Icons.logo className="w-4 h-4 text-blue-500" />
                                                     <span>Должность в ИТ</span>
                                                 </span>
                                             ) as unknown as string}
@@ -2134,10 +2134,10 @@ function App() {
                                 <div data-onboarding="generate" className="mt-4">
                                     <div className="flex items-start gap-3">
                                         <span
-                                            className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold text-white flex-shrink-0 mt-0.5"
+                                            className="flex h-12 w-12 items-center justify-center rounded-full text-base font-semibold text-white flex-shrink-0 mt-0.5"
                                             style={{
                                                 background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                                                boxShadow: '0 8px 16px rgba(79,70,229,0.35)',
+                                                boxShadow: '0 10px 20px rgba(79,70,229,0.35)',
                                             }}
                                         >
                                             2
@@ -2147,13 +2147,13 @@ function App() {
                                                 Сгенерируйте портреты
                                             </h2>
                                             <p className="text-xs sm:text-sm text-gray-500 mb-3">
-                                                Мы создадим 6 профессиональных портретов в разных стилях.
+                                                Мы создадим 6 портретов.
                                             </p>
-                                            <div className="mb-4 rounded-lg border border-gray-200 bg-slate-50 px-3 h-14 flex items-center justify-between">
+                                            <div className="mb-4 w-full rounded-lg border border-gray-200 bg-slate-50 px-3 h-16 flex items-center justify-between">
                                                 <span className="text-xs sm:text-sm text-gray-500">
                                                     Стоимость генерации
                                                 </span>
-                                                <span className="text-sm sm:text-base font-semibold text-gray-900">
+                                                <span className="text-sm sm:text-lg font-semibold text-gray-900">
                                                     100 ₽
                                                 </span>
                                             </div>
