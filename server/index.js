@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { promises as fs } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -17,6 +18,7 @@ import crypto from 'crypto';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const IMAGE_ROOT_DIR = process.env.IMAGE_ROOT_DIR || '/data/images';
 
 // Настройки очереди генерации
 const GENERATION_INTERVAL = parseInt(process.env.GENERATION_INTERVAL || '3000'); // Интервал между генерациями в мс (по умолчанию 3 секунды)
@@ -1605,6 +1607,46 @@ async function generatePortraitsForOrder(invId) {
   saveOrder(order);
   
   console.log(`[generatePortraitsForOrder] Starting generation for order ${invId}`, { gender, role, company });
+
+  // Вспомогательная функция сохранения изображения на диск и возврата публичного URL
+  async function saveImageForOrder(style, dataUrl) {
+    try {
+      const styleSlugMap = {
+        'Классический': 'klassicheskiy',
+        'Современный': 'sovremennyy',
+        'Креативный': 'kreativnyy',
+        'Технологичный': 'tekhnologichnyy',
+        'Дружелюбный': 'druzhelyubnyy',
+        'Уверенный': 'uverenniy',
+      };
+      const slug =
+        styleSlugMap[style] ||
+        String(style)
+          .toString()
+          .toLowerCase()
+          .replace(/\s+/g, '_')
+          .replace(/[^a-z0-9_]/g, '');
+
+      const orderDir = join(IMAGE_ROOT_DIR, 'orders', String(invId));
+      await fs.mkdir(orderDir, { recursive: true });
+
+      const fileName = `${slug}.jpg`;
+      const filePath = join(orderDir, fileName);
+
+      const match = dataUrl.match(/^data:image\/\w+;base64,(.+)$/);
+      const base64Data = match ? match[1] : dataUrl.replace(/^data:.*;base64,/, '');
+      const buffer = Buffer.from(base64Data, 'base64');
+
+      await fs.writeFile(filePath, buffer);
+
+      const publicUrl = `/images/orders/${encodeURIComponent(String(invId))}/${encodeURIComponent(fileName)}`;
+      return publicUrl;
+    } catch (err) {
+      console.error(`[generatePortraitsForOrder] Failed to save image for order ${invId}, style ${style}:`, err);
+      // В случае ошибки сохраняем data URL напрямую, чтобы не потерять результат
+      return dataUrl;
+    }
+  }
   
   try {
     // ШАГ 1: Генерируем промежуточное изображение
@@ -1646,7 +1688,8 @@ async function generatePortraitsForOrder(invId) {
           
           if (status && status.status === 'completed' && status.result) {
             // Успешно сгенерировано
-            order.generatedImages[style] = status.result.imageDataUrl;
+            const publicUrl = await saveImageForOrder(style, status.result.imageDataUrl);
+            order.generatedImages[style] = publicUrl;
             saveOrder(order);
             console.log(`[generatePortraitsForOrder] ✅ Successfully generated ${style} for order ${invId}`);
             return { style, success: true, url: status.result.imageDataUrl };
@@ -1719,7 +1762,8 @@ async function generatePortraitsForOrder(invId) {
               const status = getJobStatus(jobId);
               
               if (status && status.status === 'completed' && status.result) {
-                order.generatedImages[style] = status.result.imageDataUrl;
+                const publicUrl = await saveImageForOrder(style, status.result.imageDataUrl);
+                order.generatedImages[style] = publicUrl;
                 saveOrder(order);
                 console.log(`[generatePortraitsForOrder] ✅ Retry successful for ${style} using ${source.style}`);
                 successful.push({ style, success: true, url: status.result.imageDataUrl });
@@ -1918,7 +1962,7 @@ app.get(`${API_PREFIX}/order/:invId`, (req, res) => {
 // Простейшая "админка": список всех заказов
 app.get(`${API_PREFIX}/admin/orders`, requireAdminAuth, (req, res) => {
   try {
-    const { from, to, status } = req.query;
+    const { from, to, status, page, limit } = req.query;
     const filters = {};
     if (from) {
       const fromNum = Number(from);
@@ -1932,8 +1976,13 @@ app.get(`${API_PREFIX}/admin/orders`, requireAdminAuth, (req, res) => {
       filters.status = status;
     }
 
-    const orders = listOrders(filters);
-    res.json({ orders });
+    const pagination = {
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 50,
+    };
+
+    const result = listOrders(filters, pagination);
+    res.json(result);
   } catch (err) {
     console.error('[Admin] Failed to list orders:', err);
     res.status(500).json({ error: 'Не удалось загрузить список заказов' });
@@ -1948,6 +1997,74 @@ app.get(`${API_PREFIX}/admin/promocodes`, requireAdminAuth, (req, res) => {
   } catch (err) {
     console.error('[Admin] Failed to list promo codes:', err);
     res.status(500).json({ error: 'Не удалось загрузить список промокодов' });
+  }
+});
+
+// Изображения заказа для просмотра в админке
+app.get(`${API_PREFIX}/admin/orders/:invId/images`, requireAdminAuth, (req, res) => {
+  try {
+    const { invId } = req.params;
+    const order = loadOrder(invId);
+    if (!order || !order.generatedImages) {
+      return res.status(404).json({ error: 'Изображения не найдены' });
+    }
+    res.json({ invId: order.invId, images: order.generatedImages });
+  } catch (err) {
+    console.error('[Admin] Failed to get order images:', err);
+    res.status(500).json({ error: 'Не удалось загрузить изображения заказа' });
+  }
+});
+
+// Архив всех портретов заказа
+app.get(`${API_PREFIX}/admin/orders/:invId/download`, requireAdminAuth, async (req, res) => {
+  try {
+    const { invId } = req.params;
+    const order = loadOrder(invId);
+    if (!order || !order.generatedImages) {
+      return res.status(404).json({ error: 'Портреты не найдены' });
+    }
+
+    const images = order.generatedImages;
+    const archiver = (await import('archiver')).default;
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="newava_${invId}_portraits.zip"`
+    );
+
+    const archive = archiver('zip', { zlib: { level: 9 } });
+
+    archive.on('error', (err) => {
+      console.error('[Admin] Archive error:', err);
+      try {
+        res.status(500).end();
+      } catch (_) {}
+    });
+
+    archive.pipe(res);
+
+    for (const [style, url] of Object.entries(images)) {
+      // url вида /images/orders/{invId}/{fileName}.jpg
+      if (typeof url !== 'string') continue;
+      const parts = url.split('/images/')[1];
+      if (!parts) continue;
+      const filePath = join(IMAGE_ROOT_DIR, parts.replace(/^orders\//, 'orders/'));
+      const styleSlug = style
+        .toString()
+        .toLowerCase()
+        .replace(/\s+/g, '_')
+        .replace(/[^a-z0-9_]/g, '');
+      const nameInArchive = `${styleSlug || 'portrait'}.jpg`;
+      archive.file(filePath, { name: nameInArchive });
+    }
+
+    archive.finalize();
+  } catch (err) {
+    console.error('[Admin] Failed to download order archive:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Не удалось сформировать архив с портретами' });
+    }
   }
 });
 
@@ -2246,6 +2363,15 @@ CREATE TABLE IF NOT EXISTS admin_settings (
 );
 `);
 
+// Миграция: добавляем столбец для количества портретов, чтобы не парсить JSON при каждом запросе списка
+try {
+  db.exec(`ALTER TABLE orders ADD COLUMN imagesCount INTEGER DEFAULT 0`);
+} catch (e) {
+  if (!String(e.message || e).includes('duplicate column')) {
+    console.error('[DB] Failed to add imagesCount column to orders:', e);
+  }
+}
+
 // --- Promo codes storage ---
 const getPromoByCodeStmt = db.prepare(`SELECT * FROM promo_codes WHERE code = ?`);
 const insertPromoStmt = db.prepare(`
@@ -2336,8 +2462,36 @@ function ensureAdminPasswordSeed() {
 ensureAdminPasswordSeed();
 
 const insertOrderStmt = db.prepare(`
-INSERT INTO orders (invId, status, amount, createdAt, gender, role, company, photoSessionType, hasImageData, generatedImagesJson, failureReason, retries)
-VALUES (@invId, @status, @amount, @createdAt, @gender, @role, @company, @photoSessionType, @hasImageData, @generatedImagesJson, @failureReason, @retries)
+INSERT INTO orders (
+  invId,
+  status,
+  amount,
+  createdAt,
+  gender,
+  role,
+  company,
+  photoSessionType,
+  hasImageData,
+  generatedImagesJson,
+  imagesCount,
+  failureReason,
+  retries
+)
+VALUES (
+  @invId,
+  @status,
+  @amount,
+  @createdAt,
+  @gender,
+  @role,
+  @company,
+  @photoSessionType,
+  @hasImageData,
+  @generatedImagesJson,
+  @imagesCount,
+  @failureReason,
+  @retries
+)
 ON CONFLICT(invId) DO UPDATE SET
   status = excluded.status,
   amount = excluded.amount,
@@ -2347,6 +2501,7 @@ ON CONFLICT(invId) DO UPDATE SET
   photoSessionType = COALESCE(excluded.photoSessionType, orders.photoSessionType),
   hasImageData = COALESCE(excluded.hasImageData, orders.hasImageData),
   generatedImagesJson = COALESCE(excluded.generatedImagesJson, orders.generatedImagesJson),
+  imagesCount = COALESCE(excluded.imagesCount, orders.imagesCount),
   failureReason = excluded.failureReason,
   retries = excluded.retries,
   paymentType = COALESCE(excluded.paymentType, orders.paymentType),
@@ -2357,6 +2512,13 @@ ON CONFLICT(invId) DO UPDATE SET
 const getOrderStmt = db.prepare(`SELECT * FROM orders WHERE invId = ?`);
 
 function saveOrder(order) {
+  const imagesCount =
+    typeof order.imagesCount === 'number'
+      ? order.imagesCount
+      : order.generatedImages
+      ? Object.keys(order.generatedImages).length
+      : 0;
+
   insertOrderStmt.run({
     invId: String(order.invId),
     status: order.status,
@@ -2368,6 +2530,7 @@ function saveOrder(order) {
     photoSessionType: order.photoSessionType ?? 'Деловая фотосессия',
     hasImageData: order.hasImageData ? 1 : 0,
     generatedImagesJson: order.generatedImages ? JSON.stringify(order.generatedImages) : null,
+    imagesCount,
     failureReason: order.failureReason ?? null,
     retries: order.retries ?? 0,
   });
@@ -2376,6 +2539,7 @@ function saveOrder(order) {
 function loadOrder(invId) {
   const row = getOrderStmt.get(String(invId));
   if (!row) return null;
+  const imagesFromJson = row.generatedImagesJson ? JSON.parse(row.generatedImagesJson) : null;
   return {
     invId: row.invId,
     status: row.status,
@@ -2386,15 +2550,17 @@ function loadOrder(invId) {
     company: row.company,
     photoSessionType: row.photoSessionType,
     hasImageData: !!row.hasImageData,
-    generatedImages: row.generatedImagesJson ? JSON.parse(row.generatedImagesJson) : null,
+    generatedImages: imagesFromJson,
     failureReason: row.failureReason,
     retries: row.retries ?? 0,
     paymentType: row.paymentType || null,
     promoCode: row.promoCode || null,
+    imagesCount: row.imagesCount != null ? row.imagesCount : imagesFromJson ? Object.keys(imagesFromJson).length : 0,
   };
 }
 
 function mapOrderRow(row) {
+  const imagesFromJson = row.generatedImagesJson ? JSON.parse(row.generatedImagesJson) : null;
   return {
     invId: row.invId,
     status: row.status,
@@ -2405,11 +2571,12 @@ function mapOrderRow(row) {
     company: row.company,
     photoSessionType: row.photoSessionType,
     hasImageData: !!row.hasImageData,
-    generatedImages: row.generatedImagesJson ? JSON.parse(row.generatedImagesJson) : null,
+    generatedImages: imagesFromJson,
     failureReason: row.failureReason,
     retries: row.retries ?? 0,
     paymentType: row.paymentType || null,
     promoCode: row.promoCode || null,
+    imagesCount: row.imagesCount != null ? row.imagesCount : imagesFromJson ? Object.keys(imagesFromJson).length : 0,
   };
 }
 
@@ -2462,28 +2629,66 @@ function requireAdminAuth(req, res, next) {
   next();
 }
 
-function listOrders(filters = {}) {
+function listOrders(filters = {}, pagination = {}) {
   const { from, to, status } = filters;
-  let sql = 'SELECT * FROM orders WHERE 1=1';
+  let whereSql = 'WHERE 1=1';
   const params = {};
 
   if (from) {
-    sql += ' AND createdAt >= @from';
+    whereSql += ' AND createdAt >= @from';
     params.from = from;
   }
   if (to) {
-    sql += ' AND createdAt <= @to';
+    whereSql += ' AND createdAt <= @to';
     params.to = to;
   }
   if (status) {
-    sql += ' AND status = @status';
+    whereSql += ' AND status = @status';
     params.status = status;
   }
 
-  sql += ' ORDER BY createdAt DESC LIMIT 500';
+  const page = Number(pagination.page) > 0 ? Number(pagination.page) : 1;
+  const pageSize = Number(pagination.limit) > 0 ? Number(pagination.limit) : 50;
+  const offset = (page - 1) * pageSize;
 
-  const stmt = db.prepare(sql);
-  return stmt.all(params).map(mapOrderRow);
+  const countStmt = db.prepare(`SELECT COUNT(*) as count FROM orders ${whereSql}`);
+  const countRow = countStmt.get(params) || { count: 0 };
+  const total = Number(countRow.count) || 0;
+
+  const dataStmt = db.prepare(
+    `SELECT * FROM orders ${whereSql} ORDER BY createdAt DESC LIMIT @limit OFFSET @offset`
+  );
+  const rows = dataStmt.all({
+    ...params,
+    limit: pageSize,
+    offset,
+  });
+
+  const mapped = rows.map((row) => ({
+    invId: row.invId,
+    status: row.status,
+    amount: row.amount,
+    createdAt: row.createdAt,
+    gender: row.gender,
+    role: row.role,
+    company: row.company,
+    photoSessionType: row.photoSessionType,
+    hasImageData: !!row.hasImageData,
+    // В списке не загружаем сами URL-ы изображений
+    generatedImages: null,
+    failureReason: row.failureReason,
+    retries: row.retries ?? 0,
+    paymentType: row.paymentType || null,
+    promoCode: row.promoCode || null,
+    imagesCount: row.imagesCount != null ? row.imagesCount : 0,
+  }));
+
+  return {
+    orders: mapped,
+    total,
+    page,
+    pageSize,
+  };
 }
 
 let lastInvId = Date.now();
@@ -2492,6 +2697,9 @@ function createNextInvId() {
   lastInvId += 1;
   return lastInvId;
 }
+
+// Раздаём сохранённые изображения как статику
+app.use('/images', express.static(IMAGE_ROOT_DIR));
 
 // Функция для дополнительной агрессивной обработки промежуточного изображения
 // Используется если первая попытка генерации провалилась
