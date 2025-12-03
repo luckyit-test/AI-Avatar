@@ -1722,9 +1722,24 @@ function App() {
                     {/* --- Left Column: Controls --- */}
                     <aside className="w-full lg:w-1/3 lg:max-w-sm flex-shrink-0">
                         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm sticky top-8 transition-shadow duration-300 hover:shadow-md">
-                            <div data-onboarding="upload">
-                            <h2 className="text-lg font-semibold text-gray-900 mb-1">1. Загрузите ваше фото</h2>
-                            <p className="text-sm text-gray-500 mb-4">Выберите четкое изображение лица анфас.</p>
+                            <div data-onboarding="upload" className="mb-4">
+                                <div className="flex items-center gap-3 mb-1">
+                                    <span
+                                        className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white"
+                                        style={{
+                                            background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                                            boxShadow: '0 6px 12px rgba(79,70,229,0.35)',
+                                        }}
+                                    >
+                                        1
+                                    </span>
+                                    <h2 className="text-sm sm:text-base font-semibold text-gray-900">
+                                        Загрузите ваше фото
+                                    </h2>
+                                </div>
+                                <p className="text-xs sm:text-sm text-gray-500">
+                                    Выберите чёткое изображение лица анфас.
+                                </p>
                             </div>
                             
                             {/* Скрытый input для кнопки ошибки - всегда в DOM */}
@@ -2114,16 +2129,32 @@ function App() {
                                         </p>
                                     )}
                                 </div>
-                                <div data-onboarding="generate">
-                                    <h2 className="text-lg font-semibold text-gray-900 mb-1">
-                                        2. Сгенерируйте портреты
-                                    </h2>
-                                    <p className="text-sm text-gray-500 mb-1">
+                                <div data-onboarding="generate" className="mt-4">
+                                    <div className="flex items-center gap-3 mb-1">
+                                        <span
+                                            className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white"
+                                            style={{
+                                                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                                                boxShadow: '0 6px 12px rgba(79,70,229,0.35)',
+                                            }}
+                                        >
+                                            2
+                                        </span>
+                                        <h2 className="text-sm sm:text-base font-semibold text-gray-900">
+                                            Сгенерируйте портреты
+                                        </h2>
+                                    </div>
+                                    <p className="text-xs sm:text-sm text-gray-500 mb-3">
                                         Мы создадим 6 профессиональных портретов в разных стилях.
                                     </p>
-                                    <p className="text-xs text-gray-500 mb-4">
-                                        Стоимость одной генерации портретов — <span className="font-semibold text-gray-800">100 ₽</span>.
-                                    </p>
+                                    <div className="mb-4 rounded-lg border border-gray-200 bg-slate-50 px-3 py-2 flex items-center justify-between">
+                                        <span className="text-xs text-gray-500">
+                                            Стоимость генерации
+                                        </span>
+                                        <span className="text-sm font-semibold text-gray-900">
+                                            100 ₽
+                                        </span>
+                                    </div>
                                 </div>
                                 {appState === 'image-uploaded' && (
                                     <div className="flex items-center gap-3">
