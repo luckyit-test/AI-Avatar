@@ -1723,23 +1723,25 @@ function App() {
                     <aside className="w-full lg:w-1/3 lg:max-w-sm flex-shrink-0">
                         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm sticky top-8 transition-shadow duration-300 hover:shadow-md">
                             <div data-onboarding="upload" className="mb-4">
-                                <div className="flex items-center gap-3 mb-1">
+                                <div className="flex items-start gap-3">
                                     <span
-                                        className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white"
+                                        className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold text-white flex-shrink-0 mt-0.5"
                                         style={{
                                             background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                                            boxShadow: '0 6px 12px rgba(79,70,229,0.35)',
+                                            boxShadow: '0 8px 16px rgba(79,70,229,0.35)',
                                         }}
                                     >
                                         1
                                     </span>
-                                    <h2 className="text-sm sm:text-base font-semibold text-gray-900">
-                                        Загрузите ваше фото
-                                    </h2>
+                                    <div>
+                                        <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-0.5">
+                                            Загрузите ваше фото
+                                        </h2>
+                                        <p className="text-xs sm:text-sm text-gray-500">
+                                            Выберите чёткое изображение лица анфас.
+                                        </p>
+                                    </div>
                                 </div>
-                                <p className="text-xs sm:text-sm text-gray-500">
-                                    Выберите чёткое изображение лица анфас.
-                                </p>
                             </div>
                             
                             {/* Скрытый input для кнопки ошибки - всегда в DOM */}
@@ -2130,30 +2132,32 @@ function App() {
                                     )}
                                 </div>
                                 <div data-onboarding="generate" className="mt-4">
-                                    <div className="flex items-center gap-3 mb-1">
+                                    <div className="flex items-start gap-3">
                                         <span
-                                            className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white"
+                                            className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold text-white flex-shrink-0 mt-0.5"
                                             style={{
                                                 background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                                                boxShadow: '0 6px 12px rgba(79,70,229,0.35)',
+                                                boxShadow: '0 8px 16px rgba(79,70,229,0.35)',
                                             }}
                                         >
                                             2
                                         </span>
-                                        <h2 className="text-sm sm:text-base font-semibold text-gray-900">
-                                            Сгенерируйте портреты
-                                        </h2>
-                                    </div>
-                                    <p className="text-xs sm:text-sm text-gray-500 mb-3">
-                                        Мы создадим 6 профессиональных портретов в разных стилях.
-                                    </p>
-                                    <div className="mb-4 rounded-lg border border-gray-200 bg-slate-50 px-3 py-2 flex items-center justify-between">
-                                        <span className="text-xs text-gray-500">
-                                            Стоимость генерации
-                                        </span>
-                                        <span className="text-sm font-semibold text-gray-900">
-                                            100 ₽
-                                        </span>
+                                        <div className="flex-1">
+                                            <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-0.5">
+                                                Сгенерируйте портреты
+                                            </h2>
+                                            <p className="text-xs sm:text-sm text-gray-500 mb-3">
+                                                Мы создадим 6 профессиональных портретов в разных стилях.
+                                            </p>
+                                            <div className="mb-4 rounded-lg border border-gray-200 bg-slate-50 px-3 h-14 flex items-center justify-between">
+                                                <span className="text-xs sm:text-sm text-gray-500">
+                                                    Стоимость генерации
+                                                </span>
+                                                <span className="text-sm sm:text-base font-semibold text-gray-900">
+                                                    100 ₽
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                                 {appState === 'image-uploaded' && (
