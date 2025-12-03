@@ -1575,7 +1575,11 @@ function buildPortraitPrompts(gender, role, company) {
     : '';
   
   const base = (tone) => {
-    return `Create a professional, high-resolution ${gender === 'female' ? 'female ' : 'male '}business portrait of the person in the photo, suitable for a LinkedIn profile. ${genderInstruction} ${facialHairPreservation} The style should be ${tone}. ${constraints} Attire: smart-casual, solid neutral colors, no large logos. Lighting: soft, even high-key lighting. Lens & crop: 85mm head-and-shoulders. Background: neutral gradient backdrop. Color grade: clean editorial grade. Pose: facing camera, subtle smile or neutral confident expression. Photorealistic and authentic. Preserve identity and facial features EXACTLY as in the original photo. Context: ${role || 'technology professional'}; ${company || 'professional context'}.`;
+    const contextText = `The person works as a ${role || 'technology professional'} in a ${company || 'professional'} context. Convey this only through overall style, mood, clothing and atmosphere, not through any overlaid text.`;
+
+    return `Create a professional, high-resolution ${
+      gender === 'female' ? 'female ' : 'male '
+    }business portrait of the person in the photo, suitable for a LinkedIn profile. ${genderInstruction} ${facialHairPreservation} The style should be ${tone}. ${constraints} Attire: smart-casual, solid neutral colors, no large logos. Lighting: soft, even high-key lighting. Lens & crop: 85mm head-and-shoulders. Background: neutral gradient backdrop. Color grade: clean editorial grade. Pose: facing camera, subtle smile or neutral confident expression. Photorealistic and authentic. Preserve identity and facial features EXACTLY as in the original photo. ${contextText} CRITICAL: Do NOT add any text, titles, role names, company names, logos, watermarks, captions, UI elements, or typography inside the image. The image must look like a clean studio portrait photo without any overlaid writing.`;
   };
   
   return {
