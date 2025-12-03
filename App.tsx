@@ -442,6 +442,16 @@ function App() {
 
             // Сразу показываем состояние загрузки, чтобы пользователь не видел пустую страницу
             console.log('[App] Loading order info for invId:', invId);
+            
+            // Сразу инициализируем состояние генерации (оптимистичный UI)
+            // Это гарантирует, что пользователь увидит карточки генерации сразу
+            const initialImages: Record<string, GeneratedImage> = {};
+            STYLES.forEach(style => {
+                initialImages[style] = { status: 'processing' };
+            });
+            setGeneratedImages(initialImages);
+            setAppState('generating');
+            console.log('[App] Optimistically set generation state while loading order');
 
             // Загружаем информацию о заказе с бэкенда
             fetchOrder(invId)
