@@ -1608,12 +1608,19 @@ async function generatePortraitsForOrder(invId) {
     const STYLES = Object.keys(prompts);
     
     // ШАГ 3: Генерируем все 6 портретов параллельно
+    console.log(`[generatePortraitsForOrder] ========================================`);
+    console.log(`[generatePortraitsForOrder] STEP 2: Generating 6 final portraits`);
+    console.log(`[generatePortraitsForOrder] Using intermediate image (size: ${intermediateImage.length} chars)`);
+    console.log(`[generatePortraitsForOrder] ========================================`);
+    
     const generationPromises = STYLES.map(async (style) => {
       const prompt = prompts[style];
+      console.log(`[generatePortraitsForOrder] Starting generation for style: ${style}`);
       try {
         // Добавляем задачу в очередь
         const queueResult = addToQueue(intermediateImage, prompt);
         const jobId = queueResult.jobId;
+        console.log(`[generatePortraitsForOrder] Added job to queue for ${style}, jobId: ${jobId}`);
         
         // Ждем завершения генерации (polling)
         const maxWaitTime = 300000; // 5 минут
@@ -1627,24 +1634,29 @@ async function generatePortraitsForOrder(invId) {
             // Успешно сгенерировано
             order.generatedImages[style] = status.result.imageDataUrl;
             payments.set(String(invId), order);
-            console.log(`[generatePortraitsForOrder] Successfully generated ${style} for order ${invId}`);
+            console.log(`[generatePortraitsForOrder] ✅ Successfully generated ${style} for order ${invId}`);
             return { style, success: true, url: status.result.imageDataUrl };
           }
           
           if (status && status.status === 'error') {
-            console.error(`[generatePortraitsForOrder] Failed to generate ${style} for order ${invId}:`, status.error);
+            console.error(`[generatePortraitsForOrder] ❌ Failed to generate ${style} for order ${invId}:`, status.error);
             return { style, success: false, error: status.error };
+          }
+          
+          // Логируем прогресс
+          if (status && (status.status === 'queued' || status.status === 'processing')) {
+            console.log(`[generatePortraitsForOrder] ${style} status: ${status.status}${status.position ? `, position: ${status.position}` : ''}`);
           }
           
           await new Promise(resolve => setTimeout(resolve, pollInterval));
         }
         
         // Таймаут
-        console.error(`[generatePortraitsForOrder] Timeout generating ${style} for order ${invId}`);
+        console.error(`[generatePortraitsForOrder] ⏱️ Timeout generating ${style} for order ${invId}`);
         return { style, success: false, error: 'Таймаут генерации' };
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
-        console.error(`[generatePortraitsForOrder] Error generating ${style} for order ${invId}:`, errorMessage);
+        console.error(`[generatePortraitsForOrder] ❌ Error generating ${style} for order ${invId}:`, errorMessage);
         return { style, success: false, error: errorMessage };
       }
     });
