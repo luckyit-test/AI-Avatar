@@ -1528,6 +1528,11 @@ app.post(`${API_PREFIX}/payment/create`, async (req, res) => {
 
     saveOrder(order);
 
+    // Сохраняем само изображение только в оперативной памяти
+    if (typeof imageData === 'string' && imageData.length > 0) {
+      orderImages.set(String(invId), imageData);
+    }
+
     const signature = crypto
       .createHash('md5')
       .update(`${ROBOKASSA_LOGIN}:${outSum}:${invId}:${ROBOKASSA_PASSWORD1}`, 'utf8')
@@ -1584,12 +1589,15 @@ function buildPortraitPrompts(gender, role, company) {
 // Функция генерации портретов (запускается асинхронно после подтверждения оплаты)
 async function generatePortraitsForOrder(invId) {
   const order = loadOrder(invId);
-  if (!order || !order.imageData) {
-    console.error(`[generatePortraitsForOrder] Order ${invId} not found or missing imageData (imageData хранится только в оперативной памяти, генерация пока невозможна)`);
+  const imageData = orderImages.get(String(invId));
+  if (!order || !imageData) {
+    console.error(
+      `[generatePortraitsForOrder] Order ${invId} not found or missing imageData (imageData хранится только в оперативной памяти, возможно, сервер был перезапущен или заказ создан без изображения)`
+    );
     return;
   }
   
-  const { imageData, gender, role, company } = order;
+  const { gender, role, company } = order;
   
   // Обновляем статус на processing
   order.status = 'processing';
@@ -1945,7 +1953,7 @@ if (!GEMINI_API_KEY_ANALYSIS) {
 const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY_GENERATION }); // Для генерации
 const genAIAnalysis = new GoogleGenAI({ apiKey: GEMINI_API_KEY_ANALYSIS }); // Для анализа
 
-// --- SQLite orders storage ---
+// --- SQLite orders storage + in-memory image store ---
 // Для продакшена используем SQLite как простую БД, файл монтируем в volume (/data).
 const DB_PATH = process.env.ORDERS_DB_PATH || '/data/newava_orders.db';
 const db = new Database(DB_PATH);
@@ -2041,6 +2049,11 @@ function mapOrderRow(row) {
     retries: row.retries ?? 0,
   };
 }
+
+// Отдельное in-memory хранилище для исходных изображений (base64),
+// которые не кладём в SQLite, чтобы не раздувать БД и не упираться в размер.
+// Ключ: invId, значение: строка data URL.
+const orderImages = new Map();
 
 function listOrders(filters = {}) {
   const { from, to, status } = filters;
