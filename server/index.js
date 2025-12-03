@@ -2510,6 +2510,9 @@ ON CONFLICT(invId) DO UPDATE SET
 `);
 
 const getOrderStmt = db.prepare(`SELECT * FROM orders WHERE invId = ?`);
+const updateImagesCountStmt = db.prepare(
+  `UPDATE orders SET imagesCount = @imagesCount WHERE invId = @invId`
+);
 
 function saveOrder(order) {
   const imagesCount =
@@ -2664,24 +2667,46 @@ function listOrders(filters = {}, pagination = {}) {
     offset,
   });
 
-  const mapped = rows.map((row) => ({
-    invId: row.invId,
-    status: row.status,
-    amount: row.amount,
-    createdAt: row.createdAt,
-    gender: row.gender,
-    role: row.role,
-    company: row.company,
-    photoSessionType: row.photoSessionType,
-    hasImageData: !!row.hasImageData,
-    // В списке не загружаем сами URL-ы изображений
-    generatedImages: null,
-    failureReason: row.failureReason,
-    retries: row.retries ?? 0,
-    paymentType: row.paymentType || null,
-    promoCode: row.promoCode || null,
-    imagesCount: row.imagesCount != null ? row.imagesCount : 0,
-  }));
+  const mapped = rows.map((row) => {
+    let imagesCount = row.imagesCount;
+
+    // Для старых заказов, созданных до появления столбца imagesCount,
+    // один раз вычисляем количество портретов из JSON и кешируем в БД.
+    if (imagesCount == null && row.generatedImagesJson) {
+      try {
+        const images = JSON.parse(row.generatedImagesJson);
+        imagesCount = images && typeof images === 'object' ? Object.keys(images).length : 0;
+        if (typeof imagesCount === 'number' && imagesCount > 0) {
+          updateImagesCountStmt.run({
+            imagesCount,
+            invId: row.invId,
+          });
+        }
+      } catch (e) {
+        console.warn('[DB] Failed to parse generatedImagesJson for legacy order', row.invId, e);
+        imagesCount = 0;
+      }
+    }
+
+    return {
+      invId: row.invId,
+      status: row.status,
+      amount: row.amount,
+      createdAt: row.createdAt,
+      gender: row.gender,
+      role: row.role,
+      company: row.company,
+      photoSessionType: row.photoSessionType,
+      hasImageData: !!row.hasImageData,
+      // В списке не загружаем сами URL-ы изображений
+      generatedImages: null,
+      failureReason: row.failureReason,
+      retries: row.retries ?? 0,
+      paymentType: row.paymentType || null,
+      promoCode: row.promoCode || null,
+      imagesCount: imagesCount != null ? imagesCount : 0,
+    };
+  });
 
   return {
     orders: mapped,
