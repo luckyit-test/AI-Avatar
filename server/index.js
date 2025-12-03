@@ -12,6 +12,7 @@ import express from 'express';
 import cors from 'cors';
 import { GoogleGenAI, Modality } from '@google/genai';
 import sharp from 'sharp';
+import Database from 'better-sqlite3';
 import crypto from 'crypto';
 
 const app = express();
@@ -1509,18 +1510,23 @@ app.post(`${API_PREFIX}/payment/create`, async (req, res) => {
 
     const { imageData, gender, role, company } = req.body || {};
 
-    payments.set(String(invId), {
+    // Сохраняем заказ в SQLite (imageData пока не кладём в БД, только флаг hasImageData)
+    const order = {
+      invId,
       status: 'created',
       amount: outSum,
       createdAt: Date.now(),
-      imageData: typeof imageData === 'string' ? imageData : null,
       gender: typeof gender === 'string' ? gender : null,
       role: typeof role === 'string' ? role : null,
       company: typeof company === 'string' ? company : null,
+      photoSessionType: 'Деловая фотосессия',
+      hasImageData: typeof imageData === 'string' && imageData.length > 0,
       generatedImages: null,
       failureReason: null,
       retries: 0,
-    });
+    };
+
+    saveOrder(order);
 
     const signature = crypto
       .createHash('md5')
@@ -1577,9 +1583,9 @@ function buildPortraitPrompts(gender, role, company) {
 
 // Функция генерации портретов (запускается асинхронно после подтверждения оплаты)
 async function generatePortraitsForOrder(invId) {
-  const order = payments.get(String(invId));
+  const order = loadOrder(invId);
   if (!order || !order.imageData) {
-    console.error(`[generatePortraitsForOrder] Order ${invId} not found or missing imageData`);
+    console.error(`[generatePortraitsForOrder] Order ${invId} not found or missing imageData (imageData хранится только в оперативной памяти, генерация пока невозможна)`);
     return;
   }
   
@@ -1900,28 +1906,13 @@ app.get(`${API_PREFIX}/order/:invId`, (req, res) => {
 
 // Простейшая "админка": список всех заказов
 app.get(`${API_PREFIX}/admin/orders`, (req, res) => {
-  const items = [];
-  for (const [invId, value] of payments.entries()) {
-    const { status, amount, createdAt, gender, role, company, generatedImages, failureReason, retries } = value;
-    items.push({
-      invId,
-      status,
-      amount,
-      createdAt,
-      gender,
-      role,
-      company,
-      hasImageData: !!value.imageData,
-      imagesCount: Array.isArray(generatedImages) ? generatedImages.length : 0,
-      failureReason: failureReason || null,
-      retries: retries || 0,
-    });
+  try {
+    const orders = listOrders();
+    res.json({ orders });
+  } catch (err) {
+    console.error('[Admin] Failed to list orders:', err);
+    res.status(500).json({ error: 'Не удалось загрузить список заказов' });
   }
-
-  // Сортируем по дате создания (новые сверху)
-  items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-
-  res.json({ orders: items });
 });
 
 // Получаем API ключи из переменных окружения
@@ -1951,9 +1942,104 @@ if (!GEMINI_API_KEY_ANALYSIS) {
 const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY_GENERATION }); // Для генерации
 const genAIAnalysis = new GoogleGenAI({ apiKey: GEMINI_API_KEY_ANALYSIS }); // Для анализа
 
-// In-memory хранилище платежей Robokassa (минимальный учёт заказов без БД)
-// Для реального продакшена это следует заменить на БД.
-const payments = new Map(); // key: invId, value: { status, amount, createdAt, imageData, gender, role, company, generatedImages, failureReason, retries }
+// --- SQLite orders storage ---
+// Для продакшена используем SQLite как простую БД, файл монтируем в volume (/data).
+const DB_PATH = process.env.ORDERS_DB_PATH || '/data/newava_orders.db';
+const db = new Database(DB_PATH);
+
+db.pragma('journal_mode = WAL');
+
+db.exec(`
+CREATE TABLE IF NOT EXISTS orders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  invId TEXT UNIQUE NOT NULL,
+  status TEXT NOT NULL,
+  amount REAL,
+  createdAt INTEGER NOT NULL,
+  gender TEXT,
+  role TEXT,
+  company TEXT,
+  photoSessionType TEXT DEFAULT 'Деловая фотосессия',
+  hasImageData INTEGER DEFAULT 0,
+  generatedImagesJson TEXT,
+  failureReason TEXT,
+  retries INTEGER DEFAULT 0
+);
+`);
+
+const insertOrderStmt = db.prepare(`
+INSERT INTO orders (invId, status, amount, createdAt, gender, role, company, photoSessionType, hasImageData, generatedImagesJson, failureReason, retries)
+VALUES (@invId, @status, @amount, @createdAt, @gender, @role, @company, @photoSessionType, @hasImageData, @generatedImagesJson, @failureReason, @retries)
+ON CONFLICT(invId) DO UPDATE SET
+  status = excluded.status,
+  amount = excluded.amount,
+  gender = COALESCE(excluded.gender, orders.gender),
+  role = COALESCE(excluded.role, orders.role),
+  company = COALESCE(excluded.company, orders.company),
+  photoSessionType = COALESCE(excluded.photoSessionType, orders.photoSessionType),
+  hasImageData = COALESCE(excluded.hasImageData, orders.hasImageData),
+  generatedImagesJson = COALESCE(excluded.generatedImagesJson, orders.generatedImagesJson),
+  failureReason = excluded.failureReason,
+  retries = excluded.retries
+;
+`);
+
+const getOrderStmt = db.prepare(`SELECT * FROM orders WHERE invId = ?`);
+const listOrdersStmt = db.prepare(`SELECT * FROM orders ORDER BY createdAt DESC LIMIT 500`);
+
+function saveOrder(order) {
+  insertOrderStmt.run({
+    invId: String(order.invId),
+    status: order.status,
+    amount: order.amount ?? null,
+    createdAt: order.createdAt ?? Date.now(),
+    gender: order.gender ?? null,
+    role: order.role ?? null,
+    company: order.company ?? null,
+    photoSessionType: order.photoSessionType ?? 'Деловая фотосессия',
+    hasImageData: order.hasImageData ? 1 : 0,
+    generatedImagesJson: order.generatedImages ? JSON.stringify(order.generatedImages) : null,
+    failureReason: order.failureReason ?? null,
+    retries: order.retries ?? 0,
+  });
+}
+
+function loadOrder(invId) {
+  const row = getOrderStmt.get(String(invId));
+  if (!row) return null;
+  return {
+    invId: row.invId,
+    status: row.status,
+    amount: row.amount,
+    createdAt: row.createdAt,
+    gender: row.gender,
+    role: row.role,
+    company: row.company,
+    photoSessionType: row.photoSessionType,
+    hasImageData: !!row.hasImageData,
+    generatedImages: row.generatedImagesJson ? JSON.parse(row.generatedImagesJson) : null,
+    failureReason: row.failureReason,
+    retries: row.retries ?? 0,
+  };
+}
+
+function listOrders() {
+  return listOrdersStmt.all().map(row => ({
+    invId: row.invId,
+    status: row.status,
+    amount: row.amount,
+    createdAt: row.createdAt,
+    gender: row.gender,
+    role: row.role,
+    company: row.company,
+    photoSessionType: row.photoSessionType,
+    hasImageData: !!row.hasImageData,
+    generatedImages: row.generatedImagesJson ? JSON.parse(row.generatedImagesJson) : null,
+    failureReason: row.failureReason,
+    retries: row.retries ?? 0,
+  }));
+}
+
 let lastInvId = Date.now();
 
 function createNextInvId() {

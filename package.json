@@ -16,6 +16,7 @@
     "dotenv": "^17.2.3",
     "express": "^4.18.2",
     "framer-motion": "^12.23.12",
+    "better-sqlite3": "^11.8.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "sharp": "^0.33.5",
