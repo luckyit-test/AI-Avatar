@@ -8,8 +8,8 @@ import { generateImage, evaluateImage, addGenerationToQueue, createPayment, chec
 import { createAlbumPage } from './lib/albumUtils';
 import { compressImage, shouldCompressImage } from './lib/imageCompression';
 import { errorLogger } from './lib/errorLogger';
-import Footer from './components/Footer';
-import AdminOrders from './components/AdminOrders';
+import Footer from './components.Footer';
+import AdminDashboard from './components/AdminDashboard';
 import Uploader from './components/Uploader';
 import ImageCard from './components/ImageCard';
 import { Icons } from './components/Icons';
@@ -1532,26 +1532,7 @@ function App() {
     }, []);
 
     if (isAdminView) {
-      if (adminMode === 'orders') {
-        return <AdminOrders />;
-      }
-      // Временный заглушка для будущей админки промокодов
-      return (
-        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
-          <div className="max-w-xl mx-auto bg-white rounded-xl shadow-sm p-8">
-            <h1 className="text-2xl font-semibold mb-4">Админка промокодов (в разработке)</h1>
-            <p className="text-sm text-slate-600">
-              Управление промокодами будет доступно по адресу <code>?admin=promo</code>. Бэкенд уже готов, UI будет
-              добавлен на следующем шаге.
-            </p>
-            <div className="mt-4">
-              <a href="/?admin=1" className="text-sm text-blue-600 hover:underline">
-                Перейти к заказам
-              </a>
-            </div>
-          </div>
-        </div>
-      );
+      return <AdminDashboard initialTab={adminMode} />;
     }
 
     return (

@@ -23,7 +23,11 @@ interface AdminOrdersResponse {
   orders: AdminOrder[];
 }
 
-const AdminOrders: React.FC = () => {
+interface AdminOrdersProps {
+  embedded?: boolean;
+}
+
+const AdminOrders: React.FC<AdminOrdersProps> = ({ embedded }) => {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,27 +116,8 @@ const AdminOrders: React.FC = () => {
     );
   };
 
-  return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <header className="w-full border-b bg-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-semibold text-slate-900">Админка заказов NEWAVA.pro</h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Визуальный мониторинг платежей и генерации портретов (Robokassa).
-            </p>
-          </div>
-          <a
-            href="/"
-            className="text-xs text-slate-500 hover:text-slate-900 underline decoration-dotted"
-          >
-            Назад к сервису
-          </a>
-        </div>
-      </header>
-
-      <main className="flex-1 w-full">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+  const content = (
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
           <div className="mb-4 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
             <div className="flex flex-wrap items-end gap-3">
               <div>
@@ -257,6 +242,33 @@ const AdminOrders: React.FC = () => {
           )}
         </div>
       </main>
+    </div>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <header className="w-full border-b bg-white">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-semibold text-slate-900">Админка заказов NEWAVA.pro</h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Визуальный мониторинг платежей и генерации портретов (Robokassa).
+            </p>
+          </div>
+          <a
+            href="/"
+            className="text-xs text-slate-500 hover:text-slate-900 underline decoration-dotted"
+          >
+            Назад к сервису
+          </a>
+        </div>
+      </header>
+
+      <main className="flex-1 w-full">{content}</main>
     </div>
   );
 };
