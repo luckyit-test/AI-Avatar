@@ -1579,16 +1579,28 @@ function buildPortraitPrompts(gender, role, company) {
 
     return `Create a professional, high-resolution ${
       gender === 'female' ? 'female ' : 'male '
-    }business portrait of the person in the photo, suitable for a LinkedIn profile. ${genderInstruction} ${facialHairPreservation} The style should be ${tone}. ${constraints} Attire: smart-casual, solid neutral colors, no large logos. Lighting: soft, even high-key lighting. Lens & crop: 85mm head-and-shoulders. Background: neutral gradient backdrop. Color grade: clean editorial grade. Pose: facing camera, subtle smile or neutral confident expression. Photorealistic and authentic. Preserve identity and facial features EXACTLY as in the original photo. ${contextText} CRITICAL: Do NOT add any text, titles, role names, company names, logos, watermarks, captions, UI elements, or typography inside the image. The image must look like a clean studio portrait photo without any overlaid writing.`;
+    }business portrait of the person in the photo, suitable for a LinkedIn profile. ${genderInstruction} ${facialHairPreservation} The style should be ${tone}. ${constraints} Attire: smart-casual, solid neutral colors, no large logos. Lighting: soft, even high-key lighting. Lens & crop: 85mm head-and-shoulders. Color grade: clean editorial grade. Pose: facing camera, subtle smile or neutral confident expression. Photorealistic and authentic. Preserve identity and facial features EXACTLY as in the original photo. ${contextText} CRITICAL: Do NOT add any text, titles, role names, company names, logos, watermarks, captions, UI elements, or typography inside the image. The image must look like a clean studio portrait photo without any overlaid writing.`;
   };
   
   return {
-    'Классический': base('classic and formal, with traditional corporate lighting and attire against a simple, neutral background'),
-    'Современный': base('modern and approachable, with natural lighting and a slightly blurred, contemporary office or neutral background'),
-    'Креативный': base('expressive and creative lighting, allowing for subtle artistic choices while remaining professional'),
-    'Технологичный': base('clean and minimalist, with bright, even lighting and a simple, light gray or white background; attire smart-casual'),
-    'Дружелюбный': base('warm and friendly, with soft lighting and a genuine smile'),
-    'Уверенный': base('confident and powerful, strong pose, sharp business formal attire, determined expression'),
+    'Классический': base(
+      'classic and formal, with traditional corporate lighting and attire, set against a softly blurred corporate office or boardroom background that feels serious and executive, matching the role and company context'
+    ),
+    'Современный': base(
+      'modern and approachable, with natural lighting and a slightly blurred open-space tech office or coworking background; the environment should feel contemporary and dynamic, suitable for a modern professional in their role and company'
+    ),
+    'Креативный': base(
+      'expressive and creative, with more dramatic but still professional lighting, and a background suggesting a stylish studio, creative workspace, design office or loft environment related to the person’s role'
+    ),
+    'Технологичный': base(
+      'clean, minimal and high-tech, with bright even lighting and a background that hints at a modern technology company: glass walls, abstract tech patterns, screens or a sleek office interior, softly blurred so it does not distract'
+    ),
+    'Дружелюбный': base(
+      'warm and friendly, with soft lighting and a welcoming background such as a bright office lounge, meeting area or softly lit workspace that feels human and approachable rather than strictly formal'
+    ),
+    'Уверенный': base(
+      'confident and powerful, with strong but flattering lighting, sharp business formal attire, and a background that evokes leadership: executive office, meeting room or skyline view, blurred enough to keep the focus on the face'
+    ),
   };
 }
 
