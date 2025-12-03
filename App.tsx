@@ -4,7 +4,7 @@
 */
 import React, { useState, ChangeEvent, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { generateImage, evaluateImage, addGenerationToQueue, createPayment, checkPaymentStatus, fetchOrder, usePromoCode, type DetectedGender, type QueueStatus, type ImageEvaluationResult, type OrderInfo } from './services/geminiService';
+import { generateImage, evaluateImage, addGenerationToQueue, createPayment, checkPaymentStatus, fetchOrder, usePromoCode, adminCheckSession, adminLogin, adminLogout, type DetectedGender, type QueueStatus, type ImageEvaluationResult, type OrderInfo } from './services/geminiService';
 import { createAlbumPage } from './lib/albumUtils';
 import { compressImage, shouldCompressImage } from './lib/imageCompression';
 import { errorLogger } from './lib/errorLogger';
@@ -411,6 +411,11 @@ function App() {
 
     const [isAdminView, setIsAdminView] = useState<boolean>(false);
     const [adminMode, setAdminMode] = useState<'orders' | 'promos'>('orders');
+    const [adminAuthed, setAdminAuthed] = useState<boolean>(false);
+    const [adminAuthChecked, setAdminAuthChecked] = useState<boolean>(false);
+    const [adminPassword, setAdminPassword] = useState<string>('');
+    const [adminAuthError, setAdminAuthError] = useState<string | null>(null);
+    const [adminAuthLoading, setAdminAuthLoading] = useState<boolean>(false);
 
     const getEffectiveGender = (): DetectedGender | null => {
         // Возвращаем выбранный пол (автоматически или вручную)
@@ -423,8 +428,13 @@ function App() {
         if (typeof window === 'undefined') return;
         try {
             const url = new URL(window.location.href);
+            const pathname = url.pathname;
             const adminFlag = url.searchParams.get('admin');
-            if (adminFlag === '1' || adminFlag === 'orders') {
+
+            if (pathname === '/admin') {
+                setIsAdminView(true);
+                setAdminMode('orders');
+            } else if (adminFlag === '1' || adminFlag === 'orders') {
                 setIsAdminView(true);
                 setAdminMode('orders');
             } else if (adminFlag === 'promo' || adminFlag === 'promos' || adminFlag === '2') {
@@ -433,10 +443,35 @@ function App() {
             } else {
                 setIsAdminView(false);
             }
+
+            if (adminFlag === 'promo' || adminFlag === 'promos') {
+                setAdminMode('promos');
+            }
         } catch (e) {
             console.warn('[App] Failed to detect admin mode:', e);
         }
     }, []);
+
+    // Проверяем сессию администратора при открытии админки
+    useEffect(() => {
+        if (!isAdminView) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const result = await adminCheckSession();
+                if (cancelled) return;
+                setAdminAuthed(result.ok);
+            } catch {
+                if (cancelled) return;
+                setAdminAuthed(false);
+            } finally {
+                if (!cancelled) setAdminAuthChecked(true);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [isAdminView]);
 
     // Проверяем, не вернулся ли пользователь после оплаты Robokassa или есть ли сохраненный заказ
     useEffect(() => {
@@ -1532,6 +1567,72 @@ function App() {
     }, []);
 
     if (isAdminView) {
+      if (!adminAuthChecked) {
+        return (
+          <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+            <p className="text-sm text-slate-600">Проверяем доступ к админке…</p>
+          </div>
+        );
+      }
+
+      if (!adminAuthed) {
+        return (
+          <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+            <div className="max-w-sm w-full bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <h1 className="text-lg font-semibold text-slate-900 mb-2">Вход в админку</h1>
+              <p className="text-xs text-slate-500 mb-4">
+                Введите пароль администратора для доступа к заказам и промокодам.
+              </p>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-500 mb-1">Пароль</label>
+                  <input
+                    type="password"
+                    value={adminPassword}
+                    onChange={(e) => {
+                      setAdminPassword(e.target.value);
+                      setAdminAuthError(null);
+                    }}
+                    className="w-full border rounded px-3 py-2 text-sm"
+                    placeholder="••••••"
+                  />
+                </div>
+                {adminAuthError && (
+                  <p className="text-xs text-red-600">{adminAuthError}</p>
+                )}
+                <button
+                  type="button"
+                  disabled={adminAuthLoading || !adminPassword}
+                  onClick={async () => {
+                    try {
+                      setAdminAuthLoading(true);
+                      setAdminAuthError(null);
+                      const result = await adminLogin(adminPassword);
+                      if (!result.ok) {
+                        setAdminAuthError(result.error || 'Неверный пароль');
+                        setAdminAuthed(false);
+                        return;
+                      }
+                      setAdminAuthed(true);
+                    } finally {
+                      setAdminAuthLoading(false);
+                    }
+                  }}
+                  className="w-full inline-flex items-center justify-center px-4 py-2 rounded-lg bg-slate-900 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {adminAuthLoading ? 'Входим…' : 'Войти'}
+                </button>
+                <div className="pt-2 border-t border-slate-100 mt-2 flex justify-between items-center">
+                  <a href="/" className="text-xs text-slate-500 hover:text-slate-800 underline decoration-dotted">
+                    На главную
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
       return <AdminDashboard initialTab={adminMode} />;
     }
 

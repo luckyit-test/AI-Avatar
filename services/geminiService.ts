@@ -547,6 +547,11 @@ export interface PromoUseResponse {
   error?: string;
 }
 
+export interface AdminAuthResponse {
+  ok: boolean;
+  error?: string;
+}
+
 /**
  * Добавляет задачу генерации в очередь и возвращает jobId
  */
@@ -673,6 +678,49 @@ export async function usePromoCode(
   }
 
   return response.json();
+}
+
+// --- Admin auth helpers ---
+
+export async function adminCheckSession(): Promise<AdminAuthResponse> {
+  const response = await fetch(`${API_BASE_URL}/admin/me`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    return { ok: false };
+  }
+
+  return response.json();
+}
+
+export async function adminLogin(password: string): Promise<AdminAuthResponse> {
+  const response = await fetch(`${API_BASE_URL}/admin/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({ password }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    return { ok: false, error: text || 'Ошибка входа администратора' };
+  }
+
+  return response.json();
+}
+
+export async function adminLogout(): Promise<void> {
+  await fetch(`${API_BASE_URL}/admin/logout`, {
+    method: 'POST',
+    credentials: 'include',
+  }).catch(() => {});
 }
 
 /**

@@ -1916,7 +1916,7 @@ app.get(`${API_PREFIX}/order/:invId`, (req, res) => {
 });
 
 // Простейшая "админка": список всех заказов
-app.get(`${API_PREFIX}/admin/orders`, (req, res) => {
+app.get(`${API_PREFIX}/admin/orders`, requireAdminAuth, (req, res) => {
   try {
     const { from, to, status } = req.query;
     const filters = {};
@@ -1941,7 +1941,7 @@ app.get(`${API_PREFIX}/admin/orders`, (req, res) => {
 });
 
 // Админка промокодов
-app.get(`${API_PREFIX}/admin/promocodes`, (req, res) => {
+app.get(`${API_PREFIX}/admin/promocodes`, requireAdminAuth, (req, res) => {
   try {
     const promos = listPromos();
     res.json({ promos });
@@ -1951,7 +1951,69 @@ app.get(`${API_PREFIX}/admin/promocodes`, (req, res) => {
   }
 });
 
-app.post(`${API_PREFIX}/admin/promocodes`, express.json(), (req, res) => {
+// Админская авторизация
+app.post(`${API_PREFIX}/admin/login`, express.json(), (req, res) => {
+  try {
+    const { password } = req.body || {};
+    if (!password || typeof password !== 'string') {
+      return res.status(400).json({ error: 'Пароль обязателен' });
+    }
+
+    const settings = getAdminSettingsStmt.get();
+    if (!settings) {
+      console.error('[Admin] admin_settings row not found');
+      return res.status(500).json({ error: 'Настройки админа не найдены' });
+    }
+
+    const hash = crypto.scryptSync(password, settings.salt, 64).toString('hex');
+    if (hash !== settings.passwordHash) {
+      return res.status(401).json({ error: 'Неверный пароль' });
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const now = Date.now();
+    adminSessions.set(token, {
+      createdAt: now,
+      expiresAt: now + ADMIN_SESSION_TTL_MS,
+    });
+
+    res.setHeader(
+      'Set-Cookie',
+      `admin_session=${token}; HttpOnly; Path=/; Max-Age=${Math.floor(
+        ADMIN_SESSION_TTL_MS / 1000
+      )}; SameSite=Lax`
+    );
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[Admin] Login error:', err);
+    res.status(500).json({ error: 'Ошибка входа администратора' });
+  }
+});
+
+app.post(`${API_PREFIX}/admin/logout`, (req, res) => {
+  try {
+    const session = getAdminSessionFromRequest(req);
+    if (session && session.token) {
+      adminSessions.delete(session.token);
+    }
+    res.setHeader('Set-Cookie', 'admin_session=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax');
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[Admin] Logout error:', err);
+    res.status(500).json({ error: 'Ошибка выхода администратора' });
+  }
+});
+
+app.get(`${API_PREFIX}/admin/me`, (req, res) => {
+  const session = getAdminSessionFromRequest(req);
+  if (!session) {
+    return res.status(401).json({ ok: false });
+  }
+  return res.json({ ok: true });
+});
+
+app.post(`${API_PREFIX}/admin/promocodes`, express.json(), requireAdminAuth, (req, res) => {
   try {
     const { code, maxUses, isActive, expiresAt, note } = req.body || {};
     const normalized = normalizePromoCode(code);
@@ -1980,7 +2042,7 @@ app.post(`${API_PREFIX}/admin/promocodes`, express.json(), (req, res) => {
   }
 });
 
-app.delete(`${API_PREFIX}/admin/promocodes/:code`, (req, res) => {
+app.delete(`${API_PREFIX}/admin/promocodes/:code`, requireAdminAuth, (req, res) => {
   try {
     const code = normalizePromoCode(req.params.code);
     deletePromoStmt.run(code);
@@ -2173,6 +2235,17 @@ CREATE TABLE IF NOT EXISTS promo_codes (
 );
 `);
 
+// Таблица настроек админа (одна запись с паролем)
+db.exec(`
+CREATE TABLE IF NOT EXISTS admin_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  passwordHash TEXT NOT NULL,
+  salt TEXT NOT NULL,
+  createdAt INTEGER NOT NULL,
+  updatedAt INTEGER NOT NULL
+);
+`);
+
 // --- Promo codes storage ---
 const getPromoByCodeStmt = db.prepare(`SELECT * FROM promo_codes WHERE code = ?`);
 const insertPromoStmt = db.prepare(`
@@ -2189,6 +2262,17 @@ ON CONFLICT(code) DO UPDATE SET
 `);
 const listPromosStmt = db.prepare(`SELECT * FROM promo_codes ORDER BY createdAt DESC`);
 const deletePromoStmt = db.prepare(`DELETE FROM promo_codes WHERE code = ?`);
+
+const getAdminSettingsStmt = db.prepare(`SELECT * FROM admin_settings WHERE id = 1`);
+const upsertAdminSettingsStmt = db.prepare(`
+INSERT INTO admin_settings (id, passwordHash, salt, createdAt, updatedAt)
+VALUES (1, @passwordHash, @salt, @createdAt, @updatedAt)
+ON CONFLICT(id) DO UPDATE SET
+  passwordHash = excluded.passwordHash,
+  salt = excluded.salt,
+  updatedAt = excluded.updatedAt
+;
+`);
 
 function normalizePromoCode(raw) {
   return String(raw || '').trim().toUpperCase();
@@ -2231,6 +2315,25 @@ function savePromo(promo) {
 function listPromos() {
   return listPromosStmt.all().map(mapPromoRow);
 }
+
+function ensureAdminPasswordSeed() {
+  const existing = getAdminSettingsStmt.get();
+  if (existing) {
+    return;
+  }
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync('513277', salt, 64).toString('hex');
+  const now = Date.now();
+  upsertAdminSettingsStmt.run({
+    passwordHash: hash,
+    salt,
+    createdAt: now,
+    updatedAt: now,
+  });
+  console.log('[Admin] Seeded default admin password (id=1)');
+}
+
+ensureAdminPasswordSeed();
 
 const insertOrderStmt = db.prepare(`
 INSERT INTO orders (invId, status, amount, createdAt, gender, role, company, photoSessionType, hasImageData, generatedImagesJson, failureReason, retries)
@@ -2317,6 +2420,47 @@ const orderImages = new Map();
 
 // In-memory защита от перебора промокодов: максимум 5 неуспешных попыток на IP за время жизни процесса.
 const promoAttemptsByIp = new Map(); // key: ip, value: { count }
+
+// In-memory сессии админа
+const adminSessions = new Map(); // key: token, value: { createdAt, expiresAt }
+const ADMIN_SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 часа
+
+function parseCookies(req) {
+  const header = req.headers.cookie;
+  const cookies = {};
+  if (!header) return cookies;
+  const parts = header.split(';');
+  for (const part of parts) {
+    const [name, ...rest] = part.split('=');
+    const key = name && name.trim();
+    if (!key) continue;
+    const value = rest.join('=').trim();
+    cookies[key] = decodeURIComponent(value || '');
+  }
+  return cookies;
+}
+
+function getAdminSessionFromRequest(req) {
+  const cookies = parseCookies(req);
+  const token = cookies['admin_session'];
+  if (!token) return null;
+  const session = adminSessions.get(token);
+  if (!session) return null;
+  if (session.expiresAt <= Date.now()) {
+    adminSessions.delete(token);
+    return null;
+  }
+  return { token, ...session };
+}
+
+function requireAdminAuth(req, res, next) {
+  const session = getAdminSessionFromRequest(req);
+  if (!session) {
+    return res.status(401).json({ error: 'Требуется авторизация администратора' });
+  }
+  req.adminSession = session;
+  next();
+}
 
 function listOrders(filters = {}) {
   const { from, to, status } = filters;
