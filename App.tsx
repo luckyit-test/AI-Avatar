@@ -2132,7 +2132,7 @@ function App() {
                                     )}
                                 </div>
                                 <div data-onboarding="generate" className="mt-4">
-                                    <div className="flex items-start gap-3">
+                                    <div className="flex items-start gap-3 mb-3">
                                         <span
                                             className="flex h-12 w-12 items-center justify-center rounded-full text-base font-semibold text-white flex-shrink-0 mt-0.5"
                                             style={{
@@ -2146,18 +2146,18 @@ function App() {
                                             <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-0.5">
                                                 Сгенерируйте портреты
                                             </h2>
-                                            <p className="text-xs sm:text-sm text-gray-500 mb-3">
+                                            <p className="text-xs sm:text-sm text-gray-500">
                                                 Мы создадим 6 портретов.
                                             </p>
-                                            <div className="mb-4 w-full rounded-lg border border-gray-200 bg-slate-50 px-3 h-16 flex items-center justify-between">
-                                                <span className="text-xs sm:text-sm text-gray-500">
-                                                    Стоимость генерации
-                                                </span>
-                                                <span className="text-sm sm:text-lg font-semibold text-gray-900">
-                                                    100 ₽
-                                                </span>
-                                            </div>
                                         </div>
+                                    </div>
+                                    <div className="mb-4 w-full rounded-lg border border-gray-200 bg-slate-50 px-3 h-16 flex items-center justify-between">
+                                        <span className="text-xs sm:text-sm text-gray-500">
+                                            Стоимость генерации
+                                        </span>
+                                        <span className="text-sm sm:text-lg font-semibold text-gray-900">
+                                            100 ₽
+                                        </span>
                                     </div>
                                 </div>
                                 {appState === 'image-uploaded' && (
