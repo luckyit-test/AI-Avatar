@@ -440,6 +440,9 @@ function App() {
                 window.localStorage.setItem(CURRENT_ORDER_KEY, invId);
             }
 
+            // Сразу показываем состояние загрузки, чтобы пользователь не видел пустую страницу
+            console.log('[App] Loading order info for invId:', invId);
+
             // Загружаем информацию о заказе с бэкенда
             fetchOrder(invId)
                 .then((order) => {
@@ -496,12 +499,21 @@ function App() {
                             } else if (order.status === 'processing' || order.status === 'paid') {
                                 // Показываем состояние генерации сразу (даже если заказ еще в статусе paid)
                                 // Показываем генерацию даже если изображение не восстановилось - пользователь должен видеть прогресс
+                                console.log('[App] Setting generation state for order', { invId, status: order.status });
+                                
+                                // Инициализируем все 6 карточек со статусом processing
                                 const images: Record<string, GeneratedImage> = {};
                                 STYLES.forEach(style => {
                                     images[style] = { status: 'processing' };
                                 });
-                                setGeneratedImages(images);
+                                
+                                console.log('[App] Generated images state:', images, 'STYLES:', STYLES);
+                                
+                                // Устанавливаем состояние синхронно, используя функциональное обновление
+                                setGeneratedImages(() => images);
                                 setAppState('generating');
+                                
+                                console.log('[App] App state set to generating, generatedImages keys:', Object.keys(images));
                             } else {
                                 setAppState('image-uploaded');
                             }
@@ -1935,7 +1947,11 @@ function App() {
                         {(appState === 'generating' || appState === 'results-shown') && (
                              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
                                 <AnimatePresence>
-                                {STYLES.map((style, index) => (
+                                {STYLES.map((style, index) => {
+                                    // Если generatedImages пустой, показываем processing для всех карточек
+                                    const imageState = generatedImages[style];
+                                    const status = imageState?.status || (appState === 'generating' ? 'processing' : 'pending');
+                                    return (
                                     <motion.div
                                         key={style}
                                         initial={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -1944,18 +1960,19 @@ function App() {
                                     >
                                         <ImageCard
                                             caption={style}
-                                            status={generatedImages[style]?.status || 'pending'}
-                                            queuePosition={generatedImages[style]?.queuePosition}
-                                            estimatedWaitTime={generatedImages[style]?.estimatedWaitTime}
-                                            imageUrl={generatedImages[style]?.url}
-                                            error={generatedImages[style]?.error}
+                                            status={status}
+                                            queuePosition={imageState?.queuePosition}
+                                            estimatedWaitTime={imageState?.estimatedWaitTime}
+                                            imageUrl={imageState?.url}
+                                            error={imageState?.error}
                                             gender={getEffectiveGender()}
                                             onRegenerate={() => handleRegenerateStyle(style)}
                                             onDownload={() => handleDownloadIndividualImage(style)}
                                             onOpen={(url) => setLightboxUrl(url)}
                                         />
                                     </motion.div>
-                                ))}
+                                    );
+                                })}
                                 </AnimatePresence>
                             </div>
                         )}
