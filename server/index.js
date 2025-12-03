@@ -1,61 +1,3 @@
-// --- Promo codes storage ---
-const getPromoByCodeStmt = db.prepare(`SELECT * FROM promo_codes WHERE code = ?`);
-const insertPromoStmt = db.prepare(`
-INSERT INTO promo_codes (code, isActive, maxUses, usedCount, createdAt, updatedAt, expiresAt, note)
-VALUES (@code, @isActive, @maxUses, @usedCount, @createdAt, @updatedAt, @expiresAt, @note)
-ON CONFLICT(code) DO UPDATE SET
-  isActive = excluded.isActive,
-  maxUses = excluded.maxUses,
-  usedCount = excluded.usedCount,
-  updatedAt = excluded.updatedAt,
-  expiresAt = excluded.expiresAt,
-  note = excluded.note
-;
-`);
-const listPromosStmt = db.prepare(`SELECT * FROM promo_codes ORDER BY createdAt DESC`);
-const deletePromoStmt = db.prepare(`DELETE FROM promo_codes WHERE code = ?`);
-
-function normalizePromoCode(raw) {
-  return String(raw || '').trim().toUpperCase();
-}
-
-function mapPromoRow(row) {
-  if (!row) return null;
-  return {
-    code: row.code,
-    isActive: !!row.isActive,
-    maxUses: row.maxUses,
-    usedCount: row.usedCount,
-    remainingUses: Math.max(0, (row.maxUses || 0) - (row.usedCount || 0)),
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-    expiresAt: row.expiresAt || null,
-    note: row.note || null,
-  };
-}
-
-function getPromoByCode(code) {
-  const row = getPromoByCodeStmt.get(normalizePromoCode(code));
-  return mapPromoRow(row);
-}
-
-function savePromo(promo) {
-  const now = Date.now();
-  insertPromoStmt.run({
-    code: normalizePromoCode(promo.code),
-    isActive: promo.isActive ? 1 : 0,
-    maxUses: promo.maxUses,
-    usedCount: promo.usedCount ?? 0,
-    createdAt: promo.createdAt ?? now,
-    updatedAt: now,
-    expiresAt: promo.expiresAt ?? null,
-    note: promo.note ?? null,
-  });
-}
-
-function listPromos() {
-  return listPromosStmt.all().map(mapPromoRow);
-}
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -2230,6 +2172,65 @@ CREATE TABLE IF NOT EXISTS promo_codes (
   note TEXT
 );
 `);
+
+// --- Promo codes storage ---
+const getPromoByCodeStmt = db.prepare(`SELECT * FROM promo_codes WHERE code = ?`);
+const insertPromoStmt = db.prepare(`
+INSERT INTO promo_codes (code, isActive, maxUses, usedCount, createdAt, updatedAt, expiresAt, note)
+VALUES (@code, @isActive, @maxUses, @usedCount, @createdAt, @updatedAt, @expiresAt, @note)
+ON CONFLICT(code) DO UPDATE SET
+  isActive = excluded.isActive,
+  maxUses = excluded.maxUses,
+  usedCount = excluded.usedCount,
+  updatedAt = excluded.updatedAt,
+  expiresAt = excluded.expiresAt,
+  note = excluded.note
+;
+`);
+const listPromosStmt = db.prepare(`SELECT * FROM promo_codes ORDER BY createdAt DESC`);
+const deletePromoStmt = db.prepare(`DELETE FROM promo_codes WHERE code = ?`);
+
+function normalizePromoCode(raw) {
+  return String(raw || '').trim().toUpperCase();
+}
+
+function mapPromoRow(row) {
+  if (!row) return null;
+  return {
+    code: row.code,
+    isActive: !!row.isActive,
+    maxUses: row.maxUses,
+    usedCount: row.usedCount,
+    remainingUses: Math.max(0, (row.maxUses || 0) - (row.usedCount || 0)),
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    expiresAt: row.expiresAt || null,
+    note: row.note || null,
+  };
+}
+
+function getPromoByCode(code) {
+  const row = getPromoByCodeStmt.get(normalizePromoCode(code));
+  return mapPromoRow(row);
+}
+
+function savePromo(promo) {
+  const now = Date.now();
+  insertPromoStmt.run({
+    code: normalizePromoCode(promo.code),
+    isActive: promo.isActive ? 1 : 0,
+    maxUses: promo.maxUses,
+    usedCount: promo.usedCount ?? 0,
+    createdAt: promo.createdAt ?? now,
+    updatedAt: now,
+    expiresAt: promo.expiresAt ?? null,
+    note: promo.note ?? null,
+  });
+}
+
+function listPromos() {
+  return listPromosStmt.all().map(mapPromoRow);
+}
 
 const insertOrderStmt = db.prepare(`
 INSERT INTO orders (invId, status, amount, createdAt, gender, role, company, photoSessionType, hasImageData, generatedImagesJson, failureReason, retries)
