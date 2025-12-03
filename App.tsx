@@ -1950,7 +1950,20 @@ function App() {
                                 {STYLES.map((style, index) => {
                                     // Если generatedImages пустой, показываем processing для всех карточек
                                     const imageState = generatedImages[style];
+                                    // Fallback: если нет состояния, но appState = generating, показываем processing
                                     const status = imageState?.status || (appState === 'generating' ? 'processing' : 'pending');
+                                    
+                                    // Логируем для отладки (только первые несколько раз)
+                                    if (index < 2) {
+                                        console.log(`[App] Rendering card ${style}:`, { 
+                                            status, 
+                                            hasImageState: !!imageState, 
+                                            appState,
+                                            generatedImagesKeys: Object.keys(generatedImages),
+                                            generatedImagesLength: Object.keys(generatedImages).length
+                                        });
+                                    }
+                                    
                                     return (
                                     <motion.div
                                         key={style}
