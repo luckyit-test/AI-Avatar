@@ -1771,13 +1771,22 @@ async function generatePortraitsForOrder(invId) {
   }
 }
 
-// Callback от Robokassa после обработки платежа (ResultURL)
-app.post(`${API_PREFIX}/robokassa/result`, express.urlencoded({ extended: false }), (req, res) => {
+// Callback от Robokassa после обработки платежа (ResultURL).
+// Robokassa может вызывать ResultURL как POST, так и GET, поэтому выносим обработчик в общую функцию.
+function handleRobokassaResult(req, res) {
   try {
     const params = Object.keys(req.body || {}).length > 0 ? req.body : req.query;
     const outSum = params.OutSum;
     const invId = params.InvId;
     const signature = (params.SignatureValue || '').toString().toLowerCase();
+
+    console.log('[Robokassa] Result callback received', {
+      method: req.method,
+      outSum,
+      invId,
+      hasSignature: !!signature,
+      rawParams: params,
+    });
 
     if (!outSum || !invId || !signature) {
       console.warn('[Robokassa] Result: missing params', params);
@@ -1845,7 +1854,11 @@ app.post(`${API_PREFIX}/robokassa/result`, express.urlencoded({ extended: false 
     console.error('[Robokassa] Result handler error:', err);
     res.status(500).send('Internal error');
   }
-});
+}
+
+// Поддерживаем и POST (как в документации Robokassa), и GET (как в текущей конфигурации магазина)
+app.post(`${API_PREFIX}/robokassa/result`, express.urlencoded({ extended: false }), handleRobokassaResult);
+app.get(`${API_PREFIX}/robokassa/result`, handleRobokassaResult);
 
 // Статус платежа (используется фронтендом после возврата пользователя)
 app.get(`${API_PREFIX}/payment/status`, (req, res) => {
