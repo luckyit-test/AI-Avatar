@@ -2626,7 +2626,7 @@ const ROBOKASSA_PASSWORD2 = process.env.ROBOKASSA_PASSWORD2 || 'QyX8XB3lmYkaYxIH
 const ROBOKASSA_IS_TEST = process.env.ROBOKASSA_IS_TEST === '1' ? 1 : 0; // 0 = продакшен (по умолчанию), 1 = тест
 const ROBOKASSA_PAYMENT_AMOUNT = parseFloat(process.env.ROBOKASSA_PAYMENT_AMOUNT || '100.00');
 const ROBOKASSA_PAYMENT_DESC =
-  process.env.ROBOKASSA_PAYMENT_DESC || 'Генерация бизнес‑портретов (1 пакет из 6 изображений)';
+  process.env.ROBOKASSA_PAYMENT_DESC || 'Генерация бизнес-портретов (1 пакет из 6 изображений)';
 
 if (!GEMINI_API_KEY_GENERATION) {
   console.error('ERROR: GEMINI_API_KEY не установлен в переменных окружения');
