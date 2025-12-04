@@ -2,11 +2,14 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import React, { useState, ChangeEvent, useEffect } from 'react';
+import React, { useState, ChangeEvent, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { generateImage, evaluateImage, type DetectedGender, type QueueStatus, type ImageEvaluationResult } from './services/geminiService';
+import { generateImage, evaluateImage, addGenerationToQueue, createPayment, checkPaymentStatus, fetchOrder, usePromoCode, adminCheckSession, adminLogin, adminLogout, type DetectedGender, type QueueStatus, type ImageEvaluationResult, type OrderInfo } from './services/geminiService';
 import { createAlbumPage } from './lib/albumUtils';
+import { compressImage, shouldCompressImage } from './lib/imageCompression';
+import { errorLogger } from './lib/errorLogger';
 import Footer from './components/Footer';
+import AdminDashboard from './components/AdminDashboard';
 import Uploader from './components/Uploader';
 import ImageCard from './components/ImageCard';
 import { Icons } from './components/Icons';
@@ -306,7 +309,7 @@ function buildPromptsByContext(
     
     const constraints = gender === 'female'
         ? 'No facial hair. No beard. No mustache.'
-        : 'Preserve facial hair exactly as shown in the original photo. If there is no facial hair (no beard, no mustache) in the original photo, do not add any facial hair. Do not remove facial hair if it exists in the original. Grooming should be neat and professional, maintaining the original facial hair pattern.';
+        : 'CRITICAL FACIAL HAIR PRESERVATION: You MUST preserve the facial hair EXACTLY as shown in the original photo - including style, length, thickness, density, and visibility. If the person is clean-shaven (no beard, no mustache) in the original photo, the generated portrait MUST also be clean-shaven with NO facial hair. If the person has a short, subtle, barely visible beard in the original, the generated portrait MUST have the EXACT SAME short, subtle, barely visible beard - do NOT make it longer, thicker, denser, or more prominent. If the person has short, barely visible mustache in the original, preserve it as EXACTLY short and barely visible - do NOT make it longer, thicker, or more noticeable. The facial hair length, thickness, density, style, visibility, and grooming must match the original photo EXACTLY. Do NOT enhance, lengthen, thicken, densify, or make facial hair more prominent than in the original. Do NOT add facial hair if there is none in the original. Do NOT remove facial hair if it exists in the original. The beard and mustache must look IDENTICAL to the original in every aspect - length, fullness, thickness, and visibility.';
     const roleDesc = describeRole(role);
     const companyDesc = describeCompany(company);
     const attire = attireByContext(gender, role, company);
@@ -325,7 +328,14 @@ function buildPromptsByContext(
             ? 'CRITICAL: This is a FEMALE person. Generate a FEMALE portrait. The person must be clearly female with feminine features. Do NOT generate a male portrait.'
             : '';
         
-        return `Create a professional, high-resolution ${gender === 'female' ? 'female ' : gender === 'male' ? 'male ' : ''}business portrait of the person in the photo, suitable for a LinkedIn profile. ${genderInstruction} The style should be ${tone}. ${constraints} Attire: ${attire}. Lighting: ${v.lighting}. Lens & crop: ${v.lens}. Background: ${v.background}. Color grade: ${v.grade}. Pose: ${v.pose}. ${naturality} ${skinDetail} Each image in this batch must show a distinct outfit and feel; avoid repeating garments across images. Context: ${roleDesc}; ${companyDesc}.`;
+        // Дополнительная инструкция о сохранении растительности на лице для мужчин
+        const facialHairPreservation = gender === 'male'
+            ? 'CRITICAL FACIAL HAIR RULE: Maintain the EXACT same facial hair style, length, thickness, density, and visibility as in the original photo. If the original shows a short, subtle, barely visible beard - keep it EXACTLY short, subtle, and barely visible. If the original shows barely visible mustache - keep it EXACTLY barely visible. If clean-shaven in original, generate clean-shaven. Do NOT lengthen, thicken, densify, or enhance facial hair beyond what is visible in the original photo. Do NOT make the beard or mustache more prominent, longer, or thicker than in the original. The facial hair must look IDENTICAL to the original in terms of length, fullness, thickness, density, and prominence. This is a CRITICAL requirement - any deviation will result in an incorrect portrait.'
+            : '';
+        
+        const fullPrompt = `Create a professional, high-resolution ${gender === 'female' ? 'female ' : gender === 'male' ? 'male ' : ''}business portrait of the person in the photo, suitable for a LinkedIn profile. ${genderInstruction} ${facialHairPreservation} The style should be ${tone}. ${constraints} Attire: ${attire}. Lighting: ${v.lighting}. Lens & crop: ${v.lens}. Background: ${v.background}. Color grade: ${v.grade}. Pose: ${v.pose}. ${naturality} ${skinDetail} Each image in this batch must show a distinct outfit and feel; avoid repeating garments across images. Context: ${roleDesc}; ${companyDesc}.`;
+        
+        return fullPrompt;
     };
     return {
         'Классический': base('classic and formal, with traditional corporate lighting and attire against a simple, neutral background'),
@@ -351,6 +361,22 @@ type AppState = 'idle' | 'image-uploaded' | 'generating' | 'results-shown';
 function App() {
     const onboarding = useOnboarding();
     const fileInputRef = React.useRef<HTMLInputElement>(null);
+    
+    // Проверка и автоматическое перенаправление на HTTPS
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const currentUrl = window.location.href;
+            const isHttp = currentUrl.startsWith('http://');
+            const isHttps = currentUrl.startsWith('https://');
+            
+            // Если открыт HTTP, перенаправляем на HTTPS
+            if (isHttp && !isHttps && currentUrl.includes('newava.pro')) {
+                const httpsUrl = currentUrl.replace('http://', 'https://');
+                console.warn('[App] Redirecting from HTTP to HTTPS:', { from: currentUrl, to: httpsUrl });
+                window.location.replace(httpsUrl);
+            }
+        }
+    }, []);
     const [uploadedImage, setUploadedImage] = useState<string | null>(null);
     const [imageValidationError, setImageValidationError] = useState<string | null>(null);
     const [isValidatingImage, setIsValidatingImage] = useState<boolean>(false);
@@ -364,16 +390,348 @@ function App() {
     const [genderOverride, setGenderOverride] = useState<'male' | 'female' | null>(null);
     const [selectedRole, setSelectedRole] = useState<typeof IT_ROLES[number]>('Разработчик');
     const [selectedCompany, setSelectedCompany] = useState<typeof COMPANY_TYPES[number]>('Стартап');
-    const [isRulesOpen, setIsRulesOpen] = useState<boolean>(false);
+    const [hasActivePayment, setHasActivePayment] = useState<boolean>(false);
+    const autoGenerationStartedRef = useRef<boolean>(false);
+    const PENDING_GENERATION_KEY = 'newava_pending_generation';
+    const LAST_SOURCE_IMAGE_KEY = 'newava_last_source_image';
+    const CURRENT_ORDER_KEY = 'newava_current_order';
+    const [currentOrder, setCurrentOrder] = useState<OrderInfo | null>(null);
+    const [currentInvId, setCurrentInvId] = useState<string | null>(null);
+    const [promoCodeInput, setPromoCodeInput] = useState<string>('');
+    const [promoMessage, setPromoMessage] = useState<string | null>(null);
+    const [promoError, setPromoError] = useState<string | null>(null);
+    const [promoLoading, setPromoLoading] = useState<boolean>(false);
+    const [promoApplied, setPromoApplied] = useState<boolean>(false);
+    // Промежуточное изображение для стабильной генерации
+    const [intermediateImage, setIntermediateImage] = useState<string | null>(null);
+    const [isGeneratingIntermediate, setIsGeneratingIntermediate] = useState<boolean>(false);
     // Fixed settings per request: always High variability and maximum naturalness
     const variability: VariabilityLevel = 'high';
     const naturalLook: boolean = true;
+
+    const [isAdminView, setIsAdminView] = useState<boolean>(false);
+    const [adminMode, setAdminMode] = useState<'orders' | 'promos'>('orders');
+    const [adminAuthed, setAdminAuthed] = useState<boolean>(false);
+    const [adminAuthChecked, setAdminAuthChecked] = useState<boolean>(false);
+    const [adminPassword, setAdminPassword] = useState<string>('');
+    const [adminAuthError, setAdminAuthError] = useState<string | null>(null);
+    const [adminAuthLoading, setAdminAuthLoading] = useState<boolean>(false);
 
     const getEffectiveGender = (): DetectedGender | null => {
         // Возвращаем выбранный пол (автоматически или вручную)
         // Если null - пол не выбран, генерация недоступна
         return genderOverride;
     };
+
+    // Определяем режим админки по query-параметру ?admin=1
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        try {
+            const url = new URL(window.location.href);
+            const pathname = url.pathname;
+            const adminFlag = url.searchParams.get('admin');
+
+            if (pathname === '/admin') {
+                setIsAdminView(true);
+                setAdminMode('orders');
+            } else if (adminFlag === '1' || adminFlag === 'orders') {
+                setIsAdminView(true);
+                setAdminMode('orders');
+            } else if (adminFlag === 'promo' || adminFlag === 'promos' || adminFlag === '2') {
+                setIsAdminView(true);
+                setAdminMode('promos');
+            } else {
+                setIsAdminView(false);
+            }
+
+            if (adminFlag === 'promo' || adminFlag === 'promos') {
+                setAdminMode('promos');
+            }
+        } catch (e) {
+            console.warn('[App] Failed to detect admin mode:', e);
+        }
+    }, []);
+
+    // Проверяем сессию администратора при открытии админки
+    useEffect(() => {
+        if (!isAdminView) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const result = await adminCheckSession();
+                if (cancelled) return;
+                setAdminAuthed(result.ok);
+            } catch {
+                if (cancelled) return;
+                setAdminAuthed(false);
+            } finally {
+                if (!cancelled) setAdminAuthChecked(true);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [isAdminView]);
+
+    // Проверяем, не вернулся ли пользователь после оплаты Robokassa или есть ли сохраненный заказ
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        
+        const url = new URL(window.location.href);
+        const invIdFromUrl = url.searchParams.get('invId') || url.searchParams.get('InvId');
+        const invIdFromStorage = window.localStorage.getItem(CURRENT_ORDER_KEY);
+        const invId = invIdFromUrl || invIdFromStorage;
+
+        if (invId) {
+            // Сохраняем invId в состояние
+            setCurrentInvId(invId);
+            if (invIdFromUrl && !invIdFromStorage) {
+                // Сохраняем в localStorage если пришли с URL
+                window.localStorage.setItem(CURRENT_ORDER_KEY, invId);
+            }
+
+            // Сразу показываем состояние загрузки, чтобы пользователь не видел пустую страницу
+            console.log('[App] Loading order info for invId:', invId);
+            
+            // Сразу инициализируем состояние генерации (оптимистичный UI)
+            // Это гарантирует, что пользователь увидит карточки генерации сразу
+            const initialImages: Record<string, GeneratedImage> = {};
+            STYLES.forEach(style => {
+                initialImages[style] = { status: 'processing' };
+            });
+            setGeneratedImages(initialImages);
+            setAppState('generating');
+            console.log('[App] Optimistically set generation state while loading order');
+
+            // Загружаем информацию о заказе с бэкенда
+            fetchOrder(invId)
+                .then((order) => {
+                    setCurrentOrder(order);
+
+                    // Если заказ оплачен или обрабатывается - показываем генерацию
+                    if (order.status === 'paid' || order.status === 'processing' || order.status === 'completed') {
+                        setHasActivePayment(true);
+                        
+                        // Восстанавливаем настройки из localStorage
+                        try {
+                            const raw = window.localStorage.getItem(PENDING_GENERATION_KEY);
+                            if (raw) {
+                                const data = JSON.parse(raw);
+                                console.log('[App] Restoring from localStorage:', { hasImage: !!data?.uploadedImage, hasGender: !!data?.genderOverride });
+                                if (data?.uploadedImage) {
+                                    setUploadedImage(data.uploadedImage);
+                                    console.log('[App] Restored uploadedImage from localStorage');
+                                }
+                                if (data?.genderOverride === 'male' || data?.genderOverride === 'female') {
+                                    setGenderOverride(data.genderOverride);
+                                    console.log('[App] Restored genderOverride from localStorage:', data.genderOverride);
+                                }
+                                if (data?.selectedRole && (IT_ROLES as readonly string[]).includes(data.selectedRole)) {
+                                    setSelectedRole(data.selectedRole as (typeof IT_ROLES)[number]);
+                                }
+                                if (data?.selectedCompany && (COMPANY_TYPES as readonly string[]).includes(data.selectedCompany)) {
+                                    setSelectedCompany(data.selectedCompany as (typeof COMPANY_TYPES)[number]);
+                                }
+                            } else {
+                                console.warn('[App] No data in localStorage for PENDING_GENERATION_KEY');
+                            }
+                            
+                            // Если изображение всё ещё не восстановилось — пробуем взять последнее исходное из отдельного ключа
+                            if (!uploadedImage) {
+                                try {
+                                    const lastSource = window.localStorage.getItem(LAST_SOURCE_IMAGE_KEY);
+                                    if (lastSource) {
+                                        setUploadedImage(lastSource);
+                                        console.log('[App] Restored uploadedImage from LAST_SOURCE_IMAGE_KEY');
+                                    }
+                                } catch (e) {
+                                    console.warn('[App] Failed to restore last source image from storage:', e);
+                                }
+                            }
+                            
+                            // Восстанавливаем настройки из заказа (если не восстановились из localStorage)
+                            if (order.gender && (order.gender === 'male' || order.gender === 'female')) {
+                                if (!genderOverride) {
+                                    setGenderOverride(order.gender as 'male' | 'female');
+                                    console.log('[App] Restored genderOverride from order:', order.gender);
+                                }
+                            }
+                            if (order.role && (IT_ROLES as readonly string[]).includes(order.role)) {
+                                setSelectedRole(order.role as (typeof IT_ROLES)[number]);
+                            }
+                            if (order.company && (COMPANY_TYPES as readonly string[]).includes(order.company)) {
+                                setSelectedCompany(order.company as (typeof COMPANY_TYPES)[number]);
+                            }
+                            
+                            // Если заказ завершен - показываем результаты
+                            if (order.status === 'completed' && order.generatedImages) {
+                                const images: Record<string, GeneratedImage> = {};
+                                STYLES.forEach(style => {
+                                    if (order.generatedImages && order.generatedImages[style]) {
+                                        images[style] = { status: 'done', url: order.generatedImages[style] };
+                                    } else {
+                                        images[style] = { status: 'error', error: 'Не сгенерировано' };
+                                    }
+                                });
+                                setGeneratedImages(images);
+                                setAppState('results-shown');
+                            } else if (order.status === 'processing' || order.status === 'paid') {
+                                // Показываем состояние генерации сразу (даже если заказ еще в статусе paid)
+                                // Показываем генерацию даже если изображение не восстановилось - пользователь должен видеть прогресс
+                                console.log('[App] Setting generation state for order', { invId, status: order.status });
+                                
+                                // Инициализируем все 6 карточек со статусом processing
+                                const images: Record<string, GeneratedImage> = {};
+                                STYLES.forEach(style => {
+                                    images[style] = { status: 'processing' };
+                                });
+                                
+                                console.log('[App] Generated images state:', images, 'STYLES:', STYLES);
+                                
+                                // Устанавливаем состояние синхронно, используя функциональное обновление
+                                setGeneratedImages(() => images);
+                                setAppState('generating');
+                                
+                                console.log('[App] App state set to generating, generatedImages keys:', Object.keys(images));
+                            }
+                        } catch (e) {
+                            console.warn('[App] Failed to restore order state:', e);
+                        }
+                    } else {
+                        // Заказ не был оплачен (status = created / cancelled / и т.п.) —
+                        // возвращаем пользователя на "чистую" главную страницу.
+                        console.log('[App] Order is not paid, resetting UI to idle state', { status: order.status });
+                        setHasActivePayment(false);
+                        setCurrentInvId(null);
+                        setCurrentOrder(null);
+                        setGeneratedImages({});
+                        setUploadedImage(null);
+                        setGenderOverride(null);
+                        setAppState('idle');
+                        try {
+                            window.localStorage.removeItem(CURRENT_ORDER_KEY);
+                            window.localStorage.removeItem(PENDING_GENERATION_KEY);
+                        } catch (storageErr) {
+                            console.warn('[App] Failed to clear localStorage after unpaid order:', storageErr);
+                        }
+                    }
+                })
+                .catch((err) => {
+                    console.error('[App] Failed to fetch order:', err);
+                    // Если заказ не найден или ошибка — очищаем localStorage и возвращаемся на чистый экран
+                    if (typeof window !== 'undefined') {
+                        try {
+                            window.localStorage.removeItem(CURRENT_ORDER_KEY);
+                            window.localStorage.removeItem(PENDING_GENERATION_KEY);
+                        } catch (storageErr) {
+                            console.warn('[App] Failed to clear localStorage after fetch error:', storageErr);
+                        }
+                    }
+                    setHasActivePayment(false);
+                    setCurrentInvId(null);
+                    setCurrentOrder(null);
+                    setGeneratedImages({});
+                    setUploadedImage(null);
+                    setGenderOverride(null);
+                    setAppState('idle');
+                });
+
+            // Чистим служебные параметры Robokassa из URL
+            ['payment', 'invId', 'InvId', 'OutSum', 'SignatureValue', 'IsTest', 'Culture'].forEach((key) =>
+                url.searchParams.delete(key),
+            );
+            window.history.replaceState({}, '', url.toString());
+        }
+    }, []);
+
+    // Polling статуса заказа, если он в состоянии paid или processing
+    useEffect(() => {
+        if (!currentInvId) return;
+        
+        // Если currentOrder еще не загружен, не запускаем polling
+        if (!currentOrder) return;
+        
+        // Запускаем polling только для paid или processing
+        if (currentOrder.status !== 'processing' && currentOrder.status !== 'paid') return;
+
+        console.log('[App] Starting polling for order', { invId: currentInvId, status: currentOrder.status });
+
+        const pollInterval = setInterval(async () => {
+            try {
+                console.log('[App] Polling order status...', { invId: currentInvId });
+                const order = await fetchOrder(currentInvId);
+                console.log('[App] Polled order status:', { status: order.status, hasGeneratedImages: !!order.generatedImages, generatedImagesCount: order.generatedImages ? Object.keys(order.generatedImages).length : 0 });
+                setCurrentOrder(order);
+
+                // Если заказ перешел в processing - обновляем UI
+                if (order.status === 'processing' && appState !== 'generating') {
+                    const images: Record<string, GeneratedImage> = {};
+                    STYLES.forEach(style => {
+                        images[style] = { status: 'processing' };
+                    });
+                    setGeneratedImages(images);
+                    setAppState('generating');
+                }
+
+                // Если заказ завершен - обновляем UI
+                if (order.status === 'completed' && order.generatedImages) {
+                    console.log('[App] Order completed, updating UI with results');
+                    const images: Record<string, GeneratedImage> = {};
+                    STYLES.forEach(style => {
+                        if (order.generatedImages && order.generatedImages[style]) {
+                            images[style] = { status: 'done', url: order.generatedImages[style] };
+                        } else {
+                            images[style] = { status: 'error', error: 'Не сгенерировано' };
+                        }
+                    });
+                    setGeneratedImages(images);
+                    setAppState('results-shown');
+                    clearInterval(pollInterval);
+                } else if (order.status === 'failed') {
+                    // Заказ провалился
+                    console.log('[App] Order failed');
+                    setAppState('image-uploaded');
+                    clearInterval(pollInterval);
+                }
+            } catch (err) {
+                console.error('[App] Failed to poll order status:', err);
+            }
+        }, 2000); // Проверяем каждые 2 секунды для более быстрого обновления
+
+        return () => {
+            console.log('[App] Stopping polling');
+            clearInterval(pollInterval);
+        };
+    }, [currentInvId, currentOrder, appState]);
+
+    // Предупреждение при перезагрузке страницы, когда уже есть результаты генерации.
+    // Браузер покажет стандартный диалог "Вы действительно хотите покинуть страницу?",
+    // а при подтверждении мы очищаем локальное состояние и localStorage, чтобы после перезагрузки
+    // пользователь попал на "чистую" главную.
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+            if (appState === 'results-shown') {
+                try {
+                    window.localStorage.removeItem(CURRENT_ORDER_KEY);
+                    window.localStorage.removeItem(PENDING_GENERATION_KEY);
+                } catch (e) {
+                    console.warn('[App] Failed to clear storage in beforeunload:', e);
+                }
+
+                event.preventDefault();
+                // Некоторые браузеры игнорируют кастомный текст, но для показа диалога
+                // нужно присвоить любое непустое значение.
+                event.returnValue = '';
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, [appState]);
 
     // Таймер для оценки изображения - обратный отсчет от 10 до 1
     useEffect(() => {
@@ -398,76 +756,216 @@ function App() {
         };
     }, [isValidatingImage]);
 
-    const handleImageUpload = (file: File) => {
+    const handleImageUpload = async (file: File) => {
+        // Детальное логирование для диагностики
+        console.log('[App] File selected:', {
+            name: file.name,
+            size: file.size,
+            sizeMB: (file.size / (1024 * 1024)).toFixed(2),
+            type: file.type,
+            lastModified: new Date(file.lastModified).toISOString(),
+            isMobile: /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent),
+            userAgent: navigator.userAgent
+        });
+
+        // Проверка размера файла ПЕРЕД конвертацией в base64
+        const MAX_FILE_SIZE = 7 * 1024 * 1024; // 7MB (base64 будет ~9-10MB)
+        if (file.size > MAX_FILE_SIZE) {
+            const sizeInMB = (file.size / (1024 * 1024)).toFixed(1);
+            console.warn('[App] File too large:', { size: file.size, sizeMB: sizeInMB, maxSize: MAX_FILE_SIZE });
+            setImageValidationError(
+                `Фото слишком большое (${sizeInMB} МБ). Максимальный размер — 7 МБ. ` +
+                `Пожалуйста, уменьшите изображение или сделайте скриншот и попробуйте снова.`
+            );
+            return;
+        }
+
+        // Проверка формата
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        const fileTypeLower = file.type.toLowerCase();
+        
+        // Специальная проверка для HEIC (многие телефоны используют этот формат)
+        if (fileTypeLower.includes('heic') || fileTypeLower.includes('heif') || 
+            file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif')) {
+            console.warn('[App] HEIC format detected:', { fileName: file.name, fileType: file.type });
+            setImageValidationError(
+                'Формат HEIC не поддерживается. Пожалуйста, конвертируйте фото в JPG или PNG перед загрузкой. ' +
+                'На iPhone можно сделать скриншот фото или сохранить в другом формате.'
+            );
+            return;
+        }
+        
+        if (!allowedTypes.includes(fileTypeLower)) {
+            console.warn('[App] Unsupported file type:', { fileType: file.type, fileName: file.name });
+            setImageValidationError(
+                `Формат изображения не поддерживается (${file.type || 'неизвестный'}). Загрузите фото в формате JPG, PNG или WEBP.`
+            );
+            return;
+        }
+
+        // Определяем, нужно ли сжимать изображение
+        const isMobile = /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent);
+        const isYandexMobile = isMobile && /YaBrowser|Yandex/i.test(navigator.userAgent);
+        const needsCompression = shouldCompressImage(file, isMobile);
+        
+        console.log('[App] Image processing options:', {
+            isMobile,
+            isYandexMobile,
+            needsCompression,
+            fileSize: file.size,
+            fileSizeMB: (file.size / (1024 * 1024)).toFixed(2)
+        });
+
+        // Для мобильных устройств (особенно Яндекс браузера) сжимаем изображение
+        if (needsCompression) {
+            console.log('[App] Compressing image for mobile device...');
+            try {
+                const compressedDataUrl = await compressImage(file, 1920, 1920, 0.85);
+                const compressedSize = (compressedDataUrl.length * 3) / 4;
+                console.log('[App] Image compressed:', {
+                    originalSize: file.size,
+                    originalSizeMB: (file.size / (1024 * 1024)).toFixed(2),
+                    compressedSize,
+                    compressedSizeMB: (compressedSize / (1024 * 1024)).toFixed(2),
+                    compressionRatio: ((1 - compressedSize / file.size) * 100).toFixed(1) + '%'
+                });
+                
+                // Используем сжатое изображение
+                processImageData(compressedDataUrl, file);
+                return;
+            } catch (compressionError) {
+                console.error('[App] Compression failed, using original:', compressionError);
+                // Если сжатие не удалось, используем оригинал
+            }
+        }
+
+        // Если сжатие не нужно или не удалось - используем оригинал
         const reader = new FileReader();
+        reader.onerror = () => {
+            console.error('FileReader error:', reader.error);
+            setImageValidationError('Ошибка чтения файла. Попробуйте выбрать другое изображение.');
+        };
+        
         reader.onloadend = () => {
             const dataUrl = reader.result as string;
+            processImageData(dataUrl, file);
+        };
+        
+        reader.readAsDataURL(file);
+    };
+
+    const processImageData = (dataUrl: string, originalFile: File) => {
             
-            // НЕ показываем изображение сразу - сначала анализируем
-            setUploadedImage(null);
-            setAppState('idle');
-            setGeneratedImages({}); // Clear previous results
-            setGenderOverride(null);
-            setDetectedGender('unknown');
-            setImageValidationError(null);
-            
-            // Запускаем анализ
-            setIsValidatingImage(true);
-            setValidationStatusMessage('Анализируем изображение...');
-            setValidationTimer(0);
-            const analysisStartedAt = Date.now();
-            const MIN_ANALYSIS_MS = 1200; // гарантируем видимость статуса хотя бы 1.2с
-            
-            (async () => {
-                try {
-                    // Единая оценка изображения (валидация + определение пола) с callback для статуса
-                    const evaluation: ImageEvaluationResult = await evaluateImage(dataUrl, (status) => {
-                        // Обновляем статусное сообщение
-                        if (status.statusMessage) {
-                            setValidationStatusMessage(status.statusMessage);
-                        }
-                        // Не обновляем таймер из статуса - используем только обратный отсчет от 10
-                    });
-                    
-                    console.log('Image evaluation result:', evaluation);
-                    
-                    if (!evaluation.isValid) {
-                        // Изображение не прошло валидацию - показываем ошибку
-                        setImageValidationError(evaluation.errorMessage);
-                        // Держим статус хотя бы MIN_ANALYSIS_MS
-                        const elapsed = Date.now() - analysisStartedAt;
-                        const delay = Math.max(0, MIN_ANALYSIS_MS - elapsed);
-                        if (delay > 0) await new Promise(r => setTimeout(r, delay));
-                        setIsValidatingImage(false);
-                        setValidationStatusMessage('Анализируем изображение...');
-                        return;
+        // Дополнительная проверка размера base64 (на случай если что-то пошло не так)
+        const base64Size = (dataUrl.length * 3) / 4;
+        const MAX_BASE64_SIZE = 10 * 1024 * 1024; // 10MB
+        if (base64Size > MAX_BASE64_SIZE) {
+            setImageValidationError(
+                'Изображение слишком большое после обработки. Пожалуйста, уменьшите изображение и попробуйте снова.'
+            );
+            return;
+        }
+        
+        console.log('[App] Processing image data:', {
+            dataUrlLength: dataUrl.length,
+            estimatedSizeMB: (base64Size / (1024 * 1024)).toFixed(2),
+            originalFileSize: originalFile.size,
+            originalFileSizeMB: (originalFile.size / (1024 * 1024)).toFixed(2)
+        });
+        
+        // НЕ показываем изображение сразу - сначала анализируем
+        setUploadedImage(null);
+        setAppState('idle');
+        setGeneratedImages({}); // Clear previous results
+        setGenderOverride(null);
+        setDetectedGender('unknown');
+        setImageValidationError(null);
+        
+        // Запускаем анализ
+        setIsValidatingImage(true);
+        setValidationStatusMessage('Анализируем изображение...');
+        setValidationTimer(0);
+        const analysisStartedAt = Date.now();
+        const MIN_ANALYSIS_MS = 1200; // гарантируем видимость статуса хотя бы 1.2с
+        
+        (async () => {
+            try {
+                // Единая оценка изображения (валидация + определение пола) с callback для статуса
+                const evaluation: ImageEvaluationResult = await evaluateImage(dataUrl, (status) => {
+                    // Обновляем статусное сообщение
+                    if (status.statusMessage) {
+                        setValidationStatusMessage(status.statusMessage);
                     }
-                    // Изображение валидно - ТЕПЕРЬ показываем его (после минимальной задержки)
-                    {
-                        const elapsed = Date.now() - analysisStartedAt;
-                        const delay = Math.max(0, MIN_ANALYSIS_MS - elapsed);
-                        if (delay > 0) await new Promise(r => setTimeout(r, delay));
-                    }
-                    setUploadedImage(dataUrl);
-                    setAppState('image-uploaded');
+                    // Не обновляем таймер из статуса - используем только обратный отсчет от 10
+                });
+                
+                console.log('Image evaluation result:', evaluation);
+                
+                if (!evaluation.isValid) {
+                    // Изображение не прошло валидацию - показываем ошибку
+                    setImageValidationError(evaluation.errorMessage);
+                    // Держим статус хотя бы MIN_ANALYSIS_MS
+                    const elapsed = Date.now() - analysisStartedAt;
+                    const delay = Math.max(0, MIN_ANALYSIS_MS - elapsed);
+                    if (delay > 0) await new Promise(r => setTimeout(r, delay));
                     setIsValidatingImage(false);
                     setValidationStatusMessage('Анализируем изображение...');
-                    
-                    // Устанавливаем определенный пол
-                    setDetectedGender(evaluation.gender);
-                    console.log('Detected gender:', evaluation.gender, 'confidence:', evaluation.confidence);
-                    
-                    // Автоматически выбираем пол если уверенность >= 0.7
-                    if ((evaluation.gender === 'male' || evaluation.gender === 'female') && evaluation.confidence >= 0.7) {
-                        setGenderOverride(evaluation.gender);
-                        console.log('Auto-selected gender:', evaluation.gender, 'confidence:', evaluation.confidence);
-                    } else {
-                        // Если уверенность низкая или пол не определен - сбрасываем выбор
-                        setGenderOverride(null);
-                        console.log('Gender not auto-selected, user must choose. Gender:', evaluation.gender, 'confidence:', evaluation.confidence);
+                    return;
+                }
+                // Изображение валидно - ТЕПЕРЬ показываем его (после минимальной задержки)
+                {
+                    const elapsed = Date.now() - analysisStartedAt;
+                    const delay = Math.max(0, MIN_ANALYSIS_MS - elapsed);
+                    if (delay > 0) await new Promise(r => setTimeout(r, delay));
+                }
+                setUploadedImage(dataUrl);
+                setAppState('image-uploaded');
+                setIsValidatingImage(false);
+                setValidationStatusMessage('Анализируем изображение...');
+                
+                // Сохраняем исходное изображение отдельно, чтобы показать его после оплаты/перезагрузки
+                try {
+                    if (typeof window !== 'undefined') {
+                        window.localStorage.setItem(LAST_SOURCE_IMAGE_KEY, dataUrl);
                     }
+                } catch (e) {
+                    console.warn('[App] Failed to persist last source image:', e);
+                }
+                
+                // Устанавливаем определенный пол
+                setDetectedGender(evaluation.gender);
+                console.log('Detected gender:', evaluation.gender, 'confidence:', evaluation.confidence);
+                
+                // Автоматически выбираем пол если уверенность >= 0.7
+                if ((evaluation.gender === 'male' || evaluation.gender === 'female') && evaluation.confidence >= 0.7) {
+                    setGenderOverride(evaluation.gender);
+                    console.log('Auto-selected gender:', evaluation.gender, 'confidence:', evaluation.confidence);
+                } else {
+                    // Если уверенность низкая или пол не определен - сбрасываем выбор
+                    setGenderOverride(null);
+                    console.log('Gender not auto-selected, user must choose. Gender:', evaluation.gender, 'confidence:', evaluation.confidence);
+                }
                 } catch (error) {
-                    console.error('Error evaluating image:', error);
+                    const errorDetails = {
+                        error: error instanceof Error ? error.message : String(error),
+                        errorName: error instanceof Error ? error.name : typeof error,
+                        stack: error instanceof Error ? error.stack : undefined,
+                        fileSize: originalFile.size,
+                        fileType: originalFile.type,
+                        timestamp: new Date().toISOString(),
+                        userAgent: navigator.userAgent,
+                        isMobile: /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent),
+                        isYandex: /YaBrowser|Yandex/i.test(navigator.userAgent)
+                    };
+                    
+                    console.error('[App] Error evaluating image:', errorDetails);
+                    
+                    // Логируем ошибку для диагностики
+                    errorLogger.log('ImageEvaluationError', 
+                        error instanceof Error ? error.message : String(error),
+                        errorDetails
+                    );
+                    
                     // Держим статус хотя бы MIN_ANALYSIS_MS
                     const elapsed = Date.now() - analysisStartedAt;
                     const delay = Math.max(0, MIN_ANALYSIS_MS - elapsed);
@@ -477,9 +975,7 @@ function App() {
                     // При ошибке оценки показываем ошибку
                     setImageValidationError('Не удалось оценить изображение. Пожалуйста, попробуйте другое изображение.');
                 }
-            })();
-        };
-        reader.readAsDataURL(file);
+        })();
     };
 
     const handleGenerateClick = async () => {
@@ -488,73 +984,533 @@ function App() {
         // Проверяем, что пол выбран
         const effectiveGender = getEffectiveGender();
         if (!effectiveGender || (effectiveGender !== 'male' && effectiveGender !== 'female')) {
-            alert('Пожалуйста, выберите пол перед генерацией портретов.');
+            // Логируем, но не показываем alert - пол должен быть выбран автоматически
+            console.warn('[App] Gender not selected, but should be auto-selected');
             return;
+        }
+
+        // Если есть активный заказ в состоянии processing или completed - не запускаем генерацию заново
+        if (currentOrder && (currentOrder.status === 'processing' || currentOrder.status === 'completed')) {
+            console.log('[App] Order already processing or completed, skipping generation');
+            return;
+        }
+
+        // Если оплаты ещё не было - инициируем платёж через Robokassa
+        if (!hasActivePayment && !currentOrder) {
+            try {
+                console.log('[App] No active payment found, creating Robokassa payment...');
+
+                // Сохраняем текущие настройки перед редиректом на оплату
+                try {
+                    const payload = {
+                        uploadedImage,
+                        genderOverride,
+                        selectedRole,
+                        selectedCompany,
+                        timestamp: Date.now(),
+                    };
+                    if (typeof window !== 'undefined') {
+                        window.localStorage.setItem(PENDING_GENERATION_KEY, JSON.stringify(payload));
+                    }
+                } catch (storageError) {
+                    console.warn('[App] Failed to persist pending generation before payment:', storageError);
+                }
+
+                const effectiveGender = getEffectiveGender();
+                const payment = await createPayment(
+                    uploadedImage,
+                    effectiveGender || 'unknown',
+                    selectedRole || '',
+                    selectedCompany || ''
+                );
+                if (payment?.redirectUrl) {
+                    // Сохраняем invId в localStorage для восстановления после возврата
+                    if (typeof window !== 'undefined' && payment.invId) {
+                        window.localStorage.setItem(CURRENT_ORDER_KEY, String(payment.invId));
+                    }
+                    window.location.href = payment.redirectUrl;
+                    return;
+                }
+            } catch (err) {
+                console.error('[App] Failed to create payment:', err);
+            }
+            // Если платёж не удалось создать - не запускаем генерацию
+            return;
+        }
+
+        // Оплата подтверждена — "съедаем" платёж и очищаем сохранённое состояние
+        setHasActivePayment(false);
+        autoGenerationStartedRef.current = true;
+        try {
+            if (typeof window !== 'undefined') {
+                window.localStorage.removeItem(PENDING_GENERATION_KEY);
+            }
+        } catch (e) {
+            console.warn('[App] Failed to clear pending generation from storage:', e);
         }
 
         setAppState('generating');
         
+        // Инициализируем статусы для 6 финальных портретов
         const initialImages: Record<string, GeneratedImage> = {};
         STYLES.forEach(style => {
             initialImages[style] = { status: 'pending' };
         });
         setGeneratedImages(initialImages);
 
-        // Генерируем все 6 стилей параллельно
-        const prompts = buildPromptsByContext(getEffectiveGender(), selectedRole, selectedCompany, variability, naturalLook);
-
-        const processStyle = async (style: string) => {
-            try {
-                const prompt = prompts[style];
+        try {
+            // ШАГ 1: Генерируем промежуточное изображение (если еще не кэшировано)
+            let imageToUse = uploadedImage;
+            let isUsingIntermediate = false;
+            
+            if (!intermediateImage) {
+                setIsGeneratingIntermediate(true);
+                console.log('[App] ========================================');
+                console.log('[App] STEP 1: Generating intermediate image');
+                console.log('[App] Original image size:', uploadedImage.length, 'chars');
+                console.log('[App] ========================================');
                 
-                // Callback для обновления статуса в реальном времени
-                const onStatusUpdate = (status: QueueStatus) => {
-                    setGeneratedImages(prev => {
-                        if (status.status === 'queued') {
-                            return {
-                                ...prev,
-                                [style]: {
-                                    status: 'queued',
-                                    queuePosition: status.position,
-                                    estimatedWaitTime: status.estimatedWaitTime,
-                                },
-                            };
-                        } else if (status.status === 'processing') {
-                            return {
-                                ...prev,
-                                [style]: {
-                                    status: 'processing',
-                                    queuePosition: 0,
-                                    estimatedWaitTime: status.estimatedWaitTime,
-                                },
-                            };
-                        }
-                        return prev;
+                // Максимально простой промпт для промежуточного изображения
+                // Используем минимальный промпт, который должен работать даже с проблемными изображениями
+                const intermediatePrompt = 'Change background to gray. Keep person the same.';
+                console.log('[App] Intermediate prompt:', intermediatePrompt);
+                
+                try {
+                    const intermediateResult = await generateImage(uploadedImage, intermediatePrompt);
+                    console.log('[App] ========================================');
+                    console.log('[App] ✅ Intermediate image generated successfully!');
+                    console.log('[App] Intermediate image size:', intermediateResult.length, 'chars');
+                    console.log('[App] Intermediate image preview:', intermediateResult.substring(0, 100) + '...');
+                    console.log('[App] ========================================');
+                    setIntermediateImage(intermediateResult);
+                    imageToUse = intermediateResult;
+                    isUsingIntermediate = true;
+                } catch (err) {
+                    console.error('[App] ========================================');
+                    console.error('[App] ❌ FAILED to generate intermediate image!');
+                    console.error('[App] Error:', err);
+                    console.error('[App] Error message:', err instanceof Error ? err.message : String(err));
+                    console.error('[App] Error stack:', err instanceof Error ? err.stack : 'no stack');
+                    console.error('[App] Will use original image instead');
+                    console.error('[App] ========================================');
+                    // Если промежуточное изображение не удалось - используем оригинал
+                    imageToUse = uploadedImage;
+                    isUsingIntermediate = false;
+                } finally {
+                    setIsGeneratingIntermediate(false);
+                }
+            } else {
+                // Используем кэшированное промежуточное изображение
+                imageToUse = intermediateImage;
+                isUsingIntermediate = true;
+                console.log('[App] Using cached intermediate image (size:', intermediateImage.length, 'chars)');
+            }
+            
+            console.log('[App] ========================================');
+            console.log('[App] STEP 2: Generating 6 final portraits');
+            console.log('[App] Using image size:', imageToUse.length, 'chars');
+            console.log('[App] Image source:', isUsingIntermediate ? 'INTERMEDIATE ✅' : 'ORIGINAL ⚠️');
+            if (!isUsingIntermediate) {
+                console.warn('[App] ⚠️ WARNING: Using ORIGINAL image instead of intermediate! This may cause generation failures.');
+            }
+            console.log('[App] ========================================');
+
+            // ШАГ 2: Генерируем все 6 стилей параллельно на основе промежуточного изображения
+            const prompts = buildPromptsByContext(getEffectiveGender(), selectedRole, selectedCompany, variability, naturalLook);
+
+            // Логируем информацию о промптах для проверки инструкций по бороде/усам
+            console.log('[App] ========================================');
+            console.log('[App] PROMPT VERIFICATION: Facial hair preservation instructions');
+            console.log('[App] ========================================');
+            const samplePrompt = prompts[Object.keys(prompts)[0]];
+            const hasFacialHairInstructions = samplePrompt.includes('CRITICAL FACIAL HAIR') || 
+                                             samplePrompt.includes('facial hair EXACTLY') ||
+                                             samplePrompt.includes('Do NOT lengthen, thicken');
+            console.log(`[App] ✅ Facial hair preservation instructions found: ${hasFacialHairInstructions}`);
+            if (hasFacialHairInstructions) {
+                const facialHairMatch = samplePrompt.match(/CRITICAL.*?facial hair.*?(?=\.|Attire|The style)/is);
+                if (facialHairMatch) {
+                    console.log(`[App] Facial hair instruction preview: ${facialHairMatch[0].substring(0, 200)}...`);
+                }
+            }
+            console.log('[App] ========================================');
+
+            // Ограничения на количество попыток (чтобы не убить квоту)
+            const MAX_ATTEMPTS_PER_STYLE = 4;
+            const MAX_SOURCES_PER_FAILED_STYLE = 3;
+            const MAX_TOTAL_RETRY_REQUESTS = 8;
+            const attempts: Record<string, number> = {};
+            let totalRetryRequests = 0;
+
+            // Собираем результаты напрямую из промисов, а не из состояния React
+            const firstStageResults: Array<{ style: string; success: boolean; url?: string; error?: string }> = [];
+
+            const processStyle = async (style: string, retryCount = 0): Promise<{ style: string; success: boolean; url?: string; error?: string }> => {
+                const maxRetriesForJobNotFound = 2; // Максимум 2 повторные попытки при "Задача не найдена"
+                
+                try {
+                    // Учитываем попытку для этого стиля
+                    attempts[style] = (attempts[style] ?? 0) + 1;
+                    if (attempts[style] > MAX_ATTEMPTS_PER_STYLE) {
+                        console.warn(`[App] Max attempts reached for style: ${style}. Skipping further generation attempts.`);
+                        return { style, success: false, error: 'Превышено максимальное количество попыток для этого стиля.' };
+                    }
+
+                    const prompt = prompts[style];
+                    if (retryCount === 0) {
+                        console.log(`[App] Starting generation for style: ${style}`);
+                    } else {
+                        console.log(`[App] Retrying generation for style: ${style} (attempt ${retryCount + 1})`);
+                    }
+                    console.log(`[App] Prompt length: ${prompt.length} chars`);
+                    console.log(`[App] Prompt preview: ${prompt.substring(0, 150)}...`);
+                    // Проверяем наличие инструкций по бороде/усам в каждом промпте
+                    const hasFacialHairInPrompt = prompt.includes('CRITICAL FACIAL HAIR') || 
+                                                 prompt.includes('facial hair EXACTLY') ||
+                                                 prompt.includes('Do NOT lengthen, thicken');
+                    console.log(`[App] ✅ Facial hair preservation in prompt: ${hasFacialHairInPrompt}`);
+                    
+                    // Callback для обновления статуса в реальном времени
+                    const onStatusUpdate = (status: QueueStatus) => {
+                        setGeneratedImages(prev => {
+                            if (status.status === 'queued') {
+                                return {
+                                    ...prev,
+                                    [style]: {
+                                        status: 'queued',
+                                        queuePosition: status.position,
+                                        estimatedWaitTime: status.estimatedWaitTime,
+                                    },
+                                };
+                            } else if (status.status === 'processing') {
+                                return {
+                                    ...prev,
+                                    [style]: {
+                                        status: 'processing',
+                                        queuePosition: 0,
+                                        estimatedWaitTime: status.estimatedWaitTime,
+                                    },
+                                };
+                            }
+                            return prev;
+                        });
+                    };
+                    
+                    console.log(`[App] Using image for generation:`, {
+                        style,
+                        imageSource: isUsingIntermediate ? 'INTERMEDIATE ✅' : 'ORIGINAL ⚠️',
+                        imageSize: imageToUse.length,
+                        imagePreview: imageToUse.substring(0, 100) + '...'
                     });
+                    
+                    const resultUrl = await generateImage(imageToUse, prompt, onStatusUpdate);
+                    console.log(`[App] ✅ Successfully generated image for style: ${style}`);
+                    console.log(`[App] Result URL length: ${resultUrl.length} chars`);
+                    setGeneratedImages(prev => ({
+                        ...prev,
+                        [style]: { status: 'done', url: resultUrl },
+                    }));
+                    return { style, success: true, url: resultUrl };
+                } catch (err) {
+                    const errorMessage = err instanceof Error ? err.message : "Произошла неизвестная ошибка.";
+                    const isJobNotFoundError = errorMessage.includes('Задача не найдена') || errorMessage.includes('не найдена');
+                    
+                    // Если это ошибка "Задача не найдена" и еще есть попытки - пробуем снова
+                    if (isJobNotFoundError && retryCount < maxRetriesForJobNotFound) {
+                        console.warn(`[App] ⚠️ Job not found for style: ${style}. Retrying... (attempt ${retryCount + 1}/${maxRetriesForJobNotFound})`);
+                        // Небольшая задержка перед повторной попыткой
+                        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+                        // Рекурсивно вызываем функцию с увеличенным счетчиком попыток
+                        return processStyle(style, retryCount + 1);
+                    }
+                    
+                    console.error(`[App] ❌ Failed to generate image for style: ${style}`);
+                    console.error(`[App] Error:`, err);
+                    console.error(`[App] Error message:`, errorMessage);
+                    console.error(`[App] Error stack:`, err instanceof Error ? err.stack : 'no stack');
+                    
+                    if (isJobNotFoundError) {
+                        console.error(`[App] ⚠️ Job not found error after ${retryCount + 1} attempts. This may indicate server issues.`);
+                    }
+                    
+                    setGeneratedImages(prev => ({
+                        ...prev,
+                        [style]: { status: 'error', error: errorMessage },
+                    }));
+                    return { style, success: false, error: errorMessage };
+                }
+            };
+
+            // ШАГ 2: Запускаем все 6 генераций одновременно и собираем результаты
+            const results = await Promise.all(STYLES.map(style => processStyle(style)));
+            firstStageResults.push(...results);
+            
+            // ШАГ 3: Проверяем результаты и делаем повторную попытку для неудачных
+            console.log('[App] ========================================');
+            console.log('[App] STEP 3: Checking results and retrying failed portraits');
+            console.log('[App] ========================================');
+            
+            // Находим успешные портреты и неудачные стили из результатов промисов
+            const successfulPortraits: Array<{ style: string; url: string }> = [];
+            const failedStyles: string[] = [];
+            
+            results.forEach(result => {
+                if (result.success && result.url) {
+                    successfulPortraits.push({ style: result.style, url: result.url });
+                    console.log(`[App] ✅ Successful portrait: ${result.style}`);
+                } else {
+                    failedStyles.push(result.style);
+                    console.log(`[App] ❌ Failed portrait: ${result.style}`);
+                }
+            });
+
+            // Итоговая карта результатов для финального анализа
+            const finalResultsMap: Record<string, { success: boolean; url?: string }> = {};
+            results.forEach(result => {
+                finalResultsMap[result.style] = { success: result.success, url: result.url };
+            });
+            
+            // Если есть успешные портреты и неудачные - делаем расширенную повторную попытку
+            if (successfulPortraits.length > 0 && failedStyles.length > 0) {
+                console.log('[App] ========================================');
+                console.log(`[App] Retrying ${failedStyles.length} failed portraits using successful portraits as sources (with limits)`);
+                console.log('[App] ========================================');
+                
+                // Функция для повторной попытки с использованием одного или нескольких успешных изображений
+                const retryFailedStyle = async (style: string): Promise<{ style: string; success: boolean; url?: string }> => {
+                    const prompt = prompts[style];
+                    let sourcesTried = 0;
+                    let sourceIndex = 0;
+
+                    while (
+                        sourcesTried < MAX_SOURCES_PER_FAILED_STYLE &&
+                        sourceIndex < successfulPortraits.length &&
+                        (attempts[style] ?? 0) < MAX_ATTEMPTS_PER_STYLE &&
+                        totalRetryRequests < MAX_TOTAL_RETRY_REQUESTS
+                    ) {
+                        const source = successfulPortraits[sourceIndex];
+                        console.log(`[App] Retrying generation for style: ${style} using source style: ${source.style} (attempt ${attempts[style] ?? 0 + 1})`);
+
+                        // Учитываем попытку и глобальный лимит
+                        attempts[style] = (attempts[style] ?? 0) + 1;
+                        totalRetryRequests += 1;
+
+                        // Проверяем наличие инструкций по бороде/усам в промпте для retry
+                        const hasFacialHairInRetryPrompt = prompt.includes('CRITICAL FACIAL HAIR') || 
+                                                          prompt.includes('facial hair EXACTLY') ||
+                                                          prompt.includes('Do NOT lengthen, thicken');
+                        console.log(`[App] ✅ Facial hair preservation in retry prompt: ${hasFacialHairInRetryPrompt}`);
+                        
+                        // Обновляем статус на "processing" для повторной попытки
+                        setGeneratedImages(prev => ({
+                            ...prev,
+                            [style]: { status: 'processing', error: undefined },
+                        }));
+                        
+                        // Callback для обновления статуса
+                        const onStatusUpdate = (status: QueueStatus) => {
+                            setGeneratedImages(prev => {
+                                if (status.status === 'queued') {
+                                    return {
+                                        ...prev,
+                                        [style]: {
+                                            status: 'queued',
+                                            queuePosition: status.position,
+                                            estimatedWaitTime: status.estimatedWaitTime,
+                                        },
+                                    };
+                                } else if (status.status === 'processing') {
+                                    return {
+                                        ...prev,
+                                        [style]: {
+                                            status: 'processing',
+                                            queuePosition: 0,
+                                            estimatedWaitTime: status.estimatedWaitTime,
+                                        },
+                                    };
+                                }
+                                return prev;
+                            });
+                        };
+                        
+                        try {
+                            const resultUrl = await generateImage(source.url, prompt, onStatusUpdate);
+                            console.log(`[App] ✅ Successfully retried generation for style: ${style} using source style: ${source.style}`);
+                            setGeneratedImages(prev => ({
+                                ...prev,
+                                [style]: { status: 'done', url: resultUrl },
+                            }));
+
+                            // Добавляем этот успешный портрет в пул источников
+                            successfulPortraits.push({ style, url: resultUrl });
+                            finalResultsMap[style] = { success: true, url: resultUrl };
+
+                            return { style, success: true, url: resultUrl };
+                        } catch (err) {
+                            const errorMessage = err instanceof Error ? err.message : "Произошла неизвестная ошибка.";
+                            console.error(`[App] ❌ Retry failed for style: ${style} using source style: ${source.style}`);
+                            console.error(`[App] Error:`, err);
+                            // Оставляем ошибку, но не перезаписываем статус на error, чтобы пользователь видел что была попытка
+                            setGeneratedImages(prev => ({
+                                ...prev,
+                                [style]: { status: 'error', error: `Повторная попытка не удалась: ${errorMessage}` },
+                            }));
+
+                            sourcesTried += 1;
+                            sourceIndex += 1;
+                        }
+                    }
+
+                    console.warn(`[App] Exhausted retry options for style: ${style}. Attempts: ${attempts[style] ?? 0}, sourcesTried: ${sourcesTried}`);
+                    return { style, success: false };
                 };
                 
-                const resultUrl = await generateImage(uploadedImage, prompt, onStatusUpdate);
-                setGeneratedImages(prev => ({
-                    ...prev,
-                    [style]: { status: 'done', url: resultUrl },
-                }));
-            } catch (err) {
-                const errorMessage = err instanceof Error ? err.message : "Произошла неизвестная ошибка.";
-                setGeneratedImages(prev => ({
-                    ...prev,
-                    [style]: { status: 'error', error: errorMessage },
-                }));
-                console.error(`Не удалось создать изображение для стиля ${style}:`, err);
-            }
-        };
+                // Запускаем повторные попытки для всех неудачных стилей
+                const retryResultsForFailed = await Promise.all(failedStyles.map(style => retryFailedStyle(style)));
+                
+                console.log('[App] ========================================');
+                console.log('[App] Retry attempts completed');
+                console.log('[App] ========================================');
 
-        // Запускаем все 6 генераций одновременно
-        await Promise.all(STYLES.map(style => processStyle(style)));
-        setAppState('results-shown');
+                // Обновляем финальную карту результатов с учетом ретраев
+                retryResultsForFailed.forEach(result => {
+                    if (result.success && result.url) {
+                        finalResultsMap[result.style] = { success: true, url: result.url };
+                    }
+                });
+            } else if (successfulPortraits.length === 0 && failedStyles.length > 0) {
+                // Если ВСЕ портреты провалились - обрабатываем промежуточное изображение агрессивнее и повторяем попытку
+                console.log('[App] ========================================');
+                console.log('[App] STEP 4: All portraits failed. Processing intermediate image more aggressively');
+                console.log('[App] ========================================');
+                
+                try {
+                    // Обрабатываем промежуточное изображение более агрессивно (level 2)
+                    const aggressiveIntermediatePrompt = 'Change background to gray. Keep person the same.';
+                    console.log('[App] Reprocessing intermediate image with aggressive level 2');
+                    
+                    // Используем addGenerationToQueue с агрессивным уровнем 2
+                    const aggressiveQueueJob = await addGenerationToQueue(imageToUse, aggressiveIntermediatePrompt, 2);
+                    
+                    if (!aggressiveQueueJob.processedImage) {
+                        throw new Error('Failed to process intermediate image aggressively');
+                    }
+                    
+                    const aggressiveIntermediateResult = aggressiveQueueJob.processedImage;
+                    
+                    console.log('[App] ========================================');
+                    console.log('[App] ✅ Aggressively processed intermediate image generated!');
+                    console.log('[App] Aggressive intermediate image size:', aggressiveIntermediateResult.length, 'chars');
+                    console.log('[App] ========================================');
+                    
+                    // Обновляем промежуточное изображение
+                    setIntermediateImage(aggressiveIntermediateResult);
+                    imageToUse = aggressiveIntermediateResult;
+                    isUsingIntermediate = true;
+                    
+                    // Повторяем попытку генерации всех 6 портретов с новым промежуточным изображением
+                    console.log('[App] ========================================');
+                    console.log('[App] STEP 5: Retrying all 6 portraits with aggressively processed intermediate image');
+                    console.log('[App] ========================================');
+                    
+                    const retryResults = await Promise.all(STYLES.map(style => processStyle(style)));
+                    
+                    // Обновляем результаты
+                    retryResults.forEach(result => {
+                        if (result.success && result.url) {
+                            setGeneratedImages(prev => ({
+                                ...prev,
+                                [result.style]: { status: 'done', url: result.url },
+                            }));
+                            console.log(`[App] ✅ Retry successful for style: ${result.style}`);
+                        } else {
+                            console.log(`[App] ❌ Retry failed for style: ${result.style}`);
+                        }
+                    });
+
+                    // Обновляем финальную карту результатов на основе агрессивного ретрая
+                    STYLES.forEach(style => {
+                        const match = retryResults.find(r => r.style === style);
+                        if (match) {
+                            finalResultsMap[style] = { success: match.success, url: match.url };
+                        }
+                    });
+                    
+                } catch (err) {
+                    console.error('[App] ========================================');
+                    console.error('[App] ❌ FAILED to reprocess intermediate image aggressively!');
+                    console.error('[App] Error:', err);
+                    console.error('[App] ========================================');
+                }
+            } else {
+                console.log('[App] No retry needed:', {
+                    successfulCount: successfulPortraits.length,
+                    failedCount: failedStyles.length
+                });
+
+                // Если ретраев не было, финальная карта совпадает с исходными результатами
+                STYLES.forEach(style => {
+                    if (!finalResultsMap[style]) {
+                        const match = results.find(r => r.style === style);
+                        if (match) {
+                            finalResultsMap[style] = { success: match.success, url: match.url };
+                        }
+                    }
+                });
+            }
+
+            // ФИНАЛЬНЫЙ FALLBACK: гарантируем 6 портретов любой ценой
+            const finalSuccessfulStyles: Array<{ style: string; url: string }> = [];
+            const finalFailedStyles: string[] = [];
+
+            STYLES.forEach(style => {
+                const entry = finalResultsMap[style];
+                if (entry && entry.success && entry.url) {
+                    finalSuccessfulStyles.push({ style, url: entry.url });
+                } else {
+                    finalFailedStyles.push(style);
+                }
+            });
+
+            console.log('[App] Final results before fallback:', {
+                successfulCount: finalSuccessfulStyles.length,
+                failedCount: finalFailedStyles.length,
+                failedStyles: finalFailedStyles,
+            });
+
+            if (finalFailedStyles.length > 0 && finalSuccessfulStyles.length > 0) {
+                console.warn('[App] Applying final fallback duplication to guarantee 6 portraits.');
+
+                setGeneratedImages(prev => {
+                    const updated = { ...prev };
+                    finalFailedStyles.forEach((style, index) => {
+                        const source = finalSuccessfulStyles[index % finalSuccessfulStyles.length];
+                        updated[style] = {
+                            status: 'done',
+                            url: source.url,
+                        };
+                        console.log(`[App] Fallback: using portrait from style "${source.style}" for failed style "${style}"`);
+                    });
+                    return updated;
+                });
+            }
+
+            setAppState('results-shown');
+        } catch (err) {
+            console.error('[App] Error in generation process:', err);
+            // Логируем ошибку, но не показываем пользователю - система сама повторит попытки
+            const errorMessage = err instanceof Error ? err.message : "Произошла ошибка при генерации.";
+            console.error('[App] Generation error (silent):', errorMessage);
+            // Не меняем состояние - пусть пользователь видит процесс генерации
+            // setAppState('image-uploaded');
+        }
     };
 
     const handleRegenerateStyle = async (style: string) => {
-        if (!uploadedImage || generatedImages[style]?.status === 'pending' || generatedImages[style]?.status === 'queued' || generatedImages[style]?.status === 'processing') return;
+        // Используем промежуточное изображение если есть, иначе оригинал
+        const imageToUse = intermediateImage || uploadedImage;
+        
+        if (!imageToUse || generatedImages[style]?.status === 'pending' || generatedImages[style]?.status === 'queued' || generatedImages[style]?.status === 'processing') return;
         
         setGeneratedImages(prev => ({ ...prev, [style]: { status: 'pending' } }));
 
@@ -588,7 +1544,7 @@ function App() {
                 });
             };
             
-            const resultUrl = await generateImage(uploadedImage, prompt, onStatusUpdate);
+            const resultUrl = await generateImage(imageToUse, prompt, onStatusUpdate);
             setGeneratedImages(prev => ({ ...prev, [style]: { status: 'done', url: resultUrl } }));
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : "Произошла неизвестная ошибка.";
@@ -605,6 +1561,8 @@ function App() {
         setAppState('idle');
         setGenderOverride(null);
         setDetectedGender('unknown');
+        setIntermediateImage(null);
+        setIsGeneratingIntermediate(false);
     };
 
     const handleDownloadIndividualImage = (style: string) => {
@@ -633,7 +1591,7 @@ function App() {
                 }, {} as Record<string, string>);
 
             if (Object.keys(imageData).length === 0) {
-                alert("Нет сгенерированных изображений для скачивания.");
+                console.warn('[App] No images to download');
                 return;
             }
 
@@ -646,7 +1604,7 @@ function App() {
             document.body.removeChild(link);
         } catch (error) {
             console.error("Не удалось создать или скачать альбом:", error);
-            alert("К сожалению, произошла ошибка при создании вашего альбома. Пожалуйста, попробуйте еще раз.");
+            console.error('[App] Album creation error (silent)');
         } finally {
             setIsDownloading(false);
         }
@@ -663,6 +1621,76 @@ function App() {
         window.addEventListener('keydown', onKeyDown);
         return () => window.removeEventListener('keydown', onKeyDown);
     }, []);
+
+    if (isAdminView) {
+      if (!adminAuthChecked) {
+        return (
+          <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+            <p className="text-sm text-slate-600">Проверяем доступ к админке…</p>
+          </div>
+        );
+      }
+
+      if (!adminAuthed) {
+        return (
+          <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+            <div className="max-w-sm w-full bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <h1 className="text-lg font-semibold text-slate-900 mb-2">Вход в админку</h1>
+              <p className="text-xs text-slate-500 mb-4">
+                Введите пароль администратора для доступа к заказам и промокодам.
+              </p>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-500 mb-1">Пароль</label>
+                  <input
+                    type="password"
+                    value={adminPassword}
+                    onChange={(e) => {
+                      setAdminPassword(e.target.value);
+                      setAdminAuthError(null);
+                    }}
+                    className="w-full border rounded px-3 py-2 text-sm"
+                    placeholder="••••••"
+                  />
+                </div>
+                {adminAuthError && (
+                  <p className="text-xs text-red-600">{adminAuthError}</p>
+                )}
+                <button
+                  type="button"
+                  disabled={adminAuthLoading || !adminPassword}
+                  onClick={async () => {
+                    try {
+                      setAdminAuthLoading(true);
+                      setAdminAuthError(null);
+                      const result = await adminLogin(adminPassword);
+                      if (!result.ok) {
+                        setAdminAuthError(result.error || 'Неверный пароль');
+                        setAdminAuthed(false);
+                        return;
+                      }
+                      setAdminAuthed(true);
+                    } finally {
+                      setAdminAuthLoading(false);
+                    }
+                  }}
+                  className="w-full inline-flex items-center justify-center px-4 py-2 rounded-lg bg-slate-900 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {adminAuthLoading ? 'Входим…' : 'Войти'}
+                </button>
+                <div className="pt-2 border-t border-slate-100 mt-2 flex justify-between items-center">
+                  <a href="/" className="text-xs text-slate-500 hover:text-slate-800 underline decoration-dotted">
+                    На главную
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      return <AdminDashboard initialTab={adminMode} />;
+    }
 
     return (
         <div 
@@ -736,7 +1764,7 @@ function App() {
                                         letterSpacing: '0.025em',
                                     }}
                                 >
-                                    Твое идеальное фото для новой карьеры
+                                    Твое идеальное фото для новой карьеры!
                                 </p>
                            </div>
                         </div>
@@ -750,9 +1778,26 @@ function App() {
                     {/* --- Left Column: Controls --- */}
                     <aside className="w-full lg:w-1/3 lg:max-w-sm flex-shrink-0">
                         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm sticky top-8 transition-shadow duration-300 hover:shadow-md">
-                            <div data-onboarding="upload">
-                            <h2 className="text-lg font-semibold text-gray-900 mb-1">1. Загрузите ваше фото</h2>
-                            <p className="text-sm text-gray-500 mb-4">Выберите четкое изображение лица анфас.</p>
+                            <div data-onboarding="upload" className="mb-4">
+                                <div className="flex items-start gap-3">
+                                    <span
+                                        className="flex h-12 w-12 items-center justify-center rounded-full text-base font-semibold text-white flex-shrink-0 mt-0.5"
+                                        style={{
+                                            background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                                            boxShadow: '0 10px 20px rgba(79,70,229,0.35)',
+                                        }}
+                                    >
+                                        1
+                                    </span>
+                                    <div>
+                                        <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-0.5">
+                                            Загрузите ваше фото
+                                        </h2>
+                                        <p className="text-xs sm:text-sm text-gray-500">
+                                            Прикрепите фото анфас.
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
                             
                             {/* Скрытый input для кнопки ошибки - всегда в DOM */}
@@ -802,25 +1847,134 @@ function App() {
                                     >
                                         <Icons.xCircle className="w-12 h-12 text-red-600 mb-4" />
                                         <p className="text-sm font-medium text-red-800 mb-2">Ошибка загрузки</p>
-                                        <p className="text-xs text-red-700 leading-relaxed">{imageValidationError}</p>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                // Открываем файловый диалог сразу, без задержек
-                                                if (fileInputRef.current) {
-                                                    fileInputRef.current.value = ''; // Сбрасываем предыдущий выбор
-                                                    fileInputRef.current.click();
-                                                }
-                                            }}
-                                            className="mt-4 px-4 py-2 text-sm font-medium text-white bg-gray-700 rounded-lg hover:bg-gray-800 transition-all duration-200 shadow-sm hover:shadow-md"
-                                        >
-                                            Выбрать другое изображение
-                                        </button>
+                                        <p className="text-xs text-red-700 leading-relaxed mb-4">{imageValidationError}</p>
+                                        
+                                        {/* Кнопки для диагностики */}
+                                        <div className="flex flex-col gap-2 w-full max-w-xs">
+                                            <button
+                                                onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    
+                                                    // Собираем все доступные логи
+                                                    let logs = errorLogger.getLogsAsText();
+                                                    
+                                                    // Если логов нет, собираем информацию из консоли и текущего состояния
+                                                    if (!logs || logs.trim().length === 0) {
+                                                        const diagnosticInfo = {
+                                                            timestamp: new Date().toISOString(),
+                                                            userAgent: navigator.userAgent,
+                                                            url: window.location.href,
+                                                            isMobile: /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent),
+                                                            isYandex: /YaBrowser|Yandex/i.test(navigator.userAgent),
+                                                            errorMessage: imageValidationError,
+                                                            screenSize: `${window.screen.width}x${window.screen.height}`,
+                                                            viewportSize: `${window.innerWidth}x${window.innerHeight}`,
+                                                            language: navigator.language,
+                                                            platform: navigator.platform,
+                                                            cookieEnabled: navigator.cookieEnabled,
+                                                            onLine: navigator.onLine
+                                                        };
+                                                        
+                                                        logs = `=== ДИАГНОСТИЧЕСКАЯ ИНФОРМАЦИЯ ===\n\n` +
+                                                               `Время: ${diagnosticInfo.timestamp}\n` +
+                                                               `Ошибка: ${diagnosticInfo.errorMessage}\n` +
+                                                               `URL: ${diagnosticInfo.url}\n\n` +
+                                                               `=== ИНФОРМАЦИЯ ОБ УСТРОЙСТВЕ ===\n` +
+                                                               `User-Agent: ${diagnosticInfo.userAgent}\n` +
+                                                               `Платформа: ${diagnosticInfo.platform}\n` +
+                                                               `Язык: ${diagnosticInfo.language}\n` +
+                                                               `Мобильное устройство: ${diagnosticInfo.isMobile ? 'Да' : 'Нет'}\n` +
+                                                               `Яндекс браузер: ${diagnosticInfo.isYandex ? 'Да' : 'Нет'}\n` +
+                                                               `Размер экрана: ${diagnosticInfo.screenSize}\n` +
+                                                               `Размер окна: ${diagnosticInfo.viewportSize}\n` +
+                                                               `Cookies включены: ${diagnosticInfo.cookieEnabled ? 'Да' : 'Нет'}\n` +
+                                                               `Онлайн: ${diagnosticInfo.onLine ? 'Да' : 'Нет'}\n\n` +
+                                                               `=== ИНСТРУКЦИЯ ===\n` +
+                                                               `1. Откройте консоль браузера (F12 или через меню)\n` +
+                                                               `2. Найдите все записи, начинающиеся с [App] или [evaluateImage]\n` +
+                                                               `3. Скопируйте их и отправьте разработчику\n`;
+                                                    }
+                                                    
+                                                    // Пробуем скопировать через Clipboard API
+                                                    try {
+                                                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                                                            await navigator.clipboard.writeText(logs);
+                                                            alert('✅ Логи скопированы в буфер обмена!\n\nОтправьте их разработчику для диагностики.');
+                                                            return;
+                                                        }
+                                                    } catch (clipboardError) {
+                                                        console.warn('Clipboard API failed, trying fallback:', clipboardError);
+                                                    }
+                                                    
+                                                    // Fallback: используем старый метод через textarea
+                                                    try {
+                                                        const textarea = document.createElement('textarea');
+                                                        textarea.value = logs;
+                                                        textarea.style.position = 'fixed';
+                                                        textarea.style.left = '-999999px';
+                                                        textarea.style.top = '-999999px';
+                                                        document.body.appendChild(textarea);
+                                                        textarea.focus();
+                                                        textarea.select();
+                                                        
+                                                        const successful = document.execCommand('copy');
+                                                        document.body.removeChild(textarea);
+                                                        
+                                                        if (successful) {
+                                                            alert('✅ Логи скопированы в буфер обмена!\n\nОтправьте их разработчику для диагностики.');
+                                                        } else {
+                                                            throw new Error('execCommand failed');
+                                                        }
+                                                    } catch (fallbackError) {
+                                                        console.error('All copy methods failed:', fallbackError);
+                                                        // Последний fallback: показываем логи в alert
+                                                        const preview = logs.substring(0, 1500) + (logs.length > 1500 ? '\n\n... (еще ' + (logs.length - 1500) + ' символов, откройте консоль для полных логов)' : '');
+                                                        alert('Не удалось скопировать автоматически.\n\nЛоги (первые 1500 символов):\n\n' + preview + '\n\nОткройте консоль браузера (F12) для полных логов.');
+                                                    }
+                                                }}
+                                                className="px-4 py-2 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                                            >
+                                                📋 Скопировать логи для диагностики
+                                            </button>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    errorLogger.clearLogs();
+                                                    setImageValidationError(null);
+                                                }}
+                                                className="px-4 py-2 text-xs bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
+                                            >
+                                                Очистить и попробовать снова
+                                            </button>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    // Открываем файловый диалог сразу, без задержек
+                                                    if (fileInputRef.current) {
+                                                        fileInputRef.current.value = ''; // Сбрасываем предыдущий выбор
+                                                        fileInputRef.current.click();
+                                                    }
+                                                }}
+                                                className="px-4 py-2 text-xs font-medium text-white bg-gray-700 rounded hover:bg-gray-800 transition-colors"
+                                            >
+                                                Выбрать другое изображение
+                                            </button>
+                                        </div>
                                     </motion.div>
                                 )}
-                                {uploadedImage && (appState === 'image-uploaded' || appState === 'generating' || appState === 'results-shown') && !imageValidationError && !isValidatingImage && (
+                                {/* Показываем исходник всегда, если есть uploadedImage или если заказ в процессе генерации/завершен */}
+                                {((uploadedImage && (appState === 'image-uploaded' || appState === 'generating' || appState === 'results-shown')) || 
+                                  (appState === 'generating' || appState === 'results-shown')) && 
+                                  !imageValidationError && !isValidatingImage && (
                                      <motion.div key="preview" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                                        <img src={uploadedImage} alt="Uploaded preview" className="w-full rounded-md object-cover aspect-square" />
+                                        {uploadedImage ? (
+                                            <img src={uploadedImage} alt="Uploaded preview" className="w-full rounded-md object-cover aspect-square" />
+                                        ) : (
+                                            // Показываем placeholder, если изображение не восстановилось, но генерация идет
+                                            <div className="w-full aspect-square rounded-md border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center">
+                                                <p className="text-sm text-gray-500">Исходное изображение</p>
+                                            </div>
+                                        )}
                                     </motion.div>
                                 )}
                             </AnimatePresence>
@@ -828,7 +1982,10 @@ function App() {
                             <div className="mt-6">
                                 {!isValidatingImage && !imageValidationError && uploadedImage && (appState === 'image-uploaded' || appState === 'generating' || appState === 'results-shown') && (
                                     <div className="mb-6" data-onboarding="gender">
-                                        <h2 className="text-lg font-semibold text-gray-900 mb-1">Пол</h2>
+                                        <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900 mb-1">
+                                            <Icons.career className="w-4 h-4 text-blue-500" />
+                                            Пол
+                                        </h2>
                                         <p className="text-sm text-gray-500 mb-3">
                                             {genderOverride === null 
                                                 ? 'Выберите пол для генерации портретов' 
@@ -879,7 +2036,12 @@ function App() {
                                 <div className="mb-6 grid grid-cols-1 gap-4">
                                     <div data-onboarding="role">
                                         <CustomSelect
-                                            label="Должность в ИТ"
+                                            label={(
+                                                <span className="inline-flex items-center gap-2">
+                                                    <Icons.logo className="w-4 h-4 text-blue-500" />
+                                                    <span>Должность в ИТ</span>
+                                                </span>
+                                            ) as unknown as string}
                                             options={IT_ROLES}
                                             value={selectedRole}
                                             onChange={(value) => setSelectedRole(value as typeof IT_ROLES[number])}
@@ -888,7 +2050,12 @@ function App() {
                                     </div>
                                     <div data-onboarding="company">
                                         <CustomSelect
-                                            label="Тип компании"
+                                            label={(
+                                                <span className="inline-flex items-center gap-2">
+                                                    <Icons.logo className="w-4 h-4 text-blue-500" />
+                                                    <span>Тип компании</span>
+                                                </span>
+                                            ) as unknown as string}
                                             options={COMPANY_TYPES}
                                             value={selectedCompany}
                                             onChange={(value) => setSelectedCompany(value as typeof COMPANY_TYPES[number])}
@@ -897,9 +2064,157 @@ function App() {
                                     </div>
                                     {/* Вариативность и естественность зафиксированы в коде (Высокая, включено) */}
                                 </div>
-                                <div data-onboarding="generate">
-                                <h2 className="text-lg font-semibold text-gray-900 mb-1">2. Сгенерируйте портреты</h2>
-                                <p className="text-sm text-gray-500 mb-4">Мы создадим 6 профессиональных портретов в разных стилях.</p>
+                                {/* Блок промокода */}
+                                <div className="mb-4">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="inline-flex items-center gap-2 text-sm font-medium text-gray-900">
+                                            <Icons.sparkles className="w-4 h-4 text-emerald-500" />
+                                            <span>Промокод</span>
+                                        </span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={promoCodeInput}
+                                            onChange={(e) => {
+                                                setPromoCodeInput(e.target.value.toUpperCase().slice(0, 6));
+                                                setPromoMessage(null);
+                                                setPromoError(null);
+                                            }}
+                                            placeholder="Введите промокод"
+                                            className="flex-1 h-10 px-3 rounded-lg border border-gray-300 text-sm tracking-[0.24em] uppercase"
+                                        />
+                                        <button
+                                            type="button"
+                                            disabled={
+                                                promoLoading ||
+                                                !promoCodeInput ||
+                                                promoCodeInput.length !== 6 ||
+                                                !uploadedImage ||
+                                                !getEffectiveGender() ||
+                                                (getEffectiveGender() !== 'male' && getEffectiveGender() !== 'female')
+                                            }
+                                            onClick={async () => {
+                                                setPromoMessage(null);
+                                                setPromoError(null);
+                                                if (!uploadedImage) return;
+                                                const effectiveGender = getEffectiveGender();
+                                                if (!effectiveGender || (effectiveGender !== 'male' && effectiveGender !== 'female')) return;
+
+                                                // Ограничение на количество попыток промокода на клиенте
+                                                const ATTEMPTS_KEY = 'newava_promo_attempts';
+                                                try {
+                                                    const raw = typeof window !== 'undefined' ? window.localStorage.getItem(ATTEMPTS_KEY) : null;
+                                                    const parsed = raw ? JSON.parse(raw) as { count: number } : { count: 0 };
+                                                    if (parsed.count >= 5) {
+                                                        setPromoError('Превышено количество попыток ввода промокода. Попробуйте позже.');
+                                                        return;
+                                                    }
+                                                } catch {
+                                                    // если что-то не так с хранилищем, просто продолжаем
+                                                }
+
+                                                try {
+                                                    setPromoLoading(true);
+                                                    const response = await usePromoCode(
+                                                        promoCodeInput,
+                                                        uploadedImage,
+                                                        effectiveGender,
+                                                        selectedRole || '',
+                                                        selectedCompany || ''
+                                                    );
+
+                                                    if (!response.ok || !response.invId) {
+                                                        setPromoError(response.error || 'Промокод недействителен или исчерпал лимит.');
+                                                        // Инкрементируем счётчик попыток
+                                                        try {
+                                                            if (typeof window !== 'undefined') {
+                                                                const raw = window.localStorage.getItem(ATTEMPTS_KEY);
+                                                                const parsed = raw ? JSON.parse(raw) as { count: number } : { count: 0 };
+                                                                parsed.count = (parsed.count || 0) + 1;
+                                                                window.localStorage.setItem(ATTEMPTS_KEY, JSON.stringify(parsed));
+                                                            }
+                                                        } catch {
+                                                            // игнорируем
+                                                        }
+                                                        return;
+                                                    }
+
+                                                    // Успех: промокод применён, генерация стартовала на бэкенде
+                                                    setPromoApplied(true);
+                                                    setPromoMessage(
+                                                        response.remainingUses !== undefined
+                                                            ? `Промокод применён. Осталось активаций: ${response.remainingUses}.`
+                                                            : 'Промокод применён. Генерация началась.'
+                                                    );
+
+                                                    const invId = String(response.invId);
+                                                    setCurrentInvId(invId);
+                                                    setHasActivePayment(true);
+                                                    if (typeof window !== 'undefined') {
+                                                        window.localStorage.setItem(CURRENT_ORDER_KEY, invId);
+                                                    }
+
+                                                    // Сразу подгружаем информацию о заказе, чтобы включить текущую логику polling
+                                                    try {
+                                                        const order = await fetchOrder(invId);
+                                                        setCurrentOrder(order);
+                                                    } catch (e) {
+                                                        console.warn('[App] Failed to fetch order after promo apply:', e);
+                                                    }
+                                                } finally {
+                                                    setPromoLoading(false);
+                                                }
+                                            }}
+                                            className="inline-flex items-center justify-center h-10 px-3 rounded-lg text-xs font-medium text-white disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed"
+                                            style={{
+                                                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                                boxShadow: '0 6px 14px rgba(16,185,129,0.35)',
+                                            }}
+                                        >
+                                            {promoLoading ? 'Проверяем…' : 'Применить'}
+                                        </button>
+                                    </div>
+                                    {promoMessage && (
+                                        <div className="mt-2 flex items-center text-[11px] text-emerald-600">
+                                            <Icons.checkCircle className="w-3.5 h-3.5 mr-1.5" />
+                                            <span>{promoMessage}</span>
+                                        </div>
+                                    )}
+                                    {!promoMessage && promoError && (
+                                        <p className="mt-2 text-[11px] text-red-600">
+                                            {promoError}
+                                        </p>
+                                    )}
+                                </div>
+                                <div data-onboarding="generate" className="mt-4">
+                                    <div className="flex items-start gap-3 mb-3">
+                                        <span
+                                            className="flex h-12 w-12 items-center justify-center rounded-full text-base font-semibold text-white flex-shrink-0 mt-0.5"
+                                            style={{
+                                                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                                                boxShadow: '0 10px 20px rgba(79,70,229,0.35)',
+                                            }}
+                                        >
+                                            2
+                                        </span>
+                                        <div className="flex-1">
+                                            <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-0.5">
+                                                Сгенерируйте портреты
+                                            </h2>
+                                            <p className="text-xs sm:text-sm text-gray-500">
+                                                Мы создадим 6 портретов.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="mb-4 w-full rounded-lg border border-gray-200 bg-slate-50 px-3 h-16 flex items-center justify-between">
+                                        <span className="text-xs sm:text-sm text-gray-500">
+                                            Стоимость генерации
+                                        </span>
+                                        <span className="text-sm sm:text-lg font-semibold text-gray-900">
+                                            100 ₽
+                                        </span>
+                                    </div>
                                 </div>
                                 {appState === 'image-uploaded' && (
                                     <div className="flex items-center gap-3">
@@ -943,18 +2258,34 @@ function App() {
                                     </div>
                                 )}
                                  {appState === 'generating' && (
-                                    <button 
-                                        disabled 
-                                        className="inline-flex items-center justify-center rounded-lg text-sm font-medium w-full h-10 py-2 px-4 text-white opacity-70 cursor-not-allowed"
-                                        style={{
-                                            background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                                            boxShadow: '0 10px 15px -3px rgba(99, 102, 241, 0.3), 0 4px 6px -4px rgba(99, 102, 241, 0.3)',
-                                        }}
-                                    >
-                                        <Icons.spinner className="w-4 h-4 mr-2 animate-spin" />
-                                        Генерация...
-                                    </button>
-                                )}
+                                     <div className="w-full">
+                                         {isGeneratingIntermediate ? (
+                                             <button 
+                                                 disabled 
+                                                 className="inline-flex items-center justify-center rounded-lg text-sm font-medium w-full h-10 py-2 px-4 text-white opacity-70 cursor-not-allowed"
+                                                 style={{
+                                                     background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                                                     boxShadow: '0 10px 15px -3px rgba(99, 102, 241, 0.3), 0 4px 6px -4px rgba(99, 102, 241, 0.3)',
+                                                 }}
+                                             >
+                                                 <Icons.spinner className="w-4 h-4 mr-2 animate-spin" />
+                                                 Подготовка изображения...
+                                             </button>
+                                         ) : (
+                                             <button 
+                                                 disabled 
+                                                 className="inline-flex items-center justify-center rounded-lg text-sm font-medium w-full h-10 py-2 px-4 text-white opacity-70 cursor-not-allowed"
+                                                 style={{
+                                                     background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                                                     boxShadow: '0 10px 15px -3px rgba(99, 102, 241, 0.3), 0 4px 6px -4px rgba(99, 102, 241, 0.3)',
+                                                 }}
+                                             >
+                                                 <Icons.spinner className="w-4 h-4 mr-2 animate-spin" />
+                                                 Генерация портретов...
+                                             </button>
+                                         )}
+                                     </div>
+                                 )}
                                 {appState === 'results-shown' && (
                                      <div className="flex items-center gap-3">
                                         <button 
@@ -1022,7 +2353,24 @@ function App() {
                         {(appState === 'generating' || appState === 'results-shown') && (
                              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
                                 <AnimatePresence>
-                                {STYLES.map((style, index) => (
+                                {STYLES.map((style, index) => {
+                                    // Если generatedImages пустой, показываем processing для всех карточек
+                                    const imageState = generatedImages[style];
+                                    // Fallback: если нет состояния, но appState = generating, показываем processing
+                                    const status = imageState?.status || (appState === 'generating' ? 'processing' : 'pending');
+                                    
+                                    // Логируем для отладки (только первые несколько раз)
+                                    if (index < 2) {
+                                        console.log(`[App] Rendering card ${style}:`, { 
+                                            status, 
+                                            hasImageState: !!imageState, 
+                                            appState,
+                                            generatedImagesKeys: Object.keys(generatedImages),
+                                            generatedImagesLength: Object.keys(generatedImages).length
+                                        });
+                                    }
+                                    
+                                    return (
                                     <motion.div
                                         key={style}
                                         initial={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -1031,24 +2379,26 @@ function App() {
                                     >
                                         <ImageCard
                                             caption={style}
-                                            status={generatedImages[style]?.status || 'pending'}
-                                            queuePosition={generatedImages[style]?.queuePosition}
-                                            estimatedWaitTime={generatedImages[style]?.estimatedWaitTime}
-                                            imageUrl={generatedImages[style]?.url}
-                                            error={generatedImages[style]?.error}
+                                            status={status}
+                                            queuePosition={imageState?.queuePosition}
+                                            estimatedWaitTime={imageState?.estimatedWaitTime}
+                                            imageUrl={imageState?.url}
+                                            error={imageState?.error}
+                                            gender={genderOverride || (currentOrder?.gender === 'male' ? 'male' : currentOrder?.gender === 'female' ? 'female' : null)}
                                             onRegenerate={() => handleRegenerateStyle(style)}
                                             onDownload={() => handleDownloadIndividualImage(style)}
                                             onOpen={(url) => setLightboxUrl(url)}
                                         />
                                     </motion.div>
-                                ))}
+                                    );
+                                })}
                                 </AnimatePresence>
                             </div>
                         )}
                     </section>
                 </div>
             </main>
-            <Footer onOpenRules={() => setIsRulesOpen(true)} />
+            <Footer />
             
             {/* Onboarding */}
             <Onboarding
@@ -1087,63 +2437,6 @@ function App() {
                             className="max-h-[90vh] max-w-[90vw] object-contain rounded-md shadow-2xl"
                             onClick={(e) => e.stopPropagation()}
                         />
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Правила генераций */}
-            <AnimatePresence>
-                {isRulesOpen && (
-                    <motion.div
-                        key="rules-modal"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4"
-                        onClick={() => setIsRulesOpen(false)}
-                    >
-                        <motion.div
-                            initial={{ scale: 0.95, opacity: 0, y: 10 }}
-                            animate={{ scale: 1, opacity: 1, y: 0 }}
-                            exit={{ scale: 0.95, opacity: 0, y: 10 }}
-                            className="max-w-lg w-full bg-white rounded-xl shadow-2xl p-6 relative"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <button
-                                aria-label="Закрыть"
-                                className="absolute top-3 right-3 h-8 w-8 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center hover:bg-gray-200"
-                                onClick={() => setIsRulesOpen(false)}
-                            >
-                                <Icons.close className="h-4 w-4" />
-                            </button>
-                            <h2 className="text-lg font-semibold text-gray-900 mb-3">Правила генерации портретов</h2>
-                            <div className="text-sm text-gray-700 space-y-2 max-h-[60vh] overflow-y-auto pr-1">
-                                <p>
-                                    Для получения качественных бизнес-портретов, пожалуйста, загружайте фото, которое соответствует этим требованиям:
-                                </p>
-                                <ul className="list-disc list-inside space-y-1">
-                                    <li>На фото должен быть один человек, без животных, пейзажей и посторонних объектов.</li>
-                                    <li>Лицо должно быть хорошо видно: анфас или лёгкий поворот, без сильных теней и засветов.</li>
-                                    <li>Фото должно быть настоящей фотографией, а не рисунком, 3D-рендером или скриншотом из игры.</li>
-                                    <li>Не загружайте изображения с неприемлемым или запрещённым контентом.</li>
-                                    <li>Используйте форматы JPG, PNG или WEBP, размером до 10 МБ.</li>
-                                </ul>
-                                <p className="text-xs text-gray-600">
-                                    Нажимая кнопку <span className="font-semibold">«Сгенерировать»</span>, пользователь подтверждает, что ознакомился с этими правилами и соглашается с ними.
-                                    В случае нарушения правил сервис не несёт ответственности за потраченные средства и результат генерации.
-                                </p>
-                                <p className="text-xs text-gray-600">
-                                    Если вы не согласны с полученными результатами или столкнулись с технической ошибкой, вы можете написать в службу поддержки:&nbsp;
-                                    <a
-                                        href="mailto:kuznetsov@i-integrator.com"
-                                        className="text-blue-600 underline decoration-dotted"
-                                    >
-                                        kuznetsov@i-integrator.com
-                                    </a>
-                                    .
-                                </p>
-                            </div>
-                        </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>
