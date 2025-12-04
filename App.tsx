@@ -1713,34 +1713,35 @@ function App() {
                 </div>
             </header>
             
-            {/* Hero Section */}
-            <section className="w-full bg-white border-b border-gray-200">
-                <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
-                    <div className="max-w-3xl mx-auto text-center">
-                        {/* Тег */}
-                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-50 border border-blue-200 mb-6">
-                            <Icons.sparkles className="w-4 h-4 text-blue-600" />
-                            <span className="text-sm font-medium text-blue-900">Идеальное фото для новой карьеры</span>
+            {/* Hero Section - показываем только когда нет загруженного изображения */}
+            {!uploadedImage && appState === 'idle' && (
+                <section className="w-full bg-white border-b border-gray-200">
+                    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+                        <div className="max-w-3xl mx-auto text-center">
+                            {/* Тег */}
+                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-50 border border-blue-200 mb-4">
+                                <Icons.sparkles className="w-4 h-4 text-blue-600" />
+                                <span className="text-sm font-medium text-blue-900">Идеальное фото для новой карьеры</span>
+                            </div>
+                            
+                            {/* Заголовок - на одной строке */}
+                            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-4">
+                                <span className="text-gray-900">Профессиональные портреты </span>
+                                <span 
+                                    className="text-3xl sm:text-4xl lg:text-5xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
+                                >
+                                    за несколько минут
+                                </span>
+                            </h1>
+                            
+                            {/* Описание */}
+                            <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
+                                Загрузите своё фото и получите 6 профессиональных бизнес-портретов для LinkedIn, резюме и деловых профилей
+                            </p>
                         </div>
-                        
-                        {/* Заголовок */}
-                        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">
-                            <span className="text-gray-900">Профессиональные портреты</span>
-                            <br />
-                            <span 
-                                className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
-                            >
-                                за несколько минут
-                            </span>
-                        </h1>
-                        
-                        {/* Описание */}
-                        <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
-                            Загрузите своё фото и получите 6 профессиональных бизнес-портретов для LinkedIn, резюме и деловых профилей
-                        </p>
                     </div>
-                </div>
-            </section>
+                </section>
+            )}
             
             <main className="flex-1 w-full container mx-auto p-4 sm:p-6 lg:p-8" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingBottom: 'max(1rem, env(safe-area-inset-bottom))', paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
                 <div className="flex flex-col lg:flex-row gap-8">
@@ -1815,16 +1816,17 @@ function App() {
                     
                     {/* --- Right Column: Results --- */}
                     <section ref={rightColumnRef} className="flex-1 relative overflow-hidden" style={{ borderRadius: '20px' }}>
-                        {/* Анимированный фон с портретами - заполняет всю секцию */}
-                        {appState === 'idle' && (
+                        {/* Анимированный фон с портретами - показываем до начала генерации */}
+                        {(appState === 'idle' || appState === 'image-uploaded') && (
                             <AnimatedPortraitsBackground className="absolute inset-0" containerRef={rightColumnRef} />
                         )}
                         
                         <AnimatePresence>
-                            {appState === 'idle' && (
+                            {(appState === 'idle' || appState === 'image-uploaded') && (
                                 <motion.div 
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0 }}
                                     className="h-full flex flex-col items-center justify-center p-8 text-center relative z-10"
                                 >
                                     {/* Градиентные оверлеи для читаемости текста (как на сайте) */}
@@ -1836,7 +1838,9 @@ function App() {
                                         <Icons.gallery className="h-16 w-16 text-gray-400 mb-4 mx-auto" />
                                         <h3 className="text-xl font-semibold text-gray-800">Ваши бизнес-портреты</h3>
                                         <p className="text-gray-500 mt-2 max-w-md">
-                                            После загрузки фото здесь появятся ваши сгенерированные изображения.
+                                            {appState === 'idle' 
+                                                ? 'После загрузки фото здесь появятся ваши сгенерированные изображения.'
+                                                : 'Нажмите "Применить" или "Сгенерировать" чтобы начать создание портретов.'}
                                         </p>
                                     </div>
                                 </motion.div>
