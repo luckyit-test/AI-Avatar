@@ -84,12 +84,12 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
         // Ряды должны заполнять всю высоту без перекрытий и без отступов
         const numRows = Math.max(2, Math.ceil(currentHeight / rowHeight));
         
-        // Для бесконечного эффекта нужно достаточно портретов, чтобы заполнить экран + запас
+        // Для бесконечного эффекта нужно достаточно портретов, чтобы заполнить экран + большой запас
         // Рассчитываем минимальное количество портретов для одного прохода экрана
         // Нужно 5-6 портретов для заполнения всей ширины секции
         const portraitsForOneScreen = Math.ceil((containerWidth + 400) / (portraitSize + portraitGap));
-        // Умножаем на 4-5 для плавного бесконечного движения
-        const portraitsPerRow = Math.max(20, portraitsForOneScreen * 5);
+        // Умножаем на 8-10 для полностью бесконечного движения без пробелов
+        const portraitsPerRow = Math.max(30, portraitsForOneScreen * 10);
         
         console.log('[AnimatedPortraitsBackground] Container dimensions:', { width: containerWidth, height: currentHeight });
         console.log('[AnimatedPortraitsBackground] Calculated rows:', numRows, 'portraits per row:', portraitsPerRow);
@@ -99,7 +99,8 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
           const direction = rowIndex % 2 === 0 ? 'left' : 'right'; // Четные ряды - влево, нечетные - вправо
           
           // Распределяем ряды по высоте контейнера БЕЗ перекрытий
-          // Портерты начинаются с самого верха (без белой области)
+          // Портерты начинаются с самого верха секции (без белой области)
+          // Первый ряд начинается с rowHeight/2 от верха (центр первого портрета)
           const yPosition = (rowIndex * rowHeight) + (rowHeight / 2);
           
           console.log(`[AnimatedPortraitsBackground] Row ${rowIndex}: yPosition=${yPosition}px, height=${currentHeight}, direction=${direction}`);
@@ -128,7 +129,7 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
             row: rowIndex,
             direction,
             y: yPosition, // Используем абсолютную позицию в пикселях
-            duration: 60 + Math.random() * 20, // 60-80 секунд для более медленного движения
+            duration: 120 + Math.random() * 40, // 120-160 секунд (в 2 раза медленнее)
           });
         }
 
