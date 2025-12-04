@@ -1870,7 +1870,7 @@ function App() {
                             />
                             
                             <AnimatePresence mode="wait">
-                                {appState === 'idle' && !imageValidationError && !isValidatingImage && (
+                                {(appState === 'idle' || appState === 'failed') && !imageValidationError && !isValidatingImage && (
                                     <motion.div key="uploader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                                         <Uploader onImageUpload={handleImageUpload} />
                                     </motion.div>
