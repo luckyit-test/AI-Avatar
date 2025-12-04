@@ -1936,7 +1936,18 @@ async function generatePortraitsForOrder(invId) {
       const base64Data = match ? match[1] : dataUrl.replace(/^data:.*;base64,/, '');
       const buffer = Buffer.from(base64Data, 'base64');
 
-      await fs.writeFile(filePath, buffer);
+      // Оптимизируем изображение: сжимаем JPEG с качеством 80% для уменьшения размера файла
+      try {
+        const optimizedBuffer = await sharp(buffer)
+          .jpeg({ quality: 80, mozjpeg: true }) // Качество 80%, mozjpeg для лучшего сжатия
+          .toBuffer();
+        await fs.writeFile(filePath, optimizedBuffer);
+        console.log(`[saveImageForOrder] Optimized image saved: ${fileName}, original: ${buffer.length} bytes, optimized: ${optimizedBuffer.length} bytes`);
+      } catch (optimizeError) {
+        // Если оптимизация не удалась, сохраняем оригинал
+        console.warn(`[saveImageForOrder] Failed to optimize image, saving original:`, optimizeError);
+        await fs.writeFile(filePath, buffer);
+      }
 
       const publicUrl = `/images/orders/${encodeURIComponent(String(invId))}/${encodeURIComponent(fileName)}`;
       return publicUrl;

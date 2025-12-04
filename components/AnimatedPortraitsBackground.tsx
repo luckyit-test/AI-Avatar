@@ -77,6 +77,13 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
           return;
         }
 
+        // Перемешиваем портреты для разнообразия при каждой загрузке страницы
+        const shuffledUrls = [...urls];
+        for (let i = shuffledUrls.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffledUrls[i], shuffledUrls[j]] = [shuffledUrls[j], shuffledUrls[i]];
+        }
+
         // Создаем ряды портретов
         const newRows: PortraitRow[] = [];
         const element = containerRef.current as HTMLElement | null;
@@ -87,15 +94,11 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
         // Ряды должны заполнять всю высоту без перекрытий и без отступов
         const numRows = Math.max(2, Math.ceil(currentHeight / rowHeight));
         
-        // Для бесконечного эффекта нужно достаточно портретов, чтобы заполнить экран + большой запас
-        // Рассчитываем минимальное количество портретов для одного прохода экрана
-        // Нужно 5-6 портретов для заполнения всей ширины секции
-        const portraitsForOneScreen = Math.ceil((containerWidth + 400) / (portraitSize + portraitGap));
-        // Умножаем на 8-10 для полностью бесконечного движения без пробелов
-        const portraitsPerRow = Math.max(30, portraitsForOneScreen * 10);
+        // Увеличиваем ширину ряда на 6 портретов (было 6, стало 12 портретов в базовом наборе)
+        const basePortraitsPerRow = 12; // Увеличенный набор портретов для каждого ряда
         
         console.log('[AnimatedPortraitsBackground] Container dimensions:', { width: containerWidth, height: currentHeight });
-        console.log('[AnimatedPortraitsBackground] Calculated rows:', numRows, 'portraits per row:', portraitsPerRow);
+        console.log('[AnimatedPortraitsBackground] Calculated rows:', numRows, 'base portraits per row:', basePortraitsPerRow);
         
         // Распределяем портреты по рядам
         for (let rowIndex = 0; rowIndex < numRows; rowIndex++) {
@@ -118,30 +121,33 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
             yPosition = firstRowCenter + (rowIndex * rowHeight);
           }
           
-          console.log(`[AnimatedPortraitsBackground] Row ${rowIndex}: yPosition=${yPosition}px, height=${currentHeight}, direction=${direction}`);
+          // Каждый ряд получает уникальный набор портретов
+          // Распределяем портреты циклически по рядам для разнообразия
+          const rowStartIndex = (rowIndex * basePortraitsPerRow) % shuffledUrls.length;
+          const rowPortraitsSet: string[] = [];
           
-          // Создаем зацикленный набор портретов для этого ряда
-          // Берем первые 5-6 портретов и повторяем их для бесконечного эффекта
-          const basePortraitsCount = Math.min(6, urls.length);
-          const basePortraits = urls.slice(0, basePortraitsCount);
+          // Собираем уникальный набор портретов для этого ряда
+          for (let i = 0; i < basePortraitsPerRow; i++) {
+            const urlIndex = (rowStartIndex + i) % shuffledUrls.length;
+            rowPortraitsSet.push(shuffledUrls[urlIndex]);
+          }
           
-          // Если портретов недостаточно, используем все доступные
-          const portraitsToUse = basePortraits.length > 0 ? basePortraits : urls;
+          console.log(`[AnimatedPortraitsBackground] Row ${rowIndex}: yPosition=${yPosition}px, height=${currentHeight}, direction=${direction}, portraits=${rowPortraitsSet.length}`);
           
           // Для бесшовного бесконечного движения создаем достаточно портретов
           // чтобы заполнить экран + большой запас для бесконечного движения
           // Рассчитываем ширину одного набора портретов
-          const singleSetWidth = portraitsToUse.length * (portraitSize + portraitGap) - portraitGap; // Ширина одного набора без padding
+          const singleSetWidth = rowPortraitsSet.length * (portraitSize + portraitGap) - portraitGap; // Ширина одного набора без padding
           // Нужно достаточно наборов чтобы заполнить экран + запас для бесконечного движения
           const setsNeeded = Math.ceil((containerWidth * 3) / singleSetWidth) + 4; // 3 экрана ширины + запас
           
           const rowPortraits: Portrait[] = [];
           // Создаем несколько наборов портретов для бесконечного движения
           for (let setIndex = 0; setIndex < setsNeeded; setIndex++) {
-            for (let i = 0; i < portraitsToUse.length; i++) {
+            for (let i = 0; i < rowPortraitsSet.length; i++) {
               rowPortraits.push({
                 id: `portrait-${rowIndex}-${setIndex}-${i}-${Date.now()}`,
-                url: portraitsToUse[i],
+                url: rowPortraitsSet[i],
                 size: portraitSize,
               });
             }
@@ -209,10 +215,10 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
         const rowPadding = 32; // padding ряда
         
         // Для бесконечного бесшовного движения без резкого появления:
-        // Используем базовый набор из 6 портретов (или меньше, если недостаточно)
-        // Рассчитываем ширину одного набора портретов
-        const baseSetSize = Math.min(6, row.portraits.length > 0 ? 
-          Math.ceil(row.portraits.length / Math.ceil((containerWidth * 3) / (Math.min(6, row.portraits.length) * singlePortraitWidth) + 4)) : 6);
+        // Базовый набор - это уникальные портреты в ряду (12 портретов)
+        // Находим размер базового набора из структуры портретов
+        const uniquePortraits = new Set(row.portraits.map(p => p.url));
+        const baseSetSize = uniquePortraits.size || 12; // Теперь 12 портретов в базовом наборе
         const singleSetWidth = baseSetSize * singlePortraitWidth - portraitGap; // Ширина одного набора портретов (без последнего gap)
         
         // Рассчитываем общую ширину всех портретов в ряду
