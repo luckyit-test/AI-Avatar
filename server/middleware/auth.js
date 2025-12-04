@@ -22,7 +22,7 @@ export function getAdminSessionFromRequest(req) {
 export function requireAdminAuth(req, res, next) {
   const session = getAdminSessionFromRequest(req);
   if (!session) {
-    return res.status(401).json({ ok: 'Unauthorized' });
+    return res.status(401).json({ error: 'Unauthorized' });
   }
   req.adminSession = session;
   next();
