@@ -26,6 +26,7 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
     // Загружаем портреты с сервера
     const loadPortraits = async () => {
       try {
+        console.log('[AnimatedPortraitsBackground] Loading portraits from /api/gallery/recent');
         const response = await fetch('/api/gallery/recent?limit=50');
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
@@ -33,7 +34,10 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
         const data = await response.json();
         const urls: string[] = data.portraits || [];
 
+        console.log('[AnimatedPortraitsBackground] Loaded portraits:', urls.length);
+
         if (urls.length === 0) {
+          console.warn('[AnimatedPortraitsBackground] No portraits found in database');
           setIsLoading(false);
           return;
         }
@@ -48,6 +52,7 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
           size: 120 + Math.random() * 60, // 120-180px
         }));
 
+        console.log('[AnimatedPortraitsBackground] Created portrait objects:', newPortraits.length);
         setPortraits(newPortraits);
         setIsLoading(false);
       } catch (error) {
@@ -136,8 +141,40 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
     }, 100);
   };
 
-  if (isLoading || portraits.length === 0) {
-    return null;
+  // Показываем компонент даже если портреты еще загружаются или их нет
+  // (для отладки видно, что компонент рендерится)
+  if (isLoading) {
+    return (
+      <div
+        ref={containerRef}
+        className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`}
+        style={{ zIndex: 0 }}
+      >
+        {/* Показываем индикатор загрузки для отладки */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="absolute bottom-2 left-2 text-xs text-gray-400 opacity-50">
+            Загрузка портретов...
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (portraits.length === 0) {
+    // Если портретов нет, все равно рендерим контейнер для отладки
+    return (
+      <div
+        ref={containerRef}
+        className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`}
+        style={{ zIndex: 0 }}
+      >
+        {process.env.NODE_ENV === 'development' && (
+          <div className="absolute bottom-2 left-2 text-xs text-gray-400 opacity-50">
+            Портреты не найдены
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (

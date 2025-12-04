@@ -2270,6 +2270,7 @@ app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
     // Проверяем кэш
     const now = Date.now();
     if (galleryCache && (now - galleryCacheTime) < GALLERY_CACHE_TTL) {
+      console.log('[Gallery] Returning cached portraits:', galleryCache.length);
       return res.json({ portraits: galleryCache.slice(0, limit) });
     }
 
@@ -2286,6 +2287,7 @@ app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
     `);
     
     const orders = stmt.all();
+    console.log('[Gallery] Found completed orders:', orders.length);
     const portraits = [];
 
     for (const order of orders) {
@@ -2306,6 +2308,8 @@ app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
       }
     }
 
+    console.log('[Gallery] Total portraits extracted:', portraits.length);
+
     // Перемешиваем для разнообразия
     for (let i = portraits.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -2316,6 +2320,7 @@ app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
     galleryCache = portraits;
     galleryCacheTime = now;
 
+    console.log('[Gallery] Returning portraits:', portraits.slice(0, limit).length);
     res.json({ portraits: portraits.slice(0, limit) });
   } catch (err) {
     console.error('[Gallery] Failed to load recent portraits:', err);
