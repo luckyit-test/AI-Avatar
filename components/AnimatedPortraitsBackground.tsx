@@ -100,12 +100,12 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
           
           // Распределяем ряды по высоте контейнера БЕЗ перекрытий
           // Портерты начинаются с самого верха секции (без белой области)
-          // Первый ряд (rowIndex=0) начинается с rowHeight/2 от верха (центр первого портрета)
-          // Это означает, что верхний край первого портрета находится на y=0
-          const yPosition = (rowIndex * rowHeight) + (rowHeight / 2);
-          
-          // Для первого ряда убеждаемся, что он начинается с самого верха
-          const finalYPosition = rowIndex === 0 ? rowHeight / 2 : yPosition;
+          // Первый ряд (rowIndex=0) должен начинаться с самого верха (y=0 для верхнего края)
+          // Используем portraitSize/2 для первого ряда (без padding), чтобы убрать отступ сверху
+          // Для остальных рядов используем rowHeight/2 (с padding)
+          const yPosition = rowIndex === 0 
+            ? portraitSize / 2  // Первый ряд начинается с самого верха (только половина высоты портрета, без padding)
+            : (rowIndex * rowHeight) + (rowHeight / 2); // Остальные ряды идут друг за другом
           
           console.log(`[AnimatedPortraitsBackground] Row ${rowIndex}: yPosition=${yPosition}px, height=${currentHeight}, direction=${direction}`);
           
