@@ -128,14 +128,22 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
           // Если портретов недостаточно, используем все доступные
           const portraitsToUse = basePortraits.length > 0 ? basePortraits : urls;
           
+          // Для бесшовного бесконечного движения создаем два одинаковых набора портретов
+          // Когда один набор уходит за экран, второй уже появляется, создавая иллюзию бесконечности
+          // Рассчитываем ширину одного набора портретов
+          const singleSetWidth = portraitsToUse.length * (portraitSize + portraitGap) - portraitGap; // Ширина одного набора без padding
+          const setsNeeded = Math.ceil((containerWidth * 2) / singleSetWidth) + 2; // Нужно минимум 2 набора + запас
+          
           const rowPortraits: Portrait[] = [];
-          for (let i = 0; i < portraitsPerRow; i++) {
-            const urlIndex = i % portraitsToUse.length;
-            rowPortraits.push({
-              id: `portrait-${rowIndex}-${i}-${Date.now()}`,
-              url: portraitsToUse[urlIndex],
-              size: portraitSize,
-            });
+          // Создаем несколько наборов портретов для бесконечного движения
+          for (let setIndex = 0; setIndex < setsNeeded; setIndex++) {
+            for (let i = 0; i < portraitsToUse.length; i++) {
+              rowPortraits.push({
+                id: `portrait-${rowIndex}-${setIndex}-${i}-${Date.now()}`,
+                url: portraitsToUse[i],
+                size: portraitSize,
+              });
+            }
           }
           
           newRows.push({
@@ -199,24 +207,22 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
         const singlePortraitWidth = portraitSize + portraitGap;
         const rowPadding = 32; // padding ряда
         
-        // Для бесконечного бесшовного движения:
-        // Рассчитываем ширину одного "блока" портретов (сколько нужно для заполнения экрана + запас)
-        // Это должно быть кратно количеству портретов в базовом наборе для бесшовного повтора
-        const portraitsPerCycle = Math.ceil(containerWidth / singlePortraitWidth) + 4; // +4 для запаса
-        const cycleWidth = portraitsPerCycle * singlePortraitWidth;
+        // Для бесконечного бесшовного движения без резкого появления:
+        // Используем базовый набор из 6 портретов (или меньше, если недостаточно)
+        // Рассчитываем ширину одного набора портретов
+        const baseSetSize = Math.min(6, row.portraits.length); // Размер базового набора
+        const singleSetWidth = baseSetSize * singlePortraitWidth - portraitGap; // Ширина одного набора портретов (без последнего gap)
         
-        // Ряды должны сразу отображаться в контейнере (не начинаться за пределами экрана)
-        // Портерты должны быть видны сразу при загрузке страницы
-        // Для движения влево: начинаем так, чтобы портреты заполняли экран справа налево
-        // Для движения вправо: начинаем так, чтобы портреты заполняли экран слева направо
-        // Двигаемся на cycleWidth, чтобы следующий цикл портретов начинался сразу
+        // Ряды должны сразу отображаться в контейнере
+        // Для бесшовного движения: когда один набор портретов уходит за экран,
+        // следующий набор уже должен быть виден. Двигаемся на ширину одного набора.
         const startX = row.direction === 'left' 
-          ? containerWidth - cycleWidth + rowPadding // Начинаем так, чтобы портреты были видны справа налево
-          : -cycleWidth + containerWidth + rowPadding; // Начинаем так, чтобы портреты были видны слева направо
+          ? containerWidth + rowPadding // Начинаем справа, портреты видны
+          : -singleSetWidth + rowPadding; // Начинаем слева так, чтобы портреты были видны
         
         const endX = row.direction === 'left' 
-          ? containerWidth - cycleWidth * 2 + rowPadding // Заканчиваем так, чтобы следующий цикл начинался справа
-          : containerWidth + rowPadding; // Заканчиваем справа, чтобы следующий цикл начинался слева
+          ? containerWidth - singleSetWidth + rowPadding // Заканчиваем так, чтобы следующий набор начинался справа
+          : containerWidth + rowPadding; // Заканчиваем справа, чтобы следующий набор начинался слева
 
         return (
           <motion.div
