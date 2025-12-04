@@ -2010,53 +2010,7 @@ async function replaceBackgroundWithGray(imageDataUrl) {
   }
 }
 
-// Валидация размера base64 изображения
-function validateImageData(imageData) {
-  if (!imageData || typeof imageData !== 'string') {
-    return { valid: false, error: 'imageData должен быть строкой' };
-  }
-  
-  const match = imageData.match(/^data:(image\/\w+);base64,(.*)$/);
-  if (!match) {
-    return { valid: false, error: 'Неверный формат imageData. Ожидается data:image/...;base64,...' };
-  }
-  
-  const [, mimeType, base64Data] = match;
-  
-  // Проверяем поддерживаемые форматы
-  const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-  if (!allowedMimeTypes.includes(mimeType.toLowerCase())) {
-    return { valid: false, error: `Неподдерживаемый формат изображения: ${mimeType}` };
-  }
-  
-  // Проверяем размер (base64 примерно на 33% больше оригинала)
-  const sizeInBytes = (base64Data.length * 3) / 4;
-  const maxSize = 10 * 1024 * 1024; // 10MB
-  
-  if (sizeInBytes > maxSize) {
-    return { valid: false, error: 'Размер изображения превышает 10MB' };
-  }
-  
-  return { valid: true, mimeType, base64Data };
-}
-
-// Валидация промпта
-function validatePrompt(prompt) {
-  if (!prompt || typeof prompt !== 'string') {
-    return { valid: false, error: 'prompt должен быть строкой' };
-  }
-  
-  if (prompt.length > 5000) {
-    return { valid: false, error: 'Промпт слишком длинный (максимум 5000 символов)' };
-  }
-  
-  if (prompt.length < 10) {
-    return { valid: false, error: 'Промпт слишком короткий (минимум 10 символов)' };
-  }
-  
-  return { valid: true };
-}
-
+// validateImageData and validatePrompt are imported from services/validation.js (line 79)
 // safeLog is imported from lib/utils.js
 
 // Эндпоинт для генерации изображения (через очередь)
