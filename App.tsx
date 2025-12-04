@@ -21,6 +21,7 @@ import { ImageConfiguration } from './components/ImageConfiguration';
 import { GenerationActions } from './components/GenerationActions';
 import { GenerationFlow } from './components/GenerationFlow';
 import { ResultsView } from './components/ResultsView';
+import { GalleryPage } from './components/GalleryPage';
 import { cn, devLog } from './lib/utils';
 import { STYLES, IT_ROLES, COMPANY_TYPES, type VariabilityLevel } from './lib/constants';
 import { buildPromptsByContext } from './lib/promptUtils';
@@ -106,7 +107,9 @@ function App() {
         return genderOverride;
     };
 
-    // Определяем режим админки по query-параметру ?admin=1
+    // Определяем режим админки и галереи по pathname
+    const [isGalleryView, setIsGalleryView] = useState(false);
+    
     useEffect(() => {
         if (typeof window === 'undefined') return;
         try {
@@ -114,24 +117,34 @@ function App() {
             const pathname = url.pathname;
             const adminFlag = url.searchParams.get('admin');
 
+            if (pathname === '/gallery') {
+                setIsGalleryView(true);
+                setIsAdminView(false);
+                return;
+            }
+
             if (pathname === '/admin') {
                 setIsAdminView(true);
                 setAdminMode('orders');
+                setIsGalleryView(false);
             } else if (adminFlag === '1' || adminFlag === 'orders') {
                 setIsAdminView(true);
                 setAdminMode('orders');
+                setIsGalleryView(false);
             } else if (adminFlag === 'promo' || adminFlag === 'promos' || adminFlag === '2') {
                 setIsAdminView(true);
                 setAdminMode('promos');
+                setIsGalleryView(false);
             } else {
                 setIsAdminView(false);
+                setIsGalleryView(false);
             }
 
             if (adminFlag === 'promo' || adminFlag === 'promos') {
                 setAdminMode('promos');
             }
         } catch (e) {
-            devLog.warn('[App] Failed to detect admin mode:', e);
+            devLog.warn('[App] Failed to detect view mode:', e);
         }
     }, []);
 
@@ -1607,6 +1620,11 @@ function App() {
       return <AdminDashboard initialTab={adminMode} />;
     }
 
+    // Показываем страницу галереи
+    if (isGalleryView) {
+      return <GalleryPage />;
+    }
+
     return (
         <div 
             className="min-h-screen w-full text-gray-800 flex flex-col"
@@ -1627,7 +1645,8 @@ function App() {
                     <div className="flex justify-between items-center py-5">
                         <div className="flex items-center gap-4">
                            {/* Логотип с градиентом и улучшенным дизайном */}
-                           <div 
+                           <a
+                               href="/"
                                className="relative flex items-center justify-center logo-container cursor-pointer"
                                style={{
                                    width: '44px',
@@ -1644,7 +1663,7 @@ function App() {
                                <div className="relative z-10 p-2.5">
                                    <Icons.career className="h-5 w-5 text-white transition-transform duration-300" strokeWidth={2} />
                                </div>
-                           </div>
+                           </a>
                            
                            {/* Текстовая часть с улучшенной типографикой */}
                            <div className="flex flex-col gap-0.5">
@@ -1693,12 +1712,8 @@ function App() {
                                 <Icons.helpCircle className="w-4 h-4" />
                                 Поддержка
                             </a>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    // TODO: Добавить функционал позже
-                                    console.log('Смотреть портреты');
-                                }}
+                            <a
+                                href="/gallery"
                                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-all duration-200 touch-manipulation active:scale-[0.98]"
                                 style={{
                                     background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
@@ -1707,7 +1722,7 @@ function App() {
                             >
                                 <Icons.sparkles className="w-4 h-4" />
                                 Смотреть портреты
-                            </button>
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -1724,9 +1739,10 @@ function App() {
                                 <span className="text-sm font-medium text-blue-900">Идеальное фото для новой карьеры</span>
                             </div>
                             
-                            {/* Заголовок - на одной строке */}
+                            {/* Заголовок */}
                             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-4">
-                                <span className="text-gray-900">Профессиональные портреты </span>
+                                <span className="text-gray-900">Профессиональные портреты</span>
+                                <br />
                                 <span 
                                     className="text-3xl sm:text-4xl lg:text-5xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
                                 >

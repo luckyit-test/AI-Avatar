@@ -1234,6 +1234,78 @@ app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
   }
 });
 
+// Галерея для страницы "Смотреть портреты" - последние 45 заказов с одним случайным изображением из каждого
+app.get(`${API_PREFIX}/gallery/orders`, (req, res) => {
+  try {
+    // Получаем последние 45 завершенных заказов с портретами
+    let stmt = db.prepare(`
+      SELECT invId, generatedImagesJson, createdAt, status
+      FROM orders 
+      WHERE status = 'completed' 
+        AND generatedImagesJson IS NOT NULL 
+        AND generatedImagesJson != 'null'
+        AND imagesCount > 0
+      ORDER BY createdAt DESC 
+      LIMIT 45
+    `);
+    
+    let orders = stmt.all();
+    
+    // Если не нашли завершенные заказы, пробуем найти любые заказы с портретами
+    if (orders.length === 0) {
+      console.log('[Gallery Orders] No completed orders found, trying to find any orders with portraits');
+      stmt = db.prepare(`
+        SELECT invId, generatedImagesJson, createdAt, status
+        FROM orders 
+        WHERE generatedImagesJson IS NOT NULL 
+          AND generatedImagesJson != 'null'
+          AND generatedImagesJson != ''
+          AND (imagesCount > 0 OR generatedImagesJson LIKE '%/images/%')
+        ORDER BY createdAt DESC 
+        LIMIT 45
+      `);
+      orders = stmt.all();
+      console.log('[Gallery Orders] Found orders with portraits (any status):', orders.length);
+    } else {
+      console.log('[Gallery Orders] Found completed orders:', orders.length);
+    }
+    
+    const galleryItems = [];
+
+    for (const order of orders) {
+      if (!order.generatedImagesJson) continue;
+      
+      try {
+        const images = JSON.parse(order.generatedImagesJson);
+        if (images && typeof images === 'object') {
+          // Получаем все URL изображений из заказа
+          const imageUrls = Object.values(images).filter(url => 
+            typeof url === 'string' && url.startsWith('/images/')
+          );
+          
+          if (imageUrls.length > 0) {
+            // Выбираем случайное изображение из набора
+            const randomIndex = Math.floor(Math.random() * imageUrls.length);
+            galleryItems.push({
+              orderId: order.invId,
+              imageUrl: imageUrls[randomIndex],
+              createdAt: order.createdAt,
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('[Gallery Orders] Failed to parse images for order', order.invId, e);
+      }
+    }
+
+    console.log('[Gallery Orders] Total gallery items:', galleryItems.length);
+    res.json({ items: galleryItems });
+  } catch (err) {
+    console.error('[Gallery Orders] Failed to load gallery orders:', err);
+    res.status(500).json({ error: 'Не удалось загрузить галерею заказов' });
+  }
+});
+
 // Повторная генерация портретов для уже оплаченого/промо-заказа
 app.post(`${API_PREFIX}/order/:invId/retry`, express.json({ limit: '11mb' }), async (req, res) => {
   try {
