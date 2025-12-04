@@ -416,6 +416,7 @@ function App() {
     const [adminPassword, setAdminPassword] = useState<string>('');
     const [adminAuthError, setAdminAuthError] = useState<string | null>(null);
     const [adminAuthLoading, setAdminAuthLoading] = useState<boolean>(false);
+    const [isRulesOpen, setIsRulesOpen] = useState(false);
 
     const getEffectiveGender = (): DetectedGender | null => {
         // Возвращаем выбранный пол (автоматически или вручную)
@@ -2398,7 +2399,7 @@ function App() {
                     </section>
                 </div>
             </main>
-            <Footer />
+            <Footer onOpenRules={() => setIsRulesOpen(true)} />
             
             {/* Onboarding */}
             <Onboarding
@@ -2437,6 +2438,96 @@ function App() {
                             className="max-h-[90vh] max-w-[90vw] object-contain rounded-md shadow-2xl"
                             onClick={(e) => e.stopPropagation()}
                         />
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Rules Modal */}
+            <AnimatePresence>
+                {isRulesOpen && (
+                    <motion.div
+                        key="rules-modal"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+                        onClick={() => setIsRulesOpen(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.96, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.96, opacity: 0 }}
+                            className="relative max-w-2xl w-full max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 sm:p-8 shadow-2xl"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <button
+                                type="button"
+                                aria-label="Закрыть правила генераций"
+                                className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200"
+                                onClick={() => setIsRulesOpen(false)}
+                            >
+                                <Icons.close className="h-4 w-4" />
+                            </button>
+                            <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-4">
+                                Правила генераций
+                            </h2>
+                            <div className="space-y-4 text-sm sm:text-base text-gray-700">
+                                <p>
+                                    Перед созданием портретов внимательно ознакомьтесь с правилами. Нажимая кнопку
+                                    <span className="font-semibold"> «Сгенерировать»</span>, вы подтверждаете, что
+                                    согласны с данными условиями.
+                                </p>
+                                <div className="space-y-2">
+                                    <h3 className="font-semibold text-gray-900">1. Требования к фотографиям</h3>
+                                    <ul className="list-disc pl-5 space-y-1">
+                                        <li>На фото должно быть чётко видно лицо, без сильных теней и пересветов.</li>
+                                        <li>Желательно один человек в кадре, без посторонних людей на переднем плане.</li>
+                                        <li>Без сильных фильтров, масок, AR‑эффектов и дорисованных элементов.</li>
+                                        <li>Избегайте слишком маленьких, размытых или сильно обрезанных изображений.</li>
+                                    </ul>
+                                </div>
+                                <div className="space-y-2">
+                                    <h3 className="font-semibold text-gray-900">2. Системные и контент‑ошибки</h3>
+                                    <p>
+                                        Мы разделяем ошибки на системные (технические сбои генерации) и контент‑ошибки
+                                        (когда исходная фотография не удовлетворяет требованиям или содержит
+                                        некорректный контент).
+                                    </p>
+                                    <p>
+                                        За <span className="font-semibold">контент‑ошибки</span> оплата не
+                                        возвращается: сервис не несёт ответственности за результат, если исходное фото
+                                        не подходит под данные правила.
+                                    </p>
+                                </div>
+                                <div className="space-y-2">
+                                    <h3 className="font-semibold text-gray-900">3. Повторные попытки</h3>
+                                    <p>
+                                        При технических сбоях генерации вы можете сделать до{' '}
+                                        <span className="font-semibold">двух повторных попыток</span> по одному заказу.
+                                        Если проблема не решается, вы можете обратиться в службу поддержки.
+                                    </p>
+                                </div>
+                                <div className="space-y-2">
+                                    <h3 className="font-semibold text-gray-900">4. Ответственность и поддержка</h3>
+                                    <p>
+                                        Нажимая кнопку <span className="font-semibold">«Сгенерировать»</span>, вы
+                                        подтверждаете, что согласны с этими правилами. В случае нарушения правил
+                                        генерации сервис не несёт ответственности за потраченные средства.
+                                    </p>
+                                    <p>
+                                        Если вы не согласны с полученными результатами или у вас есть вопросы, вы
+                                        можете написать в службу поддержки по адресу:{' '}
+                                        <a
+                                            href="mailto:kuznetsov@i-integrator.com"
+                                            className="text-blue-600 hover:underline"
+                                        >
+                                            kuznetsov@i-integrator.com
+                                        </a>
+                                        .
+                                    </p>
+                                </div>
+                            </div>
+                        </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>
