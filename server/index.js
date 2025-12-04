@@ -2818,30 +2818,7 @@ app.post(`${API_PREFIX}/promo/use`, express.json({ limit: '11mb' }), async (req,
   }
 });
 
-// Получаем API ключи из переменных окружения
-const GEMINI_API_KEY_GENERATION = process.env.GEMINI_API_KEY; // Основной ключ для генерации
-const GEMINI_API_KEY_ANALYSIS = process.env.GEMINI_API_KEY_ANALYSIS; // Ключ для анализа изображений
-
-// Robokassa config (настоящие пароли для продакшена)
-const ROBOKASSA_LOGIN = process.env.ROBOKASSA_LOGIN || 'newava.pro';
-const ROBOKASSA_PASSWORD1 = process.env.ROBOKASSA_PASSWORD1 || 'm8G0UNfjydU08B0wnhbY';
-const ROBOKASSA_PASSWORD2 = process.env.ROBOKASSA_PASSWORD2 || 'aCnv87oSLo5n9wICTAb0';
-const ROBOKASSA_IS_TEST = process.env.ROBOKASSA_IS_TEST === '1' ? 1 : 0; // 0 = продакшен (по умолчанию), 1 = тест
-const ROBOKASSA_PAYMENT_AMOUNT = parseFloat(process.env.ROBOKASSA_PAYMENT_AMOUNT || '100.00');
-const ROBOKASSA_PAYMENT_DESC =
-  process.env.ROBOKASSA_PAYMENT_DESC || 'Генерация бизнес-портретов (1 пакет из 6 изображений)';
-
-if (!GEMINI_API_KEY_GENERATION) {
-  console.error('ERROR: GEMINI_API_KEY не установлен в переменных окружения');
-  process.exit(1);
-}
-
-if (!GEMINI_API_KEY_ANALYSIS) {
-  console.error('ERROR: GEMINI_API_KEY_ANALYSIS не установлен в переменных окружения');
-  process.exit(1);
-}
-
-// Инициализируем два клиента Gemini
+// Инициализируем два клиента Gemini (API keys already imported from config)
 const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY_GENERATION }); // Для генерации
 const genAIAnalysis = new GoogleGenAI({ apiKey: GEMINI_API_KEY_ANALYSIS }); // Для анализа
 
