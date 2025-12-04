@@ -1856,6 +1856,10 @@ initializeAnalysisRoutes({
   addToAnalysisQueueLocal,
 });
 
+// Передаем addToQueueLocal в generatePortraitsForOrder для запуска обработки очереди
+import { setAddToQueueFunction } from './services/portraitGeneration.js';
+setAddToQueueFunction(addToQueueLocal);
+
 initializePaymentRoutes({
   createNextInvId,
   saveOrder,

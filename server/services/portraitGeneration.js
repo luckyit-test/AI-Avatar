@@ -12,6 +12,14 @@ import { loadOrder, saveOrder, orderImages } from '../db/orders.js';
 
 const STYLES = ['Классический', 'Современный', 'Креативный', 'Технологичный', 'Дружелюбный', 'Уверенный'];
 
+// Функция для добавления задачи в очередь с запуском обработки
+// Должна быть передана из server/index.js как зависимость
+let addToQueueWithProcessing = null;
+
+export function setAddToQueueFunction(fn) {
+  addToQueueWithProcessing = fn;
+}
+
 /**
  * Сохраняет изображение на диск и возвращает публичный URL
  */
@@ -91,7 +99,7 @@ async function saveImageForOrder(style, dataUrl, invId) {
 /**
  * Генерирует портреты для заказа
  */
-export async function generatePortraitsForOrder(invId, MAX_QUEUE_SIZE) {
+export async function generatePortraitsForOrder(invId, MAX_QUEUE_SIZE, addToQueueFn = null) {
   const order = loadOrder(invId);
   const imageData = orderImages.get(String(invId));
   if (!order || !imageData) {
@@ -130,7 +138,10 @@ export async function generatePortraitsForOrder(invId, MAX_QUEUE_SIZE) {
       const prompt = prompts[style];
       console.log(`[generatePortraitsForOrder] Starting generation for style: ${style}`);
       try {
-        const queueResult = addToQueue(intermediateImage, prompt, MAX_QUEUE_SIZE);
+        // Используем функцию с обработкой очереди, если передана, иначе обычную addToQueue
+        // Используем функцию с обработкой очереди, если передана или установлена через setAddToQueueFunction
+        const queueFn = addToQueueFn || addToQueueWithProcessing || addToQueue;
+        const queueResult = queueFn(intermediateImage, prompt, MAX_QUEUE_SIZE);
         const jobId = queueResult.jobId;
         console.log(`[generatePortraitsForOrder] Added job to queue for ${style}, jobId: ${jobId}`);
         
@@ -192,7 +203,9 @@ export async function generatePortraitsForOrder(invId, MAX_QUEUE_SIZE) {
           console.log(`[generatePortraitsForOrder] Retrying ${style} using source: ${source.style} (attempt ${sourcesTried + 1})`);
           
           try {
-            const queueResult = addToQueue(source.url, prompt, MAX_QUEUE_SIZE);
+            // Используем функцию с обработкой очереди, если передана или установлена через setAddToQueueFunction
+            const queueFn = addToQueueFn || addToQueueWithProcessing || addToQueue;
+            const queueResult = queueFn(source.url, prompt, MAX_QUEUE_SIZE);
             const jobId = queueResult.jobId;
             
             const maxWaitTime = 300000;
