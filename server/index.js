@@ -1565,7 +1565,18 @@ app.post(`${API_PREFIX}/payment/create`, async (req, res) => {
       signature,
       fullUrl: redirectUrl,
       description: ROBOKASSA_PAYMENT_DESC,
+      password1Length: ROBOKASSA_PASSWORD1 ? ROBOKASSA_PASSWORD1.length : 0,
+      password2Length: ROBOKASSA_PASSWORD2 ? ROBOKASSA_PASSWORD2.length : 0,
     });
+    
+    // Дополнительная проверка: валидация параметров перед отправкой
+    if (!ROBOKASSA_LOGIN || !ROBOKASSA_PASSWORD1 || !ROBOKASSA_PASSWORD2) {
+      console.error('[Robokassa] Missing required configuration:', {
+        hasLogin: !!ROBOKASSA_LOGIN,
+        hasPassword1: !!ROBOKASSA_PASSWORD1,
+        hasPassword2: !!ROBOKASSA_PASSWORD2,
+      });
+    }
 
     res.json({ redirectUrl, invId });
   } catch (err) {
