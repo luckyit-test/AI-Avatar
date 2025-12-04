@@ -61,8 +61,8 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
     const loadData = async () => {
       try {
         console.log('[AnimatedPortraitsBackground] Loading portraits from /api/gallery/recent');
-        // Уменьшаем лимит для более быстрой загрузки (нужно только 6 портретов для базового набора)
-        const response = await fetch('/api/gallery/recent?limit=10');
+        // Увеличиваем лимит для большего разнообразия (нужно 12 портретов на ряд * количество рядов)
+        const response = await fetch('/api/gallery/recent?limit=50');
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }
