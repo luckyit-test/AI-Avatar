@@ -1544,13 +1544,13 @@ app.post(`${API_PREFIX}/payment/create`, async (req, res) => {
       .digest('hex');
 
     const isTestParam = ROBOKASSA_IS_TEST ? '&IsTest=1' : '';
-    const descriptionEncoded = encodeURIComponent(ROBOKASSA_PAYMENT_DESC);
+    // Кодируем Description дважды для правильной работы с кириллицей в Robokassa
+    const descriptionEncoded = encodeURIComponent(encodeURIComponent(ROBOKASSA_PAYMENT_DESC));
 
-    // Используем правильный URL для продакшена (без auth. для продакшена)
-    const robokassaBaseUrl = ROBOKASSA_IS_TEST 
-      ? 'https://auth.robokassa.ru/Merchant/Index.aspx'
-      : 'https://auth.robokassa.ru/Merchant/Index.aspx'; // Оба варианта используют auth.robokassa.ru
+    // URL для Robokassa (одинаковый для теста и продакшена)
+    const robokassaBaseUrl = 'https://auth.robokassa.ru/Merchant/Index.aspx';
 
+    // Формируем URL с правильным кодированием всех параметров
     const redirectUrl =
       `${robokassaBaseUrl}?MerchantLogin=${encodeURIComponent(ROBOKASSA_LOGIN)}` +
       `&OutSum=${outSum}&InvId=${invId}&Description=${descriptionEncoded}&SignatureValue=${signature}${isTestParam}`;
