@@ -151,6 +151,12 @@ function handleRobokassaResult(req, res) {
       signatureLength: signature ? signature.length : 0,
     });
 
+    // Если это запрос без параметров (например, проверка доступности URL), возвращаем OK
+    if (!outSum && !invId && !signature && Object.keys(params).length === 0) {
+      console.log('[Robokassa] Empty request received (health check?)');
+      return res.status(200).send('OK');
+    }
+
     if (!outSum || !invId || !signature) {
       console.warn('[Robokassa] Missing required params', {
         hasOutSum: !!outSum,
