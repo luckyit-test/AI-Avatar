@@ -1,6 +1,7 @@
 /**
  * Admin authentication middleware
  */
+import crypto from 'crypto';
 
 const adminSessions = new Map(); // key: token, value: { createdAt, expiresAt }
 const ADMIN_SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 часа
@@ -29,7 +30,7 @@ export function requireAdminAuth(req, res, next) {
 }
 
 export function createAdminSession() {
-  const token = require('crypto').randomBytes(32).toString('hex');
+  const token = crypto.randomBytes(32).toString('hex');
   const now = Date.now();
   adminSessions.set(token, {
     createdAt: now,
