@@ -1965,7 +1965,7 @@ async function generatePortraitsForOrder(invId) {
           .jpeg({ 
             quality: 65, // Уменьшено с 80% до 65% для более сильного сжатия
             mozjpeg: true, // mozjpeg для лучшего сжатия
-            progressive: true, // Прогрессивный JPEG для лучшего восприятия при загрузке
+            progressive: false, // Базовый JPEG - изображение отображается только после полной загрузки
           })
           .toBuffer();
         
