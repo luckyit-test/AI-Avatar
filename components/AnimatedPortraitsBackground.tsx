@@ -134,7 +134,7 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
     };
 
     loadPortraits();
-  }, []);
+  }, [containerHeight]);
 
 
   // Показываем компонент даже если портреты еще загружаются или их нет
