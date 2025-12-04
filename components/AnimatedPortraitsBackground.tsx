@@ -128,11 +128,12 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
           // Если портретов недостаточно, используем все доступные
           const portraitsToUse = basePortraits.length > 0 ? basePortraits : urls;
           
-          // Для бесшовного бесконечного движения создаем два одинаковых набора портретов
-          // Когда один набор уходит за экран, второй уже появляется, создавая иллюзию бесконечности
+          // Для бесшовного бесконечного движения создаем достаточно портретов
+          // чтобы заполнить экран + большой запас для бесконечного движения
           // Рассчитываем ширину одного набора портретов
           const singleSetWidth = portraitsToUse.length * (portraitSize + portraitGap) - portraitGap; // Ширина одного набора без padding
-          const setsNeeded = Math.ceil((containerWidth * 2) / singleSetWidth) + 2; // Нужно минимум 2 набора + запас
+          // Нужно достаточно наборов чтобы заполнить экран + запас для бесконечного движения
+          const setsNeeded = Math.ceil((containerWidth * 3) / singleSetWidth) + 4; // 3 экрана ширины + запас
           
           const rowPortraits: Portrait[] = [];
           // Создаем несколько наборов портретов для бесконечного движения
@@ -210,18 +211,24 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
         // Для бесконечного бесшовного движения без резкого появления:
         // Используем базовый набор из 6 портретов (или меньше, если недостаточно)
         // Рассчитываем ширину одного набора портретов
-        const baseSetSize = Math.min(6, row.portraits.length); // Размер базового набора
+        const baseSetSize = Math.min(6, row.portraits.length > 0 ? 
+          Math.ceil(row.portraits.length / Math.ceil((containerWidth * 3) / (Math.min(6, row.portraits.length) * singlePortraitWidth) + 4)) : 6);
         const singleSetWidth = baseSetSize * singlePortraitWidth - portraitGap; // Ширина одного набора портретов (без последнего gap)
         
-        // Ряды должны сразу отображаться в контейнере
+        // Рассчитываем общую ширину всех портретов в ряду
+        const totalRowWidth = row.portraits.length * singlePortraitWidth - portraitGap + rowPadding * 2;
+        
+        // Ряды должны сразу отображаться в контейнере и заполнять весь экран
         // Для бесшовного движения: когда один набор портретов уходит за экран,
         // следующий набор уже должен быть виден. Двигаемся на ширину одного набора.
+        // Для движения влево: начинаем так, чтобы портреты заполняли экран справа налево
+        // Для движения вправо: начинаем так, чтобы портреты заполняли экран слева направо
         const startX = row.direction === 'left' 
-          ? containerWidth + rowPadding // Начинаем справа, портреты видны
-          : -singleSetWidth + rowPadding; // Начинаем слева так, чтобы портреты были видны
+          ? containerWidth - singleSetWidth + rowPadding // Начинаем так, чтобы портреты были видны справа налево
+          : -singleSetWidth + containerWidth + rowPadding; // Начинаем так, чтобы портреты были видны слева направо
         
         const endX = row.direction === 'left' 
-          ? containerWidth - singleSetWidth + rowPadding // Заканчиваем так, чтобы следующий набор начинался справа
+          ? containerWidth - singleSetWidth * 2 + rowPadding // Заканчиваем так, чтобы следующий набор начинался справа
           : containerWidth + rowPadding; // Заканчиваем справа, чтобы следующий набор начинался слева
 
         return (
