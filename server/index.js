@@ -1792,11 +1792,14 @@ function buildPortraitPrompts(gender, role, company) {
       'black and white, high micro-contrast',
     ];
     const poseNeutral = [
-      'facing camera, subtle smile or neutral confident expression',
-      'three-quarter angle, relaxed shoulders',
+      'facing camera, subtle smile or neutral confident expression, shoulders square to camera',
+      'three-quarter angle to the camera, relaxed shoulders, confident but approachable posture',
+      'head slightly tilted, shoulders relaxed, direct gaze to camera',
     ];
     const poseExtra = [
-      'slightly off-camera gaze, natural candid feel',
+      'slightly off-camera gaze, natural candid feel with the body turned about 30 degrees',
+      'looking slightly past the camera with a gentle head tilt and relaxed posture',
+      'subtle lean forward toward the camera, confident upright posture',
     ];
 
     const pick = (neutral, extra) => {
@@ -1828,7 +1831,7 @@ function buildPortraitPrompts(gender, role, company) {
 
     return `Create a professional, high-resolution ${
       gender === 'female' ? 'female ' : 'male '
-    }business portrait of the person in the photo, suitable for a LinkedIn profile. ${genderInstruction} ${facialHairPreservation} The style should be ${tone}. ${constraints} Attire: ${attire}. Lighting: ${v.lighting}. Lens & crop: ${v.lens}. Background: ${v.background}. Color grade: ${v.grade}. Pose: ${v.pose}. ${naturality} ${skinDetail} Each image in this batch must show a distinct outfit and feel; avoid repeating garments across images. Context: ${roleDesc}; ${companyDesc}. ${contextText} CRITICAL: Do NOT add any text, titles, role names, company names, logos, watermarks, captions, UI elements, or typography inside the image. The image must look like a clean studio portrait photo without any overlaid writing.`;
+    }business portrait of the person in the photo, suitable for a LinkedIn profile. ${genderInstruction} ${facialHairPreservation} The style should be ${tone}. ${constraints} Attire: ${attire}. Lighting: ${v.lighting}. Lens & crop: ${v.lens}. Background: ${v.background}. Color grade: ${v.grade}. Pose: ${v.pose}. ${naturality} ${skinDetail} Each image in this batch must show a distinct outfit, pose, head angle and overall feel; avoid repeating garments, body position or camera framing across images. Context: ${roleDesc}; ${companyDesc}. ${contextText} CRITICAL: Do NOT add any text, titles, role names, company names, logos, watermarks, captions, UI elements, or typography inside the image. The image must look like a clean studio portrait photo without any overlaid writing.`;
   };
   
   return {
