@@ -100,8 +100,12 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
           
           // Распределяем ряды по высоте контейнера БЕЗ перекрытий
           // Портерты начинаются с самого верха секции (без белой области)
-          // Первый ряд начинается с rowHeight/2 от верха (центр первого портрета)
+          // Первый ряд (rowIndex=0) начинается с rowHeight/2 от верха (центр первого портрета)
+          // Это означает, что верхний край первого портрета находится на y=0
           const yPosition = (rowIndex * rowHeight) + (rowHeight / 2);
+          
+          // Для первого ряда убеждаемся, что он начинается с самого верха
+          const finalYPosition = rowIndex === 0 ? rowHeight / 2 : yPosition;
           
           console.log(`[AnimatedPortraitsBackground] Row ${rowIndex}: yPosition=${yPosition}px, height=${currentHeight}, direction=${direction}`);
           
@@ -128,7 +132,7 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
             portraits: rowPortraits,
             row: rowIndex,
             direction,
-            y: yPosition, // Используем абсолютную позицию в пикселях
+            y: finalYPosition, // Используем абсолютную позицию в пикселях
             duration: 120 + Math.random() * 40, // 120-160 секунд (в 2 раза медленнее)
           });
         }
