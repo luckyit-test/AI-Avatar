@@ -666,10 +666,14 @@ function App() {
         const abortController = new AbortController();
         
         // Exponential backoff: начинаем с 2s, увеличиваем до максимума 30s
-        let pollDelay = 2000; // Начальная задержка 2 секунды
+        const pollDelayRef = React.useRef(2000); // Используем useRef для избежания проблем с замыканием
         const MIN_POLL_DELAY = 2000;
         const MAX_POLL_DELAY = 30000;
         const BACKOFF_MULTIPLIER = 1.5;
+        
+        // Счетчик последовательных ошибок для обработки сетевых проблем
+        const consecutiveErrorsRef = React.useRef(0);
+        const MAX_CONSECUTIVE_ERRORS = 5;
         
         let pollTimeoutId: NodeJS.Timeout | null = null;
         let isPolling = true;
@@ -678,11 +682,22 @@ function App() {
             if (!isPolling || abortController.signal.aborted) return;
 
             try {
-                const order = await fetchOrder(currentInvId!);
+                if (!currentInvId) return;
+                const order = await fetchOrder(currentInvId);
                 
-                // Проверяем, изменился ли статус заказа
-                if (order.status !== currentOrder?.status) {
-                    setCurrentOrder(order);
+                // Используем функциональное обновление для избежания race conditions
+                let statusChanged = false;
+                setCurrentOrder(prev => {
+                    // Если статус не изменился, возвращаем предыдущее состояние
+                    if (prev?.status === order.status && prev?.invId === order.invId) {
+                        return prev;
+                    }
+                    statusChanged = true;
+                    return order;
+                });
+                
+                // Проверяем, изменился ли статус заказа (используем order из ответа)
+                if (statusChanged) {
 
                     // Если заказ перешел в processing - обновляем UI
                     if (order.status === 'processing' && appState !== 'generating') {
@@ -693,7 +708,8 @@ function App() {
                         setGeneratedImages(images);
                         setAppState('generating');
                         // Сбрасываем задержку при изменении статуса
-                        pollDelay = MIN_POLL_DELAY;
+                        pollDelayRef.current = MIN_POLL_DELAY;
+                        consecutiveErrorsRef.current = 0; // Сбрасываем счетчик ошибок
                     }
 
                     // Если заказ завершен - обновляем UI и останавливаем polling
@@ -722,24 +738,46 @@ function App() {
                 }
 
                 // Если статус не изменился, увеличиваем задержку (exponential backoff)
-                if (order.status === currentOrder?.status) {
-                    pollDelay = Math.min(pollDelay * BACKOFF_MULTIPLIER, MAX_POLL_DELAY);
+                if (!statusChanged) {
+                    pollDelayRef.current = Math.min(pollDelayRef.current * BACKOFF_MULTIPLIER, MAX_POLL_DELAY);
                 } else {
                     // При изменении статуса сбрасываем задержку
-                    pollDelay = MIN_POLL_DELAY;
+                    pollDelayRef.current = MIN_POLL_DELAY;
+                    consecutiveErrorsRef.current = 0; // Сбрасываем счетчик ошибок при успешном запросе
                 }
 
                 // Планируем следующий запрос с учетом backoff
                 if (isPolling && !abortController.signal.aborted) {
-                    pollTimeoutId = setTimeout(pollOrderStatus, pollDelay);
+                    // Очищаем старый таймер перед созданием нового (исправление утечки памяти)
+                    if (pollTimeoutId) {
+                        clearTimeout(pollTimeoutId);
+                        pollTimeoutId = null;
+                    }
+                    pollTimeoutId = setTimeout(pollOrderStatus, pollDelayRef.current);
                 }
             } catch (err) {
                 if (abortController.signal.aborted) return;
                 
+                // Увеличиваем счетчик последовательных ошибок
+                consecutiveErrorsRef.current++;
+                
+                // Если слишком много ошибок подряд - останавливаем polling и показываем сообщение
+                if (consecutiveErrorsRef.current >= MAX_CONSECUTIVE_ERRORS) {
+                    devLog.error('[App] Too many consecutive polling errors, stopping:', err);
+                    isPolling = false;
+                    // Можно показать сообщение пользователю о проблеме с сетью
+                    return;
+                }
+                
                 // При ошибке увеличиваем задержку и продолжаем polling
-                pollDelay = Math.min(pollDelay * BACKOFF_MULTIPLIER, MAX_POLL_DELAY);
+                pollDelayRef.current = Math.min(pollDelayRef.current * BACKOFF_MULTIPLIER, MAX_POLL_DELAY);
                 if (isPolling && !abortController.signal.aborted) {
-                    pollTimeoutId = setTimeout(pollOrderStatus, pollDelay);
+                    // Очищаем старый таймер перед созданием нового
+                    if (pollTimeoutId) {
+                        clearTimeout(pollTimeoutId);
+                        pollTimeoutId = null;
+                    }
+                    pollTimeoutId = setTimeout(pollOrderStatus, pollDelayRef.current);
                 }
             }
         };
@@ -1084,7 +1122,7 @@ function App() {
                 );
 
                 if (!retryResult.ok) {
-                    console.error('[App] Retry order failed:', retryResult.error);
+                    devLog.error('[App] Retry order failed:', retryResult.error);
                     setAppState('failed');
                     return;
                 }
@@ -1100,7 +1138,7 @@ function App() {
                 });
                 setHasActivePayment(true);
             } catch (err) {
-                console.error('[App] Failed to retry order:', err);
+                devLog.error('[App] Failed to retry order:', err);
                 setAppState('failed');
             }
             return;
