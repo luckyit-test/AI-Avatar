@@ -131,6 +131,7 @@ router.get(`${API_PREFIX}/analysis/:jobId`, (req, res) => {
       }
 
       return res.json({
+        status: 'completed', // Добавляем поле status для клиента
         isValid: postIsValid,
         errorType: postErrorType,
         errorMessage: errorMessage || null,
