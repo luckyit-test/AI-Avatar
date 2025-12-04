@@ -2213,7 +2213,8 @@ function App() {
                                     </div>
                                     {/* Вариативность и естественность зафиксированы в коде (Высокая, включено) */}
                                 </div>
-                                {/* Блок промокода */}
+                                {/* Блок промокода - скрываем после применения */}
+                                {!currentOrder && (
                                 <div className="mb-4">
                                     <div className="flex items-center justify-between mb-1">
                                         <span className="inline-flex items-center gap-2 text-sm font-medium text-gray-900">
@@ -2344,6 +2345,7 @@ function App() {
                                         </p>
                                     )}
                                 </div>
+                                )}
                                 <div data-onboarding="generate" className="mt-4">
                                     <div className="flex items-start gap-3 mb-3">
                                         <span

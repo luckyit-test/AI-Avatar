@@ -1535,17 +1535,36 @@ app.post(`${API_PREFIX}/payment/create`, async (req, res) => {
       orderImages.set(String(invId), imageData);
     }
 
+    // Формируем подпись для Robokassa
+    // Формат: MerchantLogin:OutSum:InvId:Password#1
+    const signatureString = `${ROBOKASSA_LOGIN}:${outSum}:${invId}:${ROBOKASSA_PASSWORD1}`;
     const signature = crypto
       .createHash('md5')
-      .update(`${ROBOKASSA_LOGIN}:${outSum}:${invId}:${ROBOKASSA_PASSWORD1}`, 'utf8')
+      .update(signatureString, 'utf8')
       .digest('hex');
 
     const isTestParam = ROBOKASSA_IS_TEST ? '&IsTest=1' : '';
     const descriptionEncoded = encodeURIComponent(ROBOKASSA_PAYMENT_DESC);
 
+    // Используем правильный URL для продакшена (без auth. для продакшена)
+    const robokassaBaseUrl = ROBOKASSA_IS_TEST 
+      ? 'https://auth.robokassa.ru/Merchant/Index.aspx'
+      : 'https://auth.robokassa.ru/Merchant/Index.aspx'; // Оба варианта используют auth.robokassa.ru
+
     const redirectUrl =
-      `https://auth.robokassa.ru/Merchant/Index.aspx?MerchantLogin=${encodeURIComponent(ROBOKASSA_LOGIN)}` +
+      `${robokassaUrl}?MerchantLogin=${encodeURIComponent(ROBOKASSA_LOGIN)}` +
       `&OutSum=${outSum}&InvId=${invId}&Description=${descriptionEncoded}&SignatureValue=${signature}${isTestParam}`;
+
+    // Логируем для отладки (без паролей)
+    console.log('[Robokassa] Creating payment:', {
+      invId,
+      outSum,
+      login: ROBOKASSA_LOGIN,
+      isTest: ROBOKASSA_IS_TEST,
+      signatureString: `${ROBOKASSA_LOGIN}:${outSum}:${invId}:***`,
+      signature,
+      url: redirectUrl.substring(0, 100) + '...',
+    });
 
     res.json({ redirectUrl, invId });
   } catch (err) {
