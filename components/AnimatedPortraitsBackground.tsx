@@ -62,12 +62,21 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
       try {
         console.log('[AnimatedPortraitsBackground] Loading portraits from /api/gallery/recent');
         // Увеличиваем лимит для большего разнообразия (нужно 12 портретов на ряд * количество рядов)
-        const response = await fetch('/api/gallery/recent?limit=50');
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+        const response = await fetch('/api/gallery/recent?limit=50').catch((fetchError) => {
+          console.error('[AnimatedPortraitsBackground] Fetch error:', fetchError);
+          throw fetchError;
+        });
+        
+        if (!response || !response.ok) {
+          throw new Error(`HTTP ${response?.status || 'unknown'}`);
         }
-        const data = await response.json();
-        const urls: string[] = data.portraits || [];
+        
+        const data = await response.json().catch((parseError) => {
+          console.error('[AnimatedPortraitsBackground] JSON parse error:', parseError);
+          throw parseError;
+        });
+        
+        const urls: string[] = Array.isArray(data?.portraits) ? data.portraits : [];
 
         console.log('[AnimatedPortraitsBackground] Loaded portraits:', urls.length);
 
