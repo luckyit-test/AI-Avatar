@@ -1559,6 +1559,80 @@ function randomChoice(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+// Описание роли для контекста промпта
+function describeRole(role) {
+  switch (role) {
+    case 'Разработчик':
+      return 'focus on a hands-on software engineer; practical, focused, clean look';
+    case 'Тимлид':
+      return 'team lead presence; approachable leadership, confident yet friendly';
+    case 'Архитектор':
+      return 'solution architect; strategic, minimalistic aesthetic, systems-thinking vibe';
+    case 'DevOps-инженер':
+      return 'DevOps engineer; pragmatic, modern tech environment, reliability mindset';
+    case 'Дата-сайентист':
+      return 'data scientist; analytical, thoughtful expression, subtle academic touch';
+    case 'ML-инженер':
+      return 'machine learning engineer; innovative, research-meets-engineering tone';
+    case 'Продуктовый менеджер':
+      return 'product manager; customer-centric, strategic and collaborative presence';
+    case 'Проектный менеджер':
+      return 'project manager; organized and composed, clarity and control';
+    case 'Системный аналитик':
+      return 'systems analyst; detail-oriented, structured and precise';
+    case 'Дизайнер UI/UX':
+      return 'UI/UX designer; creative yet professional, tasteful minimalism';
+    case 'QA-инженер':
+      return 'QA engineer; meticulous, quality-driven, methodical calmness';
+    case 'CTO':
+      return 'CTO; executive gravitas, visionary leadership, crisp and premium look';
+    default:
+      return 'technology professional; credible and modern';
+  }
+}
+
+// Описание компании для контекста промпта
+function describeCompany(company) {
+  switch (company) {
+    case 'Стартап':
+      return 'startup context; dynamic, energetic, minimalistic background or open space';
+    case 'Продуктовая компания':
+      return 'product company; polished yet approachable, modern product-office background';
+    case 'Enterprise':
+      return 'enterprise context; formal, premium lighting, subtle corporate background';
+    case 'Аутсорс/консалтинг':
+      return 'consulting; versatile, neutral background with tidy professional styling';
+    case 'Госкомпания':
+      return 'public sector; conservative and respectful styling, neutral elegant backdrop';
+    case 'Финтех':
+      return 'fintech; clean, confident, high-contrast corporate aesthetic';
+    case 'Банк':
+      return 'banking; conservative modern corporate environment, high trust aesthetic';
+    case 'Страховая':
+      return 'insurance; reassuring, trustworthy, balanced corporate tone';
+    case 'Ритейл':
+      return 'retail; practical and approachable, lively yet professional vibe';
+    case 'Маркетплейс':
+      return 'marketplace; dynamic and product-centric, modern office look';
+    case 'Медиа':
+      return 'media; creative corporate style, light editorial touch';
+    case 'EdTech':
+      return 'edtech; friendly and modern academic-corporate blend';
+    case 'HealthTech':
+      return 'healthtech; clean, clinical-inspired but warm and human tone';
+    case 'Телеком':
+      return 'telecom; high-tech corporate, sleek and structured';
+    case 'Производство':
+      return 'manufacturing; robust and grounded, clean industrial hints';
+    case 'Логистика':
+      return 'logistics; efficient, organized, neutral corporate environment';
+    case 'GameDev':
+      return 'gamedev; creative tech culture, relaxed smart-casual aesthetic';
+    default:
+      return 'professional context; neutral corporate setting';
+  }
+}
+
 // Функция для генерации детального описания одежды на основе роли, компании и пола
 function attireByContext(gender, role, company) {
   const baseFemale = 'No facial hair. No beard. No mustache.';
@@ -1671,16 +1745,90 @@ function buildPortraitPrompts(gender, role, company) {
   const facialHairPreservation = gender === 'male'
     ? 'CRITICAL FACIAL HAIR RULE: Maintain the EXACT same facial hair style, length, thickness, density, and visibility as in the original photo. If the original shows a short, subtle, barely visible beard - keep it EXACTLY short, subtle, and barely visible. If clean-shaven in original, generate clean-shaven. Do NOT lengthen, thicken, densify, or enhance facial hair beyond what is visible in the original photo.'
     : '';
-  
+
+  // Настройки вариативности и естественности (как во фронтенде)
+  const variability = 'high';
+  const naturalLook = true;
+
   // Генерируем детальное описание одежды на основе контекста
   const attire = attireByContext(gender, role, company);
+  const roleDesc = describeRole(role);
+  const companyDesc = describeCompany(company);
+
+  function buildVariations(variabilityLevel) {
+    const lightingNeutral = [
+      'soft, even high-key lighting',
+      'natural window light with soft shadows',
+    ];
+    const lightingExtra = [
+      'dramatic low-key with subtle rim light',
+      'golden-hour warm light (indoor simulation)',
+      'overcast soft daylight look',
+    ];
+    const lensNeutral = [
+      '85mm head-and-shoulders',
+      '50mm three-quarters crop',
+    ];
+    const lensExtra = [
+      '35mm environmental portrait',
+    ];
+    const backgroundNeutral = [
+      'neutral gradient backdrop',
+      'modern office, shallow depth of field',
+      'textured light wall',
+    ];
+    const backgroundExtra = [
+      'outdoor city bokeh',
+      'glass office corridor, soft blur',
+      'wooden texture wall, subtle',
+    ];
+    const gradeNeutral = [
+      'clean editorial grade',
+      'neutral corporate grade',
+    ];
+    const gradeExtra = [
+      'warm cinematic grade',
+      'cool corporate grade',
+      'black and white, high micro-contrast',
+    ];
+    const poseNeutral = [
+      'facing camera, subtle smile or neutral confident expression',
+      'three-quarter angle, relaxed shoulders',
+    ];
+    const poseExtra = [
+      'slightly off-camera gaze, natural candid feel',
+    ];
+
+    const pick = (neutral, extra) => {
+      if (variabilityLevel === 'low') return neutral[0];
+      if (variabilityLevel === 'medium') return randomChoice(neutral);
+      return randomChoice([...neutral, ...extra]);
+    };
+
+    return {
+      lighting: pick(lightingNeutral, lightingExtra),
+      lens: pick(lensNeutral, lensExtra),
+      background: pick(backgroundNeutral, backgroundExtra),
+      grade: pick(gradeNeutral, gradeExtra),
+      pose: pick(poseNeutral, poseExtra),
+    };
+  }
+
+  const naturality = naturalLook
+    ? "Photorealistic and authentic. Preserve identity and facial features EXACTLY as in the original photo. The person must look like themselves - maintain the same face shape, bone structure, eye shape, nose, mouth, and all distinctive features. Natural skin texture with visible pores, fine lines, wrinkles, freckles, moles, and all natural skin variations. No plastic skin, no airbrushing, no over-smoothing, no AI artifacts. The skin must look completely real and natural, as if photographed with a professional camera. Preserve ALL natural skin imperfections, texture variations, and facial details. Avoid any digital smoothing, retouching, or artificial enhancement that makes skin look plastic, fake, or changes the person's appearance. The generated portrait must be recognizable as the same person from the original photo."
+    : '';
 
   const base = (tone) => {
+    const v = buildVariations(variability);
+    const skinDetail = gender === 'female'
+      ? 'Preserve realistic skin texture EXACTLY as shown in the original - natural pores, fine lines, wrinkles, freckles, moles, and all skin variations. The skin must look like real human skin photographed naturally - no smoothing, no airbrushing, no plastic or doll-like appearance. Natural skin imperfections MUST be preserved. Do not alter the person\'s natural appearance or skin texture.'
+      : 'Preserve realistic skin texture EXACTLY as shown in the original - natural pores, fine lines, wrinkles, and all skin variations. The skin must look like real human skin photographed naturally - no smoothing, no airbrushing. Natural skin imperfections MUST be preserved.';
+
     const contextText = `The person works as a ${role || 'technology professional'} in a ${company || 'professional'} context. Convey this only through overall style, mood, clothing and atmosphere, not through any overlaid text.`;
 
     return `Create a professional, high-resolution ${
       gender === 'female' ? 'female ' : 'male '
-    }business portrait of the person in the photo, suitable for a LinkedIn profile. ${genderInstruction} ${facialHairPreservation} The style should be ${tone}. ${constraints} Attire: ${attire}. Lighting: soft, even high-key lighting. Lens & crop: 85mm head-and-shoulders. Color grade: clean editorial grade. Pose: facing camera, subtle smile or neutral confident expression. Photorealistic and authentic. Preserve identity and facial features EXACTLY as in the original photo. ${contextText} CRITICAL: Do NOT add any text, titles, role names, company names, logos, watermarks, captions, UI elements, or typography inside the image. The image must look like a clean studio portrait photo without any overlaid writing.`;
+    }business portrait of the person in the photo, suitable for a LinkedIn profile. ${genderInstruction} ${facialHairPreservation} The style should be ${tone}. ${constraints} Attire: ${attire}. Lighting: ${v.lighting}. Lens & crop: ${v.lens}. Background: ${v.background}. Color grade: ${v.grade}. Pose: ${v.pose}. ${naturality} ${skinDetail} Each image in this batch must show a distinct outfit and feel; avoid repeating garments across images. Context: ${roleDesc}; ${companyDesc}. ${contextText} CRITICAL: Do NOT add any text, titles, role names, company names, logos, watermarks, captions, UI elements, or typography inside the image. The image must look like a clean studio portrait photo without any overlaid writing.`;
   };
   
   return {
