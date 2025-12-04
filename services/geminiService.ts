@@ -406,9 +406,16 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
     const maxWaitTime = 30000; // Максимум 30 секунд
     const startTime = Date.now();
     
+    let pollAttempt = 0;
     while (Date.now() - startTime < maxWaitTime) {
+      pollAttempt++;
       const statusController = new AbortController();
       const statusTimeoutId = setTimeout(() => statusController.abort(), 10000); // 10 секунд для проверки статуса
+      
+      console.log(`[evaluateImage] Polling attempt ${pollAttempt} for jobId: ${jobId}`, {
+        elapsed: Date.now() - startTime,
+        maxWaitTime
+      });
       
       let statusResponse: Response;
       try {
@@ -420,8 +427,20 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
           signal: statusController.signal,
         });
         clearTimeout(statusTimeoutId);
+        
+        console.log(`[evaluateImage] Polling response received`, {
+          attempt: pollAttempt,
+          ok: statusResponse.ok,
+          status: statusResponse.status,
+          statusText: statusResponse.statusText
+        });
       } catch (statusError: any) {
         clearTimeout(statusTimeoutId);
+        console.error(`[evaluateImage] Polling request failed`, {
+          attempt: pollAttempt,
+          error: statusError instanceof Error ? statusError.message : String(statusError),
+          errorName: statusError?.name
+        });
         if (statusError.name === 'AbortError') {
           throw new Error('timeout');
         }
@@ -429,6 +448,11 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
       }
 
       if (!statusResponse.ok) {
+        console.error(`[evaluateImage] Polling response not OK`, {
+          attempt: pollAttempt,
+          status: statusResponse.status,
+          statusText: statusResponse.statusText
+        });
         if (statusResponse.status === 404) {
           throw new Error('Задача анализа не найдена');
         }
@@ -436,7 +460,31 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
         throw new Error(errorData.error || `HTTP ${statusResponse.status}`);
       }
 
-      const status: AnalysisStatus = await statusResponse.json();
+      let status: AnalysisStatus;
+      try {
+        const statusText = await statusResponse.text();
+        console.log(`[evaluateImage] Polling response text received`, {
+          attempt: pollAttempt,
+          textLength: statusText.length,
+          textPreview: statusText.substring(0, 200),
+          hasStatus: statusText.includes('status')
+        });
+        status = JSON.parse(statusText);
+      } catch (parseError) {
+        console.error(`[evaluateImage] Failed to parse polling response`, {
+          attempt: pollAttempt,
+          error: parseError instanceof Error ? parseError.message : String(parseError)
+        });
+        throw new Error('Не удалось обработать ответ сервера');
+      }
+      
+      console.log(`[evaluateImage] Polling status parsed`, {
+        attempt: pollAttempt,
+        status: status.status,
+        hasResult: !!status.result,
+        isValid: status.isValid,
+        gender: status.gender
+      });
       
       // Вызываем callback для обновления UI
       if (onStatusUpdate) {
@@ -444,6 +492,11 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
       }
       
       if (status.status === 'completed') {
+        console.log(`[evaluateImage] Analysis completed`, {
+          attempt: pollAttempt,
+          isValid: status.isValid,
+          gender: status.gender
+        });
         // Возвращаем результат в формате ImageEvaluationResult
         const publicFigureFlag = status.publicFigure ?? status.details?.isPublicFigure ?? false;
         const publicFigureReason = status.publicFigureReason ?? status.details?.publicFigureReason ?? null;
@@ -467,9 +520,20 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
       }
       
       // Ждем перед следующей проверкой
+      console.log(`[evaluateImage] Waiting before next poll`, {
+        attempt: pollAttempt,
+        pollInterval,
+        elapsed: Date.now() - startTime,
+        remaining: maxWaitTime - (Date.now() - startTime)
+      });
       await new Promise(resolve => setTimeout(resolve, pollInterval));
     }
     
+    console.error(`[evaluateImage] Polling timeout`, {
+      totalAttempts: pollAttempt,
+      elapsed: Date.now() - startTime,
+      maxWaitTime
+    });
     throw new Error('Таймаут ожидания анализа');
   } catch (error) {
     // При технической ошибке (сеть, таймаут, ошибка сервера) возвращаем честное сообщение,
