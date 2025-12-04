@@ -104,7 +104,9 @@ function addToQueueLocal(imageData, prompt) {
 }
 
 function addToAnalysisQueueLocal(imageData, type) {
+  console.log('[addToAnalysisQueueLocal] Adding task to queue', { type, queueSize: analysisQueue.length });
   const result = addToAnalysisQueue(imageData, type);
+  console.log('[addToAnalysisQueueLocal] Task added', { jobId: result.jobId, queueSize: analysisQueue.length });
   processAnalysisQueue();
   return result;
 }
@@ -890,6 +892,14 @@ function getAnalysisStatusMessage(status, remainingTimeMs) {
 
 // Обработка одной задачи анализа
 async function processAnalysisJob(job) {
+  console.log('[processAnalysisJob] Started', {
+    jobId: job.id,
+    type: job.type,
+    queueSize: analysisQueue.length,
+    activeJobs: activeAnalysisJobs.size,
+    maxConcurrent: MAX_CONCURRENT_ANALYSIS
+  });
+  
   safeLog('processAnalysisJob started', {
     jobId: job.id,
     type: job.type,
@@ -902,8 +912,10 @@ async function processAnalysisJob(job) {
   job.startedAt = Date.now();
   
   try {
+    console.log('[processAnalysisJob] Calling performImageAnalysis', { jobId: job.id, type: job.type });
     safeLog('Calling performImageAnalysis', { jobId: job.id, type: job.type });
     const result = await performImageAnalysis(job.imageData, job.type, job.id);
+    console.log('[processAnalysisJob] performImageAnalysis completed', { jobId: job.id, hasResult: !!result });
     safeLog('performImageAnalysis completed', { jobId: job.id, hasResult: !!result });
     
     job.setResult(result);
@@ -916,12 +928,19 @@ async function processAnalysisJob(job) {
     }
     
     activeAnalysisJobs.delete(job.id);
+    console.log('[processAnalysisJob] Completed successfully', { jobId: job.id });
     safeLog('Analysis job completed successfully', { jobId: job.id });
     processAnalysisQueue(); // Проверяем, есть ли еще задачи для обработки
     
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    console.error('[processAnalysisJob] Failed', {
+      jobId: job.id,
+      error: errorMessage,
+      errorStack: errorStack?.substring(0, 500)
+    });
     
     // Детальное логирование ошибки анализа
     safeLog('Analysis job failed', {
@@ -949,6 +968,12 @@ async function processAnalysisJob(job) {
 
 // Обработчик очереди анализа (запускает до MAX_CONCURRENT_ANALYSIS задач параллельно)
 async function processAnalysisQueue() {
+  console.log('[processAnalysisQueue] Called', {
+    queueSize: analysisQueue.length,
+    activeJobs: activeAnalysisJobs.size,
+    maxConcurrent: MAX_CONCURRENT_ANALYSIS
+  });
+  
   safeLog('processAnalysisQueue called', {
     queueSize: analysisQueue.length,
     activeJobs: activeAnalysisJobs.size,
@@ -958,6 +983,13 @@ async function processAnalysisQueue() {
   // Запускаем новые задачи, пока не достигнут лимит параллельных анализов
   while (activeAnalysisJobs.size < MAX_CONCURRENT_ANALYSIS && analysisQueue.length > 0) {
     const job = analysisQueue.shift();
+    console.log('[processAnalysisQueue] Starting job', {
+      jobId: job.id,
+      type: job.type,
+      queueSize: analysisQueue.length,
+      activeJobs: activeAnalysisJobs.size
+    });
+    
     safeLog('Starting analysis job from queue', {
       jobId: job.id,
       type: job.type,
@@ -967,7 +999,7 @@ async function processAnalysisQueue() {
     
     // Запускаем задачу асинхронно (не ждем завершения)
     processAnalysisJob(job).catch(err => {
-      console.error('Unexpected error in processAnalysisJob:', err);
+      console.error('[processAnalysisQueue] Unexpected error in processAnalysisJob:', err);
       safeLog('Unexpected error in processAnalysisJob', {
         jobId: job.id,
         error: err instanceof Error ? err.message : String(err)
@@ -980,6 +1012,11 @@ async function processAnalysisQueue() {
   }
   
   if (analysisQueue.length > 0) {
+    console.log('[processAnalysisQueue] Queue not empty but max concurrent reached', {
+      queueSize: analysisQueue.length,
+      activeJobs: activeAnalysisJobs.size,
+      maxConcurrent: MAX_CONCURRENT_ANALYSIS
+    });
     safeLog('processAnalysisQueue: queue not empty but max concurrent reached', {
       queueSize: analysisQueue.length,
       activeJobs: activeAnalysisJobs.size,
