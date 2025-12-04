@@ -392,6 +392,9 @@ function App() {
     const [selectedCompany, setSelectedCompany] = useState<typeof COMPANY_TYPES[number]>('Стартап');
     const [hasActivePayment, setHasActivePayment] = useState<boolean>(false);
     const autoGenerationStartedRef = useRef<boolean>(false);
+    // Refs для polling (должны быть на верхнем уровне компонента)
+    const pollDelayRef = useRef<number>(2000);
+    const consecutiveErrorsRef = useRef<number>(0);
     const PENDING_GENERATION_KEY = 'newava_pending_generation';
     const LAST_SOURCE_IMAGE_KEY = 'newava_last_source_image';
     const CURRENT_ORDER_KEY = 'newava_current_order';
@@ -665,14 +668,13 @@ function App() {
         // AbortController для отмены запросов при размонтировании
         const abortController = new AbortController();
         
-        // Exponential backoff: начинаем с 2s, увеличиваем до максимума 30s
-        const pollDelayRef = React.useRef(2000); // Используем useRef для избежания проблем с замыканием
+        // Сбрасываем значения refs при запуске polling
+        pollDelayRef.current = 2000;
+        consecutiveErrorsRef.current = 0;
+        
         const MIN_POLL_DELAY = 2000;
         const MAX_POLL_DELAY = 30000;
         const BACKOFF_MULTIPLIER = 1.5;
-        
-        // Счетчик последовательных ошибок для обработки сетевых проблем
-        const consecutiveErrorsRef = React.useRef(0);
         const MAX_CONSECUTIVE_ERRORS = 5;
         
         let pollTimeoutId: NodeJS.Timeout | null = null;
