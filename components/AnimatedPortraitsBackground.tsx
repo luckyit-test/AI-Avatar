@@ -105,16 +105,19 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
           console.log(`[AnimatedPortraitsBackground] Row ${rowIndex}: yPosition=${yPosition}px, height=${currentHeight}, direction=${direction}`);
           
           // Создаем зацикленный набор портретов для этого ряда
-          // Берем первые 10-15 портретов и повторяем их для бесконечного эффекта
-          const basePortraitsCount = Math.min(10, urls.length);
+          // Берем первые 5-6 портретов и повторяем их для бесконечного эффекта
+          const basePortraitsCount = Math.min(6, urls.length);
           const basePortraits = urls.slice(0, basePortraitsCount);
+          
+          // Если портретов недостаточно, используем все доступные
+          const portraitsToUse = basePortraits.length > 0 ? basePortraits : urls;
           
           const rowPortraits: Portrait[] = [];
           for (let i = 0; i < portraitsPerRow; i++) {
-            const urlIndex = i % basePortraits.length;
+            const urlIndex = i % portraitsToUse.length;
             rowPortraits.push({
               id: `portrait-${rowIndex}-${i}-${Date.now()}`,
-              url: basePortraits[urlIndex],
+              url: portraitsToUse[urlIndex],
               size: portraitSize,
             });
           }
