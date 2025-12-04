@@ -2275,8 +2275,9 @@ app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
     }
 
     // Получаем последние завершенные заказы с портретами
-    const stmt = db.prepare(`
-      SELECT invId, generatedImagesJson, createdAt 
+    // Пробуем сначала строгие условия, потом смягчаем
+    let stmt = db.prepare(`
+      SELECT invId, generatedImagesJson, createdAt, status
       FROM orders 
       WHERE status = 'completed' 
         AND generatedImagesJson IS NOT NULL 
@@ -2285,6 +2286,25 @@ app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
       ORDER BY createdAt DESC 
       LIMIT 50
     `);
+    
+    let orders = stmt.all();
+    
+    // Если не нашли завершенные заказы, пробуем найти любые заказы с портретами
+    if (orders.length === 0) {
+      console.log('[Gallery] No completed orders found, trying to find any orders with portraits');
+      stmt = db.prepare(`
+        SELECT invId, generatedImagesJson, createdAt, status
+        FROM orders 
+        WHERE generatedImagesJson IS NOT NULL 
+          AND generatedImagesJson != 'null'
+          AND generatedImagesJson != ''
+          AND (imagesCount > 0 OR generatedImagesJson LIKE '%/images/%')
+        ORDER BY createdAt DESC 
+        LIMIT 50
+      `);
+      orders = stmt.all();
+      console.log('[Gallery] Found orders with portraits (any status):', orders.length);
+    }
     
     const orders = stmt.all();
     console.log('[Gallery] Found completed orders:', orders.length);
