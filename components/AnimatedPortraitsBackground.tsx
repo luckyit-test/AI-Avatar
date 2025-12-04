@@ -283,10 +283,19 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
                   style={{
                     borderRadius: '12px',
                     filter: 'brightness(0.98) contrast(1.08) saturate(1.1)',
+                    opacity: 0,
+                    transition: 'opacity 0.2s ease-in',
                   }}
                   loading="lazy"
+                  onLoad={(e) => {
+                    // Изображение полностью загружено - показываем его
+                    const img = e.currentTarget;
+                    img.style.opacity = '1';
+                  }}
                   onError={(e) => {
                     console.error('[AnimatedPortraitsBackground] Failed to load image:', portrait.url);
+                    // При ошибке тоже показываем элемент (чтобы не было пустого места)
+                    e.currentTarget.style.opacity = '1';
                   }}
                 />
               </div>
