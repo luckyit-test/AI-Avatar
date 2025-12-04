@@ -2543,9 +2543,28 @@ app.use((req, res) => {
   res.status(404).json({ error: `Route ${req.method} ${req.path} not found` });
 });
 
+// Обработка ошибок при запуске сервера
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Сервер запущен на порту ${PORT}`);
   console.log(`📡 API доступен по адресу: http://0.0.0.0:${PORT}`);
   console.log(`🔒 CORS разрешен для: ${allowedOrigins.join(', ')}`);
+}).on('error', (err) => {
+  console.error('❌ Ошибка при запуске сервера:', err);
+  if (err.code === 'EADDRINUSE') {
+    console.error(`   Порт ${PORT} уже занят. Попробуйте использовать другой порт.`);
+  }
+  process.exit(1);
+});
+
+// Обработка необработанных ошибок
+process.on('uncaughtException', (err) => {
+  console.error('❌ Необработанное исключение:', err);
+  safeLog('Uncaught exception', { error: err.message, stack: err.stack });
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Необработанное отклонение промиса:', reason);
+  safeLog('Unhandled rejection', { reason: reason instanceof Error ? reason.message : String(reason) });
 });
 
