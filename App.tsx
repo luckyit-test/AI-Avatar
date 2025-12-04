@@ -1729,33 +1729,22 @@ function App() {
     };
 
     const handleDownloadAlbum = async () => {
+        if (!currentOrder || !currentOrder.invId) {
+            console.warn('[App] No order to download');
+            return;
+        }
+
         setIsDownloading(true);
         try {
-            const imageData = Object.entries(generatedImages)
-                .filter((entry): entry is [string, GeneratedImage & { url: string }] => {
-                    const image = entry[1] as GeneratedImage;
-                    return image.status === 'done' && typeof image.url === 'string';
-                })
-                .reduce((acc, [style, image]) => {
-                    acc[style] = image.url;
-                    return acc;
-                }, {} as Record<string, string>);
-
-            if (Object.keys(imageData).length === 0) {
-                console.warn('[App] No images to download');
-                return;
-            }
-
-            const albumDataUrl = await createAlbumPage(imageData);
             const link = document.createElement('a');
-            link.href = albumDataUrl;
-            link.download = 'business-portraits-album.jpg';
+            link.href = `/api/order/${currentOrder.invId}/download`;
+            link.download = `newava_${currentOrder.invId}_portraits.zip`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
         } catch (error) {
-            console.error("Не удалось создать или скачать альбом:", error);
-            console.error('[App] Album creation error (silent)');
+            console.error("Не удалось скачать архив:", error);
+            devLog.error('[App] Download archive error:', error);
         } finally {
             setIsDownloading(false);
         }
@@ -2348,6 +2337,7 @@ function App() {
                                     )}
                                 </div>
                                 )}
+                                {!currentOrder && (
                                 <div data-onboarding="generate" className="mt-4">
                                     <div className="flex items-start gap-3 mb-3">
                                         <span
@@ -2377,6 +2367,7 @@ function App() {
                                         </span>
                                     </div>
                                 </div>
+                                )}
                                 {appState === 'image-uploaded' && (
                                     <div className="flex items-center gap-3">
                                         <button 
@@ -2478,12 +2469,12 @@ function App() {
                                             {isDownloading ? (
                                                 <>
                                                 <Icons.spinner className="w-4 h-4 mr-2 animate-spin" />
-                                                    Альбом
+                                                    Скачать
                                                 </>
                                             ) : (
                                                 <>
                                                 <Icons.download className="w-4 h-4 mr-2" />
-                                            Альбом
+                                            Скачать
                                                 </>
                                             )}
                                         </button>

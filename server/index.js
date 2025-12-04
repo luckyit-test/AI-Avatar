@@ -2378,7 +2378,56 @@ app.get(`${API_PREFIX}/admin/orders/:invId/images`, requireAdminAuth, (req, res)
   }
 });
 
-// Архив всех портретов заказа
+// Архив всех портретов заказа (для пользователя)
+app.get(`${API_PREFIX}/order/:invId/download`, async (req, res) => {
+  try {
+    const { invId } = req.params;
+    const order = loadOrder(invId);
+    if (!order || !order.generatedImages) {
+      return res.status(404).json({ error: 'Портреты не найдены' });
+    }
+
+    const images = order.generatedImages;
+    const archiver = (await import('archiver')).default;
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="newava_${invId}_portraits.zip"`
+    );
+
+    const archive = archiver('zip', { zlib: { level: 9 } });
+
+    archive.on('error', (err) => {
+      console.error('[Order] Archive error:', err);
+      try {
+        res.status(500).end();
+      } catch (_) {}
+    });
+
+    archive.pipe(res);
+
+    for (const [style, url] of Object.entries(images)) {
+      // url вида /images/orders/{invId}/{fileName}.jpg
+      if (typeof url !== 'string') continue;
+      const parts = url.split('/images/')[1];
+      if (!parts) continue;
+      const filePath = join(IMAGE_ROOT_DIR, parts.replace(/^orders\//, 'orders/'));
+      // Используем фактическое имя файла на диске, чтобы избежать перезаписи
+      const nameInArchive = basename(filePath) || 'portrait.jpg';
+      archive.file(filePath, { name: nameInArchive });
+    }
+
+    archive.finalize();
+  } catch (err) {
+    console.error('[Order] Failed to download order archive:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Не удалось сформировать архив с портретами' });
+    }
+  }
+});
+
+// Архив всех портретов заказа (для админа)
 app.get(`${API_PREFIX}/admin/orders/:invId/download`, requireAdminAuth, async (req, res) => {
   try {
     const { invId } = req.params;
