@@ -1679,14 +1679,68 @@ function App() {
                                         letterSpacing: '0.025em',
                                     }}
                                 >
-                                    Твое идеальное фото для новой карьеры!
+                                    АІ-ПОРТРЕТЫ
                                 </p>
                            </div>
                         </div>
-                        {/* Removed external attribution link */}
+                        
+                        {/* Кнопки справа */}
+                        <div className="flex items-center gap-3">
+                            <a
+                                href="mailto:kuznetsov@i-integrator.com"
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 touch-manipulation active:scale-[0.98]"
+                            >
+                                <Icons.helpCircle className="w-4 h-4" />
+                                Поддержка
+                            </a>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    // TODO: Добавить функционал позже
+                                    console.log('Смотреть портреты');
+                                }}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-all duration-200 touch-manipulation active:scale-[0.98]"
+                                style={{
+                                    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                                    boxShadow: '0 4px 6px -1px rgba(99, 102, 241, 0.3), 0 2px 4px -2px rgba(99, 102, 241, 0.3)',
+                                }}
+                            >
+                                <Icons.sparkles className="w-4 h-4" />
+                                Смотреть портреты
+                            </button>
+                        </div>
                     </div>
                 </div>
             </header>
+            
+            {/* Hero Section */}
+            <section className="w-full bg-white border-b border-gray-200">
+                <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+                    <div className="max-w-3xl mx-auto text-center">
+                        {/* Тег */}
+                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-50 border border-blue-200 mb-6">
+                            <Icons.sparkles className="w-4 h-4 text-blue-600" />
+                            <span className="text-sm font-medium text-blue-900">Идеальное фото для новой карьеры</span>
+                        </div>
+                        
+                        {/* Заголовок */}
+                        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">
+                            <span className="text-gray-900">Профессиональные портреты</span>
+                            <br />
+                            <span 
+                                className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
+                            >
+                                за несколько минут
+                            </span>
+                        </h1>
+                        
+                        {/* Описание */}
+                        <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
+                            Загрузите своё фото и получите 6 профессиональных бизнес-портретов для LinkedIn, резюме и деловых профилей
+                        </p>
+                    </div>
+                </div>
+            </section>
             
             <main className="flex-1 w-full container mx-auto p-4 sm:p-6 lg:p-8" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingBottom: 'max(1rem, env(safe-area-inset-bottom))', paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
                 <div className="flex flex-col lg:flex-row gap-8">
