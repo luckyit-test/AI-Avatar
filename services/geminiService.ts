@@ -299,7 +299,18 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Неизвестная ошибка' }));
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        try {
+          const text = await response.text();
+          errorData = { error: text || 'Неизвестная ошибка' };
+        } catch (e2) {
+          errorData = { error: 'Неизвестная ошибка' };
+        }
+      }
+      
       console.error('[evaluateImage] Response error', {
         status: response.status,
         statusText: response.statusText,
@@ -319,12 +330,49 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
     }
 
     // Пробуем получить текст ответа для диагностики
-    const responseText = await response.text();
-    console.log('[evaluateImage] Response text received', {
-      textLength: responseText.length,
-      textPreview: responseText.substring(0, 200),
-      hasJobId: responseText.includes('jobId')
-    });
+    // Используем клонирование ответа для избежания проблем с HTTP/2
+    let responseText;
+    try {
+      // Клонируем response перед чтением, чтобы избежать проблем с HTTP/2
+      const clonedResponse = response.clone();
+      responseText = await clonedResponse.text();
+      console.log('[evaluateImage] Response text received', {
+        textLength: responseText.length,
+        textPreview: responseText.substring(0, 200),
+        hasJobId: responseText.includes('jobId')
+      });
+    } catch (textError) {
+      console.error('[evaluateImage] Failed to read response text', {
+        error: textError instanceof Error ? textError.message : String(textError),
+        errorName: textError instanceof Error ? textError.name : 'Unknown',
+        responseStatus: response.status,
+        responseOk: response.ok
+      });
+      
+      // Пробуем прочитать через json() как fallback
+      try {
+        const queueResult = await response.json();
+        console.log('[evaluateImage] Successfully read via json() fallback', {
+          hasJobId: !!queueResult.jobId,
+          jobId: queueResult.jobId
+        });
+        
+        const jobId = queueResult.jobId;
+        if (!jobId) {
+          throw new Error('Сервер не вернул идентификатор задачи');
+        }
+        
+        console.log('[evaluateImage] Starting polling for jobId:', jobId);
+        // Продолжаем с polling
+        responseText = JSON.stringify(queueResult);
+      } catch (jsonError) {
+        console.error('[evaluateImage] Both text() and json() failed', {
+          textError: textError instanceof Error ? textError.message : String(textError),
+          jsonError: jsonError instanceof Error ? jsonError.message : String(jsonError)
+        });
+        throw new Error('Не удалось прочитать ответ сервера. Возможно, проблема с HTTP/2.');
+      }
+    }
 
     let queueResult;
     try {
@@ -338,7 +386,7 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
     } catch (parseError) {
       console.error('[evaluateImage] Failed to parse JSON response', {
         error: parseError instanceof Error ? parseError.message : String(parseError),
-        responseText: responseText.substring(0, 500)
+        responseText: responseText ? responseText.substring(0, 500) : 'null'
       });
       throw new Error('Не удалось обработать ответ сервера');
     }
