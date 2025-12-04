@@ -2119,7 +2119,8 @@ function App() {
                                     </div>
                                     {/* Вариативность и естественность зафиксированы в коде (Высокая, включено) */}
                                 </div>
-                                {/* Блок промокода */}
+                                {/* Блок промокода — доступен только до первой генерации (нет активного заказа) */}
+                                {!currentOrder && (
                                 <div className="mb-4">
                                     <div className="flex items-center justify-between mb-1">
                                         <span className="inline-flex items-center gap-2 text-sm font-medium text-gray-900">
@@ -2381,9 +2382,11 @@ function App() {
                                                 </>
                                             )}
                                         </button>
+                                            </div>
+                                        )}
                                     </div>
+                                </div>
                                 )}
-                            </div>
                         </div>
                     </aside>
                     
