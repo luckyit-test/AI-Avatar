@@ -2599,11 +2599,11 @@ app.post(`${API_PREFIX}/promo/use`, express.json({ limit: '11mb' }), async (req,
 const GEMINI_API_KEY_GENERATION = process.env.GEMINI_API_KEY; // Основной ключ для генерации
 const GEMINI_API_KEY_ANALYSIS = process.env.GEMINI_API_KEY_ANALYSIS; // Ключ для анализа изображений
 
-// Robokassa config (используем тестовый режим на старте)
+// Robokassa config (настоящие пароли для продакшена)
 const ROBOKASSA_LOGIN = process.env.ROBOKASSA_LOGIN || 'NEWAVA.pro';
-const ROBOKASSA_PASSWORD1 = process.env.ROBOKASSA_PASSWORD1 || 'KY7OIEK8fhLn1G95NYaH';
-const ROBOKASSA_PASSWORD2 = process.env.ROBOKASSA_PASSWORD2 || 'm8G0UNfjydU08B0wnhbY';
-const ROBOKASSA_IS_TEST = process.env.ROBOKASSA_IS_TEST === '0' ? 0 : 1;
+const ROBOKASSA_PASSWORD1 = process.env.ROBOKASSA_PASSWORD1 || '1m8G0UNfjydU08B0wnhbY';
+const ROBOKASSA_PASSWORD2 = process.env.ROBOKASSA_PASSWORD2 || 'QyX8XB3lmYkaYxIH79Z9';
+const ROBOKASSA_IS_TEST = process.env.ROBOKASSA_IS_TEST === '0' ? 0 : 1; // 0 = продакшен, 1 = тест
 const ROBOKASSA_PAYMENT_AMOUNT = parseFloat(process.env.ROBOKASSA_PAYMENT_AMOUNT || '100.00');
 const ROBOKASSA_PAYMENT_DESC =
   process.env.ROBOKASSA_PAYMENT_DESC || 'Генерация бизнес‑портретов (1 пакет из 6 изображений)';

@@ -2304,12 +2304,20 @@ function App() {
                                                         window.localStorage.setItem(CURRENT_ORDER_KEY, invId);
                                                     }
 
+                                                    // Инициализируем состояние генерации с красивыми превью
+                                                    const initialImages: Record<string, GeneratedImage> = {};
+                                                    STYLES.forEach(style => {
+                                                        initialImages[style] = { status: 'processing' };
+                                                    });
+                                                    setGeneratedImages(initialImages);
+                                                    setAppState('generating');
+
                                                     // Сразу подгружаем информацию о заказе, чтобы включить текущую логику polling
                                                     try {
                                                         const order = await fetchOrder(invId);
                                                         setCurrentOrder(order);
                                                     } catch (e) {
-                                                        console.warn('[App] Failed to fetch order after promo apply:', e);
+                                                        devLog.warn('[App] Failed to fetch order after promo apply:', e);
                                                     }
                                                 } finally {
                                                     setPromoLoading(false);
