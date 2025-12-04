@@ -1804,9 +1804,7 @@ app.use(paymentRoutes);
 // Для продакшена используем SQLite как простую БД, файл монтируем в volume (/data).
 // Database initialization and all DB operations are now in db/index.js, db/orders.js, db/promocodes.js
 // orderImages Map is exported from db/orders.js
-
-// In-memory защита от перебора промокодов: максимум 5 неуспешных попыток на IP за время жизни процесса.
-const promoAttemptsByIp = new Map(); // key: ip, value: { count }
+// promoAttemptsByIp is imported from db/promocodes.js (line 44)
 
 // In-memory сессии админа
 const adminSessions = new Map(); // key: token, value: { createdAt, expiresAt }
