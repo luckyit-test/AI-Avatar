@@ -2227,6 +2227,70 @@ app.get(`${API_PREFIX}/order/:invId`, (req, res) => {
   });
 });
 
+// Повторная генерация портретов для уже оплаченого/промо-заказа
+app.post(`${API_PREFIX}/order/:invId/retry`, express.json({ limit: '11mb' }), async (req, res) => {
+  try {
+    const { invId } = req.params;
+    const { imageData, gender, role, company } = req.body || {};
+
+    const order = loadOrder(invId);
+    if (!order) {
+      return res.status(404).json({ ok: false, error: 'Заказ не найден' });
+    }
+
+    // Разрешаем ретраи только для неуспешных заказов
+    if (order.status !== 'failed') {
+      return res.status(400).json({ ok: false, error: 'Повторная генерация доступна только для неуспешных заказов' });
+    }
+
+    const currentRetries = order.retries || 0;
+    if (currentRetries >= 2) {
+      return res.status(400).json({ ok: false, error: 'Лимит попыток повторной генерации исчерпан. Пожалуйста, напишите в службу поддержки.' });
+    }
+
+    if (!imageData || typeof imageData !== 'string' || imageData.length === 0) {
+      return res.status(400).json({ ok: false, error: 'Отсутствует новое изображение для генерации' });
+    }
+
+    // Базовая валидация изображения (формат/размер)
+    const imageValidation = validateImageData(imageData);
+    if (!imageValidation.valid) {
+      return res.status(400).json({ ok: false, error: imageValidation.error || 'Некорректное изображение' });
+    }
+
+    // Обновляем данные заказа и увеличиваем счётчик ретраев
+    order.gender = typeof gender === 'string' ? gender : order.gender;
+    order.role = typeof role === 'string' ? role : order.role;
+    order.company = typeof company === 'string' ? company : order.company;
+    order.hasImageData = true;
+    order.generatedImages = null;
+    order.failureReason = null;
+    order.retries = currentRetries + 1;
+    order.status = 'paid'; // считаем, что оплата уже подтверждена
+
+    saveOrder(order);
+
+    // Сохраняем изображение в оперативной памяти для генерации
+    orderImages.set(String(invId), imageData);
+
+    // Запускаем генерацию асинхронно
+    generatePortraitsForOrder(invId).catch(err => {
+      console.error('[Retry] Error in portrait generation:', err);
+      const failedOrder = loadOrder(invId);
+      if (failedOrder) {
+        failedOrder.status = 'failed';
+        failedOrder.failureReason = err instanceof Error ? err.message : String(err);
+        saveOrder(failedOrder);
+      }
+    });
+
+    return res.json({ ok: true, invId: String(invId), retries: order.retries });
+  } catch (error) {
+    console.error('[Retry] Failed to start retry generation:', error);
+    return res.status(500).json({ ok: false, error: 'Не удалось запустить повторную генерацию. Попробуйте позже.' });
+  }
+});
+
 // Простейшая "админка": список всех заказов
 app.get(`${API_PREFIX}/admin/orders`, requireAdminAuth, (req, res) => {
   try {

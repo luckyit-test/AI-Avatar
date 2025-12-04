@@ -356,7 +356,7 @@ interface GeneratedImage {
     estimatedWaitTime?: number;
 }
 
-type AppState = 'idle' | 'image-uploaded' | 'generating' | 'results-shown';
+type AppState = 'idle' | 'image-uploaded' | 'generating' | 'results-shown' | 'failed';
 
 function App() {
     const onboarding = useOnboarding();
@@ -416,6 +416,7 @@ function App() {
     const [adminPassword, setAdminPassword] = useState<string>('');
     const [adminAuthError, setAdminAuthError] = useState<string | null>(null);
     const [adminAuthLoading, setAdminAuthLoading] = useState<boolean>(false);
+    const [isRulesOpen, setIsRulesOpen] = useState<boolean>(false);
 
     const getEffectiveGender = (): DetectedGender | null => {
         // Возвращаем выбранный пол (автоматически или вручную)
@@ -689,8 +690,8 @@ function App() {
                     clearInterval(pollInterval);
                 } else if (order.status === 'failed') {
                     // Заказ провалился
-                    console.log('[App] Order failed');
-                    setAppState('image-uploaded');
+                    console.log('[App] Order failed', { failureReason: order.failureReason, retries: order.retries });
+                    setAppState('failed');
                     clearInterval(pollInterval);
                 }
             } catch (err) {
@@ -993,6 +994,57 @@ function App() {
         if (currentOrder && (currentOrder.status === 'processing' || currentOrder.status === 'completed')) {
             console.log('[App] Order already processing or completed, skipping generation');
             return;
+        }
+
+        // Повторная генерация для уже оплаченого/промо-заказа со статусом failed
+        if (currentOrder && currentOrder.status === 'failed') {
+            const currentRetries = currentOrder.retries ?? 0;
+            if (currentRetries >= 2) {
+                alert('Мы уже дважды пытались сгенерировать портреты по этому заказу. Пожалуйста, напишите в службу поддержки на kuznetsov@i-integrator.com.');
+                return;
+            }
+
+            try {
+                console.log('[App] Starting retry generation for order', { invId: currentOrder.invId, retries: currentRetries });
+                
+                // Инициализируем статусы для 6 финальных портретов
+                const initialImages: Record<string, GeneratedImage> = {};
+                STYLES.forEach(style => {
+                    initialImages[style] = { status: 'pending' };
+                });
+                setGeneratedImages(initialImages);
+                setAppState('generating');
+
+                const response = await retryOrder(
+                    currentOrder.invId,
+                    uploadedImage,
+                    effectiveGender,
+                    selectedRole || '',
+                    selectedCompany || ''
+                );
+
+                if (!response.ok) {
+                    console.error('[App] Retry generation failed:', response.error);
+                    setAppState('image-uploaded');
+                    alert(response.error || 'Не удалось запустить повторную генерацию. Попробуйте позже или напишите в поддержку.');
+                    return;
+                }
+
+                // Обновляем информацию о заказе и перезапускаем polling
+                try {
+                    const updatedOrder = await fetchOrder(currentOrder.invId);
+                    setCurrentOrder(updatedOrder);
+                } catch (e) {
+                    console.warn('[App] Failed to fetch order after retry start:', e);
+                }
+
+                return;
+            } catch (err) {
+                console.error('[App] Unexpected error during retry generation:', err);
+                setAppState('image-uploaded');
+                alert('Произошла ошибка при повторной генерации. Попробуйте позже или напишите в службу поддержки.');
+                return;
+            }
         }
 
         // Если оплаты ещё не было - инициируем платёж через Robokassa
@@ -2216,7 +2268,7 @@ function App() {
                                         </span>
                                     </div>
                                 </div>
-                                {appState === 'image-uploaded' && (
+                                {(appState === 'image-uploaded' || appState === 'failed') && (
                                     <div className="flex items-center gap-3">
                                         <button 
                                             onClick={handleReset} 
@@ -2350,6 +2402,39 @@ function App() {
                             )}
                         </AnimatePresence>
 
+                        {appState === 'failed' && currentOrder && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="h-full flex flex-col items-center justify-center bg-white rounded-lg border border-red-200 p-6 text-center"
+                            >
+                                <h3 className="text-lg font-semibold text-red-600 mb-2">Не удалось сгенерировать портреты</h3>
+                                <p className="text-sm text-gray-700 max-w-md mb-2">
+                                    Это техническая ошибка на стороне сервиса. Попробуйте загрузить другое фото и повторить генерацию.
+                                </p>
+                                {typeof currentOrder.retries === 'number' && (
+                                    <p className="text-xs text-gray-500 mb-2">
+                                        Осталось попыток: {Math.max(0, 2 - (currentOrder.retries || 0))} из 2.
+                                    </p>
+                                )}
+                                {currentOrder.failureReason && (
+                                    <p className="text-xs text-gray-400 max-w-md">
+                                        Техническая деталь: {currentOrder.failureReason}
+                                    </p>
+                                )}
+                                <p className="text-xs text-gray-500 mt-3 max-w-md">
+                                    Если после двух попыток результат всё равно не будет получаться, напишите в службу поддержки:&nbsp;
+                                    <a
+                                        href="mailto:kuznetsov@i-integrator.com"
+                                        className="text-blue-600 underline decoration-dotted"
+                                    >
+                                        kuznetsov@i-integrator.com
+                                    </a>
+                                    .
+                                </p>
+                            </motion.div>
+                        )}
+
                         {(appState === 'generating' || appState === 'results-shown') && (
                              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
                                 <AnimatePresence>
@@ -2398,7 +2483,7 @@ function App() {
                     </section>
                 </div>
             </main>
-            <Footer />
+            <Footer onOpenRules={() => setIsRulesOpen(true)} />
             
             {/* Onboarding */}
             <Onboarding
@@ -2437,6 +2522,63 @@ function App() {
                             className="max-h-[90vh] max-w-[90vw] object-contain rounded-md shadow-2xl"
                             onClick={(e) => e.stopPropagation()}
                         />
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Правила генераций */}
+            <AnimatePresence>
+                {isRulesOpen && (
+                    <motion.div
+                        key="rules-modal"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4"
+                        onClick={() => setIsRulesOpen(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0, y: 10 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.95, opacity: 0, y: 10 }}
+                            className="max-w-lg w-full bg-white rounded-xl shadow-2xl p-6 relative"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <button
+                                aria-label="Закрыть"
+                                className="absolute top-3 right-3 h-8 w-8 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center hover:bg-gray-200"
+                                onClick={() => setIsRulesOpen(false)}
+                            >
+                                <Icons.close className="h-4 w-4" />
+                            </button>
+                            <h2 className="text-lg font-semibold text-gray-900 mb-3">Правила генерации портретов</h2>
+                            <div className="text-sm text-gray-700 space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+                                <p>
+                                    Для получения качественных бизнес-портретов, пожалуйста, загружайте фото, которое соответствует этим требованиям:
+                                </p>
+                                <ul className="list-disc list-inside space-y-1">
+                                    <li>На фото должен быть один человек, без животных, пейзажей и посторонних объектов.</li>
+                                    <li>Лицо должно быть хорошо видно: анфас или лёгкий поворот, без сильных теней и засветов.</li>
+                                    <li>Фото должно быть настоящей фотографией, а не рисунком, 3D-рендером или скриншотом из игры.</li>
+                                    <li>Не загружайте изображения с неприемлемым или запрещённым контентом.</li>
+                                    <li>Используйте форматы JPG, PNG или WEBP, размером до 10 МБ.</li>
+                                </ul>
+                                <p className="text-xs text-gray-600">
+                                    Нажимая кнопку <span className="font-semibold">«Сгенерировать»</span>, пользователь подтверждает, что ознакомился с этими правилами и соглашается с ними.
+                                    В случае нарушения правил сервис не несёт ответственности за потраченные средства и результат генерации.
+                                </p>
+                                <p className="text-xs text-gray-600">
+                                    Если вы не согласны с полученными результатами или столкнулись с технической ошибкой, вы можете написать в службу поддержки:&nbsp;
+                                    <a
+                                        href="mailto:kuznetsov@i-integrator.com"
+                                        className="text-blue-600 underline decoration-dotted"
+                                    >
+                                        kuznetsov@i-integrator.com
+                                    </a>
+                                    .
+                                </p>
+                            </div>
+                        </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>

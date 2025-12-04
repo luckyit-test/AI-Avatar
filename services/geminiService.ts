@@ -649,6 +649,37 @@ export async function createPayment(
 }
 
 /**
+ * Повторная генерация портретов для уже оплаченого/промо-заказа
+ */
+export async function retryOrder(
+  invId: string,
+  imageData: string,
+  gender: DetectedGender,
+  role: string,
+  company: string
+): Promise<{ ok: boolean; error?: string; retries?: number }> {
+  const response = await fetch(`${API_BASE_URL}/order/${encodeURIComponent(invId)}/retry`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      imageData,
+      gender,
+      role,
+      company,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    return { ok: false, error: text || 'Не удалось запустить повторную генерацию' };
+  }
+
+  return response.json();
+}
+
+/**
  * Применяет промокод для бесплатной генерации (обходит оплату Robokassa)
  */
 export async function usePromoCode(

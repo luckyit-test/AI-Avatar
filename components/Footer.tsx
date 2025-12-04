@@ -4,7 +4,11 @@
 */
 import React from 'react';
 
-const Footer = () => {
+interface FooterProps {
+    onOpenRules: () => void;
+}
+
+const Footer: React.FC<FooterProps> = ({ onOpenRules }) => {
     return (
         <footer className="w-full mt-8 bg-white border-t border-gray-200">
             <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 flex flex-col gap-3 items-center text-sm text-gray-500">
@@ -21,6 +25,14 @@ const Footer = () => {
                     >
                         Оферта
                     </a>
+                    <span className="w-px h-4 bg-gray-300" aria-hidden="true" />
+                    <button
+                        type="button"
+                        onClick={onOpenRules}
+                        className="hover:text-blue-600 transition-colors"
+                    >
+                        Правила генераций
+                    </button>
                     <span className="w-px h-4 bg-gray-300" aria-hidden="true" />
                     <a href="mailto:kuznetsov@i-integrator.com" className="hover:text-blue-600 transition-colors">
                         Служба поддержки
