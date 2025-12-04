@@ -8,24 +8,26 @@ interface AnimatedPortraitsBackgroundProps {
 interface Portrait {
   id: string;
   url: string;
+  size: number; // пиксели
+}
+
+interface PortraitRow {
+  id: string;
+  portraits: Portrait[];
   row: number; // номер ряда (0, 1, 2, ...)
   direction: 'left' | 'right'; // направление движения
-  startX: number; // начальная позиция X в пикселях
-  duration: number; // секунды
-  delay: number; // секунды
-  size: number; // пиксели
   y: number; // позиция Y в процентах (0-100)
+  duration: number; // секунды
 }
 
 const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = ({ className = '' }) => {
-  const [portraits, setPortraits] = useState<Portrait[]>([]);
-  const [activePortraitIds, setActivePortraitIds] = useState<Set<string>>(new Set());
+  const [rows, setRows] = useState<PortraitRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
-  const nextPortraitIndexRef = useRef(0);
-  const numRows = 4; // Количество рядов портретов
-  const portraitsPerRow = 6; // Портретов в каждом ряду
-  const maxActivePortraits = numRows * portraitsPerRow; // Максимум одновременно видимых портретов
+  const numRows = 2; // Количество рядов портретов
+  const portraitsPerRow = 8; // Портретов в каждом ряду
+  const portraitSize = 200; // Размер каждого портрета
+  const portraitGap = 12; // Отступ между портретами
 
   useEffect(() => {
     // Обновляем размер контейнера при изменении размера окна
@@ -103,110 +105,6 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
     loadPortraits();
   }, []);
 
-  // Управление активными портретами
-  useEffect(() => {
-    if (portraits.length === 0) return;
-
-    const addNextPortrait = () => {
-      setActivePortraitIds((prev) => {
-        if (prev.size >= maxActivePortraits) return prev;
-
-        // Находим следующий портрет из очереди
-        const nextIndex = nextPortraitIndexRef.current;
-        if (nextIndex >= portraits.length) {
-          // Если все портреты использованы, начинаем заново
-          nextPortraitIndexRef.current = 0;
-          return prev;
-        }
-
-        const portrait = portraits[nextIndex];
-        nextPortraitIndexRef.current = nextIndex + 1;
-
-        const newSet = new Set(prev);
-        newSet.add(portrait.id);
-        return newSet;
-      });
-    };
-
-    // Добавляем портреты по рядам с задержками
-    const timeouts: NodeJS.Timeout[] = [];
-    const portraitsToAdd = Math.min(maxActivePortraits, portraits.length);
-    
-    // Распределяем портреты по рядам
-    for (let row = 0; row < numRows; row++) {
-      const rowPortraits = portraits.filter(p => p.row === row).slice(0, portraitsPerRow);
-      
-      rowPortraits.forEach((portrait, indexInRow) => {
-        const timeout = setTimeout(() => {
-          setActivePortraitIds((prev) => {
-            const newSet = new Set(prev);
-            newSet.add(portrait.id);
-            return newSet;
-          });
-          nextPortraitIndexRef.current = Math.max(nextPortraitIndexRef.current, 
-            portraits.findIndex(p => p.id === portrait.id) + 1);
-        }, row * 1000 + indexInRow * 300 + portrait.delay * 1000);
-        timeouts.push(timeout);
-      });
-    }
-
-    return () => {
-      timeouts.forEach(clearTimeout);
-    };
-  }, [portraits]);
-
-  const handleAnimationComplete = (portraitId: string) => {
-    // Находим завершившийся портрет
-    const completedPortrait = portraits.find(p => p.id === portraitId);
-    if (!completedPortrait) return;
-    
-    // Удаляем портрет после завершения анимации
-    setActivePortraitIds((prev) => {
-      const newSet = new Set(prev);
-      newSet.delete(portraitId);
-      return newSet;
-    });
-    
-    // Добавляем следующий портрет из того же ряда
-    setTimeout(() => {
-      setActivePortraitIds((prev) => {
-        // Считаем портреты в этом ряду
-        const rowPortraits = portraits.filter(p => p.row === completedPortrait.row);
-        const activeInRow = rowPortraits.filter(p => prev.has(p.id)).length;
-        
-        if (activeInRow >= portraitsPerRow) return prev;
-
-        // Находим следующий портрет из того же ряда, который еще не активен
-        const currentIndex = portraits.findIndex(p => p.id === portraitId);
-        let nextIndex = currentIndex + 1;
-        
-        // Ищем следующий портрет из того же ряда
-        while (nextIndex < portraits.length) {
-          const candidate = portraits[nextIndex];
-          if (candidate.row === completedPortrait.row && !prev.has(candidate.id)) {
-            const newSet = new Set(prev);
-            newSet.add(candidate.id);
-            return newSet;
-          }
-          nextIndex++;
-        }
-        
-        // Если не нашли в конце, ищем с начала
-        nextIndex = 0;
-        while (nextIndex < currentIndex) {
-          const candidate = portraits[nextIndex];
-          if (candidate.row === completedPortrait.row && !prev.has(candidate.id)) {
-            const newSet = new Set(prev);
-            newSet.add(candidate.id);
-            return newSet;
-          }
-          nextIndex++;
-        }
-        
-        return prev;
-      });
-    }, 200);
-  };
 
   // Показываем компонент даже если портреты еще загружаются или их нет
   // (для отладки видно, что компонент рендерится)
@@ -227,7 +125,7 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
     );
   }
 
-  if (portraits.length === 0) {
+  if (rows.length === 0) {
     // Если портретов нет, все равно рендерим контейнер для отладки
     return (
       <div
@@ -250,59 +148,72 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
       className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`}
       style={{ zIndex: 0 }}
     >
-      {portraits.map((portrait) => {
-        if (!activePortraitIds.has(portrait.id)) return null;
-
-        // Определяем конечную позицию X в зависимости от направления
-        const containerWidth = containerRef.current?.clientWidth || 800;
-        const endX = portrait.direction === 'left' 
-          ? -portrait.size - 200 // Заканчиваем слева за пределами экрана
-          : containerWidth + 200; // Заканчиваем справа за пределами экрана
+      {rows.map((row) => {
+        const containerWidth = containerRef.current?.clientWidth || 1200;
+        const rowWidth = row.portraits.length * portraitSize + (row.portraits.length - 1) * portraitGap;
+        
+        // Для движения влево: начинаем справа, заканчиваем слева
+        // Для движения вправо: начинаем слева, заканчиваем справа
+        const startX = row.direction === 'left' 
+          ? containerWidth + 100 // Начинаем справа за пределами экрана
+          : -rowWidth - 100; // Начинаем слева за пределами экрана
+        
+        const endX = row.direction === 'left' 
+          ? -rowWidth - 100 // Заканчиваем слева за пределами экрана
+          : containerWidth + 100; // Заканчиваем справа за пределами экрана
 
         return (
           <motion.div
-            key={portrait.id}
+            key={row.id}
             className="absolute"
             initial={{
-              x: portrait.startX,
-              y: `${portrait.y}%`,
-              opacity: 0,
+              x: startX,
+              y: `${row.y}%`,
+              opacity: 1,
             }}
             animate={{
               x: endX,
-              opacity: [0, 1, 1, 0],
             }}
             transition={{
-              duration: portrait.duration,
-              delay: portrait.delay,
+              duration: row.duration,
               ease: 'linear',
-              opacity: {
-                times: [0, 0.05, 0.95, 1],
-                duration: portrait.duration,
-              },
+              repeat: Infinity,
             }}
-            onAnimationComplete={() => handleAnimationComplete(portrait.id)}
             style={{
-              width: `${portrait.size}px`,
-              height: `${portrait.size}px`,
-              willChange: 'transform, opacity',
+              willChange: 'transform',
               transform: `translateY(-50%)`, // Центрируем по вертикали
+              display: 'flex',
+              gap: `${portraitGap}px`,
+              padding: '8px',
+              backgroundColor: 'white',
+              borderRadius: '16px',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
             }}
           >
-            <img
-              src={portrait.url}
-              alt="Business portrait"
-              className="w-full h-full object-cover rounded-xl shadow-2xl"
-              style={{
-                filter: 'brightness(0.98) contrast(1.08) saturate(1.1)',
-                opacity: 0.9,
-                borderRadius: '12px',
-              }}
-              loading="lazy"
-              onError={(e) => {
-                console.error('[AnimatedPortraitsBackground] Failed to load image:', portrait.url);
-              }}
-            />
+            {row.portraits.map((portrait) => (
+              <div
+                key={portrait.id}
+                style={{
+                  width: `${portrait.size}px`,
+                  height: `${portrait.size}px`,
+                  flexShrink: 0,
+                }}
+              >
+                <img
+                  src={portrait.url}
+                  alt="Business portrait"
+                  className="w-full h-full object-cover"
+                  style={{
+                    borderRadius: '12px',
+                    filter: 'brightness(0.98) contrast(1.08) saturate(1.1)',
+                  }}
+                  loading="lazy"
+                  onError={(e) => {
+                    console.error('[AnimatedPortraitsBackground] Failed to load image:', portrait.url);
+                  }}
+                />
+              </div>
+            ))}
           </motion.div>
         );
       })}
