@@ -1050,9 +1050,32 @@ export async function generateImage(
   const pollInterval = 1000; // Проверяем каждую секунду
   const maxWaitTime = 300000; // Максимум 5 минут
   const startTime = Date.now();
+  let pollAttempt = 0;
+  
+  console.log('[generateImage] Starting polling for generation', {
+    jobId: queueJob.jobId,
+    maxWaitTime,
+    pollInterval
+  });
   
   while (Date.now() - startTime < maxWaitTime) {
+    pollAttempt++;
+    const elapsed = Date.now() - startTime;
+    
+    console.log(`[generateImage] Polling attempt ${pollAttempt} for jobId: ${queueJob.jobId}`, {
+      elapsed,
+      remaining: maxWaitTime - elapsed
+    });
+    
     const status = await checkGenerationStatus(queueJob.jobId);
+    
+    console.log(`[generateImage] Polling status received`, {
+      attempt: pollAttempt,
+      status: status.status,
+      hasResult: !!status.result,
+      hasError: !!status.error,
+      error: status.error || null
+    });
     
     // Вызываем callback для обновления UI
     if (onStatusUpdate) {
@@ -1060,16 +1083,37 @@ export async function generateImage(
     }
     
     if (status.status === 'completed' && status.result) {
+      console.log(`[generateImage] Generation completed successfully`, {
+        attempt: pollAttempt,
+        elapsed,
+        resultLength: status.result.imageDataUrl?.length || 0
+      });
       return status.result.imageDataUrl;
     }
     
     if (status.status === 'error') {
+      console.error(`[generateImage] Generation failed`, {
+        attempt: pollAttempt,
+        error: status.error,
+        elapsed
+      });
       throw new Error(status.error || 'Ошибка генерации');
     }
     
     // Ждем перед следующей проверкой
+    console.log(`[generateImage] Waiting before next poll`, {
+      attempt: pollAttempt,
+      pollInterval,
+      elapsed,
+      remaining: maxWaitTime - elapsed
+    });
     await new Promise(resolve => setTimeout(resolve, pollInterval));
   }
   
+  console.error(`[generateImage] Polling timeout`, {
+    totalAttempts: pollAttempt,
+    elapsed: Date.now() - startTime,
+    maxWaitTime
+  });
   throw new Error('Таймаут ожидания генерации');
 }
