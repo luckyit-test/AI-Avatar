@@ -12,6 +12,7 @@ import Footer from './components/Footer';
 import AdminDashboard from './components/AdminDashboard';
 import Uploader from './components/Uploader';
 import ImageCard from './components/ImageCard';
+import AnimatedPortraitsBackground from './components/AnimatedPortraitsBackground';
 import { Icons } from './components/Icons';
 import { CustomSelect } from './components/CustomSelect';
 import { Onboarding, useOnboarding } from './components/Onboarding';
@@ -2485,19 +2486,28 @@ function App() {
                     </aside>
                     
                     {/* --- Right Column: Results --- */}
-                    <section className="flex-1">
+                    <section className="flex-1 relative">
                         <AnimatePresence>
                             {appState === 'idle' && (
                                 <motion.div 
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    className="h-full flex flex-col items-center justify-center bg-white rounded-lg border-2 border-dashed border-gray-300 p-8 text-center"
+                                    className="h-full flex flex-col items-center justify-center bg-white rounded-lg border-2 border-dashed border-gray-300 p-8 text-center relative overflow-hidden"
                                 >
-                                    <Icons.gallery className="h-16 w-16 text-gray-400 mb-4" />
-                                    <h3 className="text-xl font-semibold text-gray-800">Ваши бизнес-портреты</h3>
-                                    <p className="text-gray-500 mt-2 max-w-md">
-                                        После загрузки фото здесь появятся ваши сгенерированные изображения.
-                                    </p>
+                                    {/* Анимированный фон с портретами */}
+                                    <AnimatedPortraitsBackground className="absolute inset-0" />
+                                    
+                                    {/* Полупрозрачный оверлей для читаемости текста */}
+                                    <div className="absolute inset-0 bg-gradient-to-b from-white/80 via-white/60 to-white/80 z-10" />
+                                    
+                                    {/* Контент поверх анимации */}
+                                    <div className="relative z-20">
+                                        <Icons.gallery className="h-16 w-16 text-gray-400 mb-4 mx-auto" />
+                                        <h3 className="text-xl font-semibold text-gray-800">Ваши бизнес-портреты</h3>
+                                        <p className="text-gray-500 mt-2 max-w-md">
+                                            После загрузки фото здесь появятся ваши сгенерированные изображения.
+                                        </p>
+                                    </div>
                                 </motion.div>
                             )}
 

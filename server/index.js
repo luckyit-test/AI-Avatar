@@ -2258,6 +2258,127 @@ app.get(`${API_PREFIX}/order/:invId`, (req, res) => {
   });
 });
 
+// Галерея последних сгенерированных портретов для анимации на главной странице
+let galleryCache = null;
+let galleryCacheTime = 0;
+const GALLERY_CACHE_TTL = 5 * 60 * 1000; // 5 минут
+
+app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 50, 100); // Максимум 100 портретов
+    
+    // Проверяем кэш
+    const now = Date.now();
+    if (galleryCache && (now - galleryCacheTime) < GALLERY_CACHE_TTL) {
+      return res.json({ portraits: galleryCache.slice(0, limit) });
+    }
+
+    // Получаем последние завершенные заказы с портретами
+    const stmt = db.prepare(`
+      SELECT invId, generatedImagesJson, createdAt 
+      FROM orders 
+      WHERE status = 'completed' 
+        AND generatedImagesJson IS NOT NULL 
+        AND generatedImagesJson != 'null'
+        AND imagesCount > 0
+      ORDER BY createdAt DESC 
+      LIMIT 50
+    `);
+    
+    const orders = stmt.all();
+    const portraits = [];
+
+    for (const order of orders) {
+      if (!order.generatedImagesJson) continue;
+      
+      try {
+        const images = JSON.parse(order.generatedImagesJson);
+        if (images && typeof images === 'object') {
+          // Добавляем все портреты из заказа
+          for (const url of Object.values(images)) {
+            if (typeof url === 'string' && url.startsWith('/images/')) {
+              portraits.push(url);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[Gallery] Failed to parse images for order', order.invId, e);
+      }
+    }
+
+    // Перемешиваем для разнообразия
+    for (let i = portraits.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [portraits[i], portraits[j]] = [portraits[j], portraits[i]];
+    }
+
+    // Обновляем кэш
+    galleryCache = portraits;
+    galleryCacheTime = now;
+
+    res.json({ portraits: portraits.slice(0, limit) });
+  } catch (err) {
+    console.error('[Gallery] Failed to load recent portraits:', err);
+    res.status(500).json({ error: 'Не удалось загрузить галерею портретов' });
+  }
+});
+
+// Галерея последних сгенерированных портретов для анимации на главной странице
+app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 50, 100); // Максимум 100 портретов
+    
+    // Получаем последние завершенные заказы с портретами
+    const stmt = db.prepare(`
+      SELECT invId, generatedImagesJson, imagesCount 
+      FROM orders 
+      WHERE status = 'completed' 
+        AND (imagesCount > 0 OR generatedImagesJson IS NOT NULL)
+      ORDER BY createdAt DESC 
+      LIMIT @limit
+    `);
+    
+    const orders = stmt.all({ limit: limit * 2 }); // Берем больше заказов, чтобы набрать нужное количество портретов
+    
+    const portraits = [];
+    
+    for (const order of orders) {
+      if (portraits.length >= limit) break;
+      
+      let images = null;
+      if (order.generatedImagesJson) {
+        try {
+          images = JSON.parse(order.generatedImagesJson);
+        } catch (e) {
+          console.warn('[Gallery] Failed to parse images for order', order.invId);
+          continue;
+        }
+      }
+      
+      if (images && typeof images === 'object') {
+        // Добавляем все портреты из этого заказа
+        for (const url of Object.values(images)) {
+          if (typeof url === 'string' && url.startsWith('/images/')) {
+            portraits.push(url);
+            if (portraits.length >= limit) break;
+          }
+        }
+      }
+    }
+    
+    // Перемешиваем для разнообразия
+    for (let i = portraits.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [portraits[i], portraits[j]] = [portraits[j], portraits[i]];
+    }
+    
+    res.json({ portraits: portraits.slice(0, limit) });
+  } catch (err) {
+    console.error('[Gallery] Failed to load recent portraits:', err);
+    res.status(500).json({ error: 'Не удалось загрузить портреты', portraits: [] });
+  }
+});
+
 // Повторная генерация портретов для уже оплаченого/промо-заказа
 app.post(`${API_PREFIX}/order/:invId/retry`, express.json({ limit: '11mb' }), async (req, res) => {
   try {
