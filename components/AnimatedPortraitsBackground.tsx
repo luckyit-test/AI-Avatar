@@ -96,7 +96,9 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
           // Распределяем портреты по высоте контейнера равномерно
           // Учитываем высоту ряда и отступы
           const yPosition = 50 + (rowIndex * (rowHeight + rowGap)) + (rowHeight / 2);
-          const yPercent = (yPosition / currentHeight) * 100;
+          const yPercent = Math.min(95, Math.max(5, (yPosition / currentHeight) * 100)); // Ограничиваем 5-95%
+          
+          console.log(`[AnimatedPortraitsBackground] Row ${rowIndex}: yPosition=${yPosition}, yPercent=${yPercent.toFixed(2)}%, height=${currentHeight}, direction=${direction}`);
           
           // Берем портреты для этого ряда
           const rowPortraits: Portrait[] = [];
