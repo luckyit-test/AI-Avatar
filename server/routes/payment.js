@@ -157,8 +157,11 @@ function handleRobokassaResult(req, res) {
         hasInvId: !!invId,
         hasSignature: !!signature,
         params,
+        method: req.method,
+        url: req.url,
       });
-      return res.status(400).send('Bad Request');
+      // Возвращаем более информативное сообщение для отладки
+      return res.status(400).send(`Bad Request: Missing required parameters. OutSum: ${!!outSum}, InvId: ${!!invId}, Signature: ${!!signature}`);
     }
 
     const expectedSignature = crypto

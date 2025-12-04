@@ -1036,21 +1036,8 @@ async function processAnalysisQueue() {
 
 // --- Robokassa success / fail redirects ---
 
-app.get('/payment/success', (req, res) => {
-  const invId = req.query.InvId || req.query.invId;
-  if (!invId) {
-    return res.redirect('/?payment=success');
-  }
-  return res.redirect(`/?payment=success&invId=${encodeURIComponent(invId)}`);
-});
-
-app.get('/payment/fail', (req, res) => {
-  const invId = req.query.InvId || req.query.invId;
-  if (!invId) {
-    return res.redirect('/?payment=fail');
-  }
-  return res.redirect(`/?payment=fail&invId=${encodeURIComponent(invId)}`);
-});
+// Payment redirects (success/fail) are handled by server/routes/payment.js
+// All payment-related endpoints are registered via app.use(paymentRoutes) below
 
 // Безопасная конфигурация CORS - только с разрешенных доменов
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
