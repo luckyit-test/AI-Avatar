@@ -1155,9 +1155,7 @@ app.post(`${API_PREFIX}/payment/create`, async (req, res) => {
 // buildPortraitPrompts is imported from services/promptBuilder.js
 import { buildPortraitPrompts } from './services/promptBuilder.js';
 
-// Old duplicate functions removed - using imported versions from services/promptBuilder.js
-// Функции для построения промптов портретов (old duplicate - using imported version)
-function buildPortraitPromptsOld(gender, role, company) {
+// Old duplicate functions removed - using imported versions
   const STYLES = ['Классический', 'Современный', 'Креативный', 'Технологичный', 'Дружелюбный', 'Уверенный'];
   
   if (!gender || (gender !== 'male' && gender !== 'female')) {
@@ -1287,8 +1285,6 @@ function buildPortraitPromptsOld(gender, role, company) {
 }
 
 // generatePortraitsForOrder is imported from services/portraitGeneration.js
-// Old duplicate function removed - using imported version
-async function generatePortraitsForOrderOld(invId) {
   const order = loadOrder(invId);
   const imageData = orderImages.get(String(invId));
   if (!order || !imageData) {
