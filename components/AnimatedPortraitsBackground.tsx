@@ -182,7 +182,7 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
     <div
       ref={internalContainerRef}
       className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`}
-      style={{ zIndex: 0 }}
+      style={{ zIndex: 1 }}
     >
       {rows.map((row) => {
         const element = containerRef.current as HTMLElement | null;
@@ -226,6 +226,7 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
               borderRadius: '16px',
               boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
               alignItems: 'center',
+              zIndex: 1,
             }}
           >
             {row.portraits.map((portrait) => (
