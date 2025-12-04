@@ -2243,6 +2243,7 @@ function App() {
                                         </p>
                                     )}
                                 </div>
+                                )}
                                 <div data-onboarding="generate" className="mt-4">
                                     <div className="flex items-start gap-3 mb-3">
                                         <span
