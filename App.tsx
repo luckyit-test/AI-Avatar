@@ -2498,14 +2498,14 @@ function App() {
                                 <motion.div 
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    className="h-full flex flex-col items-center justify-center bg-white rounded-lg border-2 border-dashed border-gray-300 p-8 text-center relative overflow-hidden"
+                                    className="h-full flex flex-col items-center justify-center p-8 text-center relative z-10"
                                 >
                                     {/* Градиентные оверлеи для читаемости текста (как на сайте) */}
-                                    <div className="absolute inset-0 bg-gradient-to-b from-white/60 via-white/40 to-white/80 z-[5] rounded-lg" />
-                                    <div className="absolute inset-0 bg-gradient-to-r from-white/50 via-transparent to-white/30 z-[5] rounded-lg" />
+                                    <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-white/50 to-white/85 z-[5]" />
+                                    <div className="absolute inset-0 bg-gradient-to-r from-white/60 via-transparent to-white/40 z-[5]" />
                                     
                                     {/* Контент поверх анимации */}
-                                    <div className="relative z-20">
+                                    <div className="relative z-20 bg-white/80 backdrop-blur-sm rounded-lg border-2 border-dashed border-gray-300 px-8 py-12">
                                         <Icons.gallery className="h-16 w-16 text-gray-400 mb-4 mx-auto" />
                                         <h3 className="text-xl font-semibold text-gray-800">Ваши бизнес-портреты</h3>
                                         <p className="text-gray-500 mt-2 max-w-md">
