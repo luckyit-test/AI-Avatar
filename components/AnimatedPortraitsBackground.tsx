@@ -57,18 +57,16 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
   useEffect(() => {
     // Загружаем портреты с сервера
     // Используем отложенную загрузку для ускорения загрузки страницы
-    const loadPortraits = async () => {
+    const loadData = async () => {
       try {
         console.log('[AnimatedPortraitsBackground] Loading portraits from /api/gallery/recent');
         // Уменьшаем лимит для более быстрой загрузки (нужно только 6 портретов для базового набора)
-        // Используем requestIdleCallback для неблокирующей загрузки
-        const loadData = async () => {
-          const response = await fetch('/api/gallery/recent?limit=10');
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-          }
-          const data = await response.json();
-          const urls: string[] = data.portraits || [];
+        const response = await fetch('/api/gallery/recent?limit=10');
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        const urls: string[] = data.portraits || [];
 
         console.log('[AnimatedPortraitsBackground] Loaded portraits:', urls.length);
 
@@ -107,17 +105,18 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
           // Первый ряд (rowIndex=0) начинается с самого верха: y=0 для верхнего края портрета
           // Используем portraitSize/2 для центрирования через translateY(-50%)
           // Вычитаем 100px чтобы подтянуть все ряды выше
-          // Второй ряд должен начинаться сразу после первого без отступа
-          const yPosition = rowIndex === 0 
-            ? portraitSize / 2 - 100  // Первый ряд начинается выше на 100px
-            : (rowIndex * rowHeight) + (rowHeight / 2) - 100; // Остальные ряды идут друг за другом, все выше на 100px
-          
-          // Исправляем отступ между первым и вторым рядом
-          // Второй ряд должен начинаться сразу после первого (без gap)
-          if (rowIndex === 1) {
+          // Убираем отступ между первым и вторым рядом - второй ряд начинается сразу после первого
+          let yPosition;
+          if (rowIndex === 0) {
+            yPosition = portraitSize / 2 - 100; // Первый ряд начинается выше на 100px
+          } else if (rowIndex === 1) {
+            // Второй ряд начинается сразу после первого без отступа
             const firstRowY = portraitSize / 2 - 100;
             const firstRowBottom = firstRowY + (rowHeight / 2); // Нижний край первого ряда
             yPosition = firstRowBottom + (rowHeight / 2); // Центр второго ряда сразу после первого
+          } else {
+            // Остальные ряды идут друг за другом
+            yPosition = (rowIndex * rowHeight) + (rowHeight / 2) - 100;
           }
           
           console.log(`[AnimatedPortraitsBackground] Row ${rowIndex}: yPosition=${yPosition}px, height=${currentHeight}, direction=${direction}`);
@@ -150,25 +149,22 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
           });
         }
 
-          console.log('[AnimatedPortraitsBackground] Created rows:', newRows.length);
-          setRows(newRows);
-          setIsLoading(false);
-        } catch (error) {
-          console.error('[AnimatedPortraitsBackground] Failed to load portraits:', error);
-          setIsLoading(false);
-        }
-      };
-      
-      // Используем requestIdleCallback для неблокирующей загрузки после рендера страницы
-      if ('requestIdleCallback' in window) {
-        requestIdleCallback(loadData, { timeout: 2000 });
-      } else {
-        // Fallback для браузеров без requestIdleCallback
-        setTimeout(loadData, 100);
+        console.log('[AnimatedPortraitsBackground] Created rows:', newRows.length);
+        setRows(newRows);
+        setIsLoading(false);
+      } catch (error) {
+        console.error('[AnimatedPortraitsBackground] Failed to load portraits:', error);
+        setIsLoading(false);
       }
     };
-
-    loadPortraits();
+    
+    // Используем requestIdleCallback для неблокирующей загрузки после рендера страницы
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(loadData, { timeout: 2000 });
+    } else {
+      // Fallback для браузеров без requestIdleCallback
+      setTimeout(loadData, 100);
+    }
   }, [containerHeight]);
 
 
@@ -211,10 +207,10 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
         const cycleWidth = portraitsPerCycle * singlePortraitWidth;
         
         // Ряды должны сразу отображаться в контейнере (не начинаться за пределами экрана)
-        // Портерты должны быть видны сразу при загрузке страницы для ВСЕХ рядов
-        // Для движения влево: начинаем так, чтобы портреты заполняли экран и были видны сразу
-        // Для движения вправо: начинаем так, чтобы портреты заполняли экран и были видны сразу
-        // Все ряды должны начинаться в видимой области экрана
+        // Портерты должны быть видны сразу при загрузке страницы
+        // Для движения влево: начинаем так, чтобы портреты заполняли экран справа налево
+        // Для движения вправо: начинаем так, чтобы портреты заполняли экран слева направо
+        // Двигаемся на cycleWidth, чтобы следующий цикл портретов начинался сразу
         const startX = row.direction === 'left' 
           ? containerWidth - cycleWidth + rowPadding // Начинаем так, чтобы портреты были видны справа налево
           : -cycleWidth + containerWidth + rowPadding; // Начинаем так, чтобы портреты были видны слева направо
