@@ -180,24 +180,25 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
         const containerWidth = element?.clientWidth || 1200;
         const singlePortraitWidth = portraitSize + portraitGap;
         const rowPadding = 32; // padding ряда
-        const rowWidth = row.portraits.length * portraitSize + (row.portraits.length - 1) * portraitGap + rowPadding;
         
         // Для бесконечного бесшовного движения:
         // Рассчитываем ширину одного "блока" портретов (сколько нужно для заполнения экрана + запас)
-        const portraitsPerCycle = Math.ceil(containerWidth / singlePortraitWidth) + 3; // +3 для запаса
+        // Это должно быть кратно количеству портретов в базовом наборе для бесшовного повтора
+        const portraitsPerCycle = Math.ceil(containerWidth / singlePortraitWidth) + 4; // +4 для запаса
         const cycleWidth = portraitsPerCycle * singlePortraitWidth;
         
         // Ряды должны сразу отображаться в контейнере (не начинаться за пределами экрана)
-        // Для движения влево: начинаем так, чтобы портреты были видны справа, двигаемся влево
-        // Для движения вправо: начинаем так, чтобы портреты были видны слева, двигаемся вправо
-        // Это создает эффект бесконечного движения с портретами, которые сразу видны
+        // Портерты должны быть видны сразу при загрузке страницы
+        // Для движения влево: начинаем так, чтобы портреты заполняли экран справа налево
+        // Для движения вправо: начинаем так, чтобы портреты заполняли экран слева направо
+        // Двигаемся на cycleWidth, чтобы следующий цикл портретов начинался сразу
         const startX = row.direction === 'left' 
-          ? containerWidth - cycleWidth + rowPadding // Начинаем так, чтобы портреты были видны справа
-          : -cycleWidth + containerWidth + rowPadding; // Начинаем так, чтобы портреты были видны слева
+          ? containerWidth // Начинаем справа, портреты сразу видны
+          : -cycleWidth + containerWidth; // Начинаем слева так, чтобы портреты были видны
         
         const endX = row.direction === 'left' 
-          ? -cycleWidth + containerWidth + rowPadding // Заканчиваем так, чтобы следующий цикл начинался справа
-          : containerWidth + rowPadding; // Заканчиваем справа, чтобы следующий цикл начинался слева
+          ? containerWidth - cycleWidth // Заканчиваем так, чтобы следующий цикл начинался справа
+          : containerWidth; // Заканчиваем справа, чтобы следующий цикл начинался слева
 
         return (
           <motion.div
