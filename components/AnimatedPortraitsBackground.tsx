@@ -222,7 +222,7 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
               transform: `translateY(-50%)`, // Центрируем по вертикали
               display: 'flex',
               gap: `${portraitGap}px`,
-              padding: row.row === 0 ? '0 16px 16px 16px' : '16px', // Убираем верхний padding у первого ряда
+              padding: '16px',
               backgroundColor: 'white',
               borderRadius: '16px',
               boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
