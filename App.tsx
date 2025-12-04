@@ -2497,8 +2497,9 @@ function App() {
                                     {/* Анимированный фон с портретами */}
                                     <AnimatedPortraitsBackground className="absolute inset-0 rounded-lg" />
                                     
-                                    {/* Полупрозрачный оверлей для читаемости текста */}
-                                    <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-white/50 to-white/70 z-10 rounded-lg" />
+                                    {/* Градиентные оверлеи для читаемости текста (как на сайте) */}
+                                    <div className="absolute inset-0 bg-gradient-to-b from-white/80 via-white/60 to-white/95 z-10 rounded-lg" />
+                                    <div className="absolute inset-0 bg-gradient-to-r from-white/70 via-transparent to-white/50 z-10 rounded-lg" />
                                     
                                     {/* Контент поверх анимации */}
                                     <div className="relative z-20">

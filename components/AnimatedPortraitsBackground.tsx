@@ -84,9 +84,9 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
             row,
             direction,
             startX,
-            duration: 25 + Math.random() * 10, // 25-35 секунд
-            delay: (index % portraitsPerRow) * 0.5 + Math.random() * 2, // Задержка для создания волны
-            size: 140 + Math.random() * 40, // 140-180px
+            duration: 30 + Math.random() * 15, // 30-45 секунд (более медленная, плавная анимация)
+            delay: (index % portraitsPerRow) * 0.8 + Math.random() * 3, // Задержка для создания волны
+            size: 180 + Math.random() * 60, // 180-240px (ближе к размеру на сайте 221x295)
             y: yPercent,
           });
         });
@@ -292,10 +292,11 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
             <img
               src={portrait.url}
               alt="Business portrait"
-              className="w-full h-full object-cover rounded-lg shadow-lg"
+              className="w-full h-full object-cover rounded-xl shadow-2xl"
               style={{
-                filter: 'brightness(0.95) contrast(1.05)',
-                opacity: 0.85,
+                filter: 'brightness(0.98) contrast(1.08) saturate(1.1)',
+                opacity: 0.9,
+                borderRadius: '12px',
               }}
               loading="lazy"
               onError={(e) => {
