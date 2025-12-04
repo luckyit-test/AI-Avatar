@@ -33,8 +33,8 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
     // Обновляем размер контейнера при изменении размера окна
     const updateContainerSize = () => {
       if (containerRef.current) {
-        // Триггерим обновление портретов при изменении размера
-        setPortraits(prev => [...prev]);
+        // Триггерим обновление рядов при изменении размера
+        setRows(prev => [...prev]);
       }
     };
 
@@ -62,39 +62,50 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
           return;
         }
 
-        // Создаем портреты с распределением по рядам
-        const newPortraits: Portrait[] = [];
-        const containerWidth = containerRef.current?.clientWidth || 800; // примерная ширина
+        // Создаем ряды портретов
+        const newRows: PortraitRow[] = [];
+        const containerWidth = containerRef.current?.clientWidth || 1200;
         
-        urls.forEach((url, index) => {
-          const row = index % numRows; // Распределяем по рядам циклически
-          const direction = row % 2 === 0 ? 'left' : 'right'; // Четные ряды - влево, нечетные - вправо
+        // Распределяем портреты по рядам
+        for (let rowIndex = 0; rowIndex < numRows; rowIndex++) {
+          const direction = rowIndex % 2 === 0 ? 'left' : 'right'; // Четные ряды - влево, нечетные - вправо
           
-          // Распределяем портреты по высоте контейнера
-          const yPercent = (row / numRows) * 80 + 10 + (Math.random() * 5); // 10-90% с небольшим разбросом
+          // Распределяем портреты по высоте контейнера равномерно
+          const yPercent = (rowIndex / numRows) * 70 + 15; // 15-85% равномерно
           
-          // Для движения влево: начинаем справа, заканчиваем слева
-          // Для движения вправо: начинаем слева, заканчиваем справа
-          const startX = direction === 'left' 
-            ? containerWidth + 200 // Начинаем справа за пределами экрана
-            : -200; // Начинаем слева за пределами экрана
+          // Берем портреты для этого ряда
+          const rowPortraits: Portrait[] = [];
+          for (let i = 0; i < portraitsPerRow; i++) {
+            const urlIndex = rowIndex * portraitsPerRow + i;
+            if (urlIndex < urls.length) {
+              rowPortraits.push({
+                id: `portrait-${rowIndex}-${i}-${Date.now()}`,
+                url: urls[urlIndex],
+                size: portraitSize,
+              });
+            } else {
+              // Если портретов не хватает, используем циклически
+              const cyclicIndex = urlIndex % urls.length;
+              rowPortraits.push({
+                id: `portrait-${rowIndex}-${i}-${Date.now()}`,
+                url: urls[cyclicIndex],
+                size: portraitSize,
+              });
+            }
+          }
           
-          
-          newPortraits.push({
-            id: `portrait-${index}-${Date.now()}-${Math.random()}`,
-            url,
-            row,
+          newRows.push({
+            id: `row-${rowIndex}-${Date.now()}`,
+            portraits: rowPortraits,
+            row: rowIndex,
             direction,
-            startX,
-            duration: 30 + Math.random() * 15, // 30-45 секунд (более медленная, плавная анимация)
-            delay: (index % portraitsPerRow) * 0.8 + Math.random() * 3, // Задержка для создания волны
-            size: 180 + Math.random() * 60, // 180-240px (ближе к размеру на сайте 221x295)
             y: yPercent,
+            duration: 40 + Math.random() * 10, // 40-50 секунд для плавного движения
           });
-        });
+        }
 
-        console.log('[AnimatedPortraitsBackground] Created portrait objects:', newPortraits.length);
-        setPortraits(newPortraits);
+        console.log('[AnimatedPortraitsBackground] Created rows:', newRows.length);
+        setRows(newRows);
         setIsLoading(false);
       } catch (error) {
         console.error('[AnimatedPortraitsBackground] Failed to load portraits:', error);
