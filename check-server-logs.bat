@@ -22,7 +22,7 @@ echo Проверка логов сервера (последние %LINES% ст
 echo ========================================
 echo.
 
-plink.exe -ssh root@43.245.226.24 -pw Yd2Vc_Wejus0DlNB "cd /opt/newava && echo '=== Логи бэкенда ===' && docker logs --tail %LINES% newava_backend 2>&1 && echo '' && echo '=== Логи Nginx ===' && docker logs --tail %LINES% newava_nginx 2>&1 && echo '' && echo '=== Логи приложения ===' && docker logs --tail %LINES% newava_app 2>&1 && echo '' && echo '=== Поиск ошибок Robokassa ===' && docker logs newava_backend 2>&1 | grep -i 'robokassa\|payment\|error' | tail -20"
+plink.exe -ssh root@43.245.226.24 -pw Yd2Vc_Wejus0DlNB "cd /opt/newava && LINES=%LINES% && echo '=== Логи бэкенда ===' && docker logs --tail $LINES newava_backend 2>&1 && echo '' && echo '=== Логи Nginx ===' && docker logs --tail $LINES newava_nginx 2>&1 && echo '' && echo '=== Логи приложения ===' && docker logs --tail $LINES newava_app 2>&1 && echo '' && echo '=== Поиск ошибок Robokassa ===' && docker logs newava_backend 2>&1 | grep -i 'robokassa\|payment\|error' | tail -20"
 
 if %ERRORLEVEL% EQU 0 (
     echo.
