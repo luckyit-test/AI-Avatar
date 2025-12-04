@@ -24,19 +24,27 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
   const [rows, setRows] = useState<PortraitRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
-  const numRows = 2; // Количество рядов портретов
-  const portraitsPerRow = 8; // Портретов в каждом ряду
+  const [containerHeight, setContainerHeight] = useState(800); // Высота контейнера
   const portraitSize = 200; // Размер каждого портрета
   const portraitGap = 12; // Отступ между портретами
+  const rowHeight = portraitSize + 32; // Высота ряда (портрет + padding)
+  const rowGap = 40; // Отступ между рядами
 
   useEffect(() => {
     // Обновляем размер контейнера при изменении размера окна
     const updateContainerSize = () => {
       if (containerRef.current) {
+        const height = containerRef.current.clientHeight;
+        setContainerHeight(height);
         // Триггерим обновление рядов при изменении размера
         setRows(prev => [...prev]);
       }
     };
+
+    // Устанавливаем начальную высоту
+    if (containerRef.current) {
+      setContainerHeight(containerRef.current.clientHeight);
+    }
 
     window.addEventListener('resize', updateContainerSize);
     return () => window.removeEventListener('resize', updateContainerSize);
@@ -65,13 +73,25 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
         // Создаем ряды портретов
         const newRows: PortraitRow[] = [];
         const containerWidth = containerRef.current?.clientWidth || 1200;
+        const currentHeight = containerRef.current?.clientHeight || containerHeight;
+        
+        // Вычисляем количество рядов, которые поместятся в контейнер
+        // Учитываем отступы сверху и снизу (по 50px)
+        const availableHeight = currentHeight - 100;
+        const numRows = Math.max(2, Math.floor(availableHeight / (rowHeight + rowGap)));
+        const portraitsPerRow = Math.max(6, Math.floor(containerWidth / (portraitSize + portraitGap)) + 2); // +2 для плавного движения
+        
+        console.log('[AnimatedPortraitsBackground] Container dimensions:', { width: containerWidth, height: currentHeight });
+        console.log('[AnimatedPortraitsBackground] Calculated rows:', numRows, 'portraits per row:', portraitsPerRow);
         
         // Распределяем портреты по рядам
         for (let rowIndex = 0; rowIndex < numRows; rowIndex++) {
           const direction = rowIndex % 2 === 0 ? 'left' : 'right'; // Четные ряды - влево, нечетные - вправо
           
           // Распределяем портреты по высоте контейнера равномерно
-          const yPercent = (rowIndex / numRows) * 70 + 15; // 15-85% равномерно
+          // Учитываем высоту ряда и отступы
+          const yPosition = 50 + (rowIndex * (rowHeight + rowGap)) + (rowHeight / 2);
+          const yPercent = (yPosition / currentHeight) * 100;
           
           // Берем портреты для этого ряда
           const rowPortraits: Portrait[] = [];
@@ -195,10 +215,11 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
               transform: `translateY(-50%)`, // Центрируем по вертикали
               display: 'flex',
               gap: `${portraitGap}px`,
-              padding: '8px',
+              padding: '16px',
               backgroundColor: 'white',
               borderRadius: '16px',
               boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+              alignItems: 'center',
             }}
           >
             {row.portraits.map((portrait) => (
