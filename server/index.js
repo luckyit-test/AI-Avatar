@@ -1936,13 +1936,42 @@ async function generatePortraitsForOrder(invId) {
       const base64Data = match ? match[1] : dataUrl.replace(/^data:.*;base64,/, '');
       const buffer = Buffer.from(base64Data, 'base64');
 
-      // Оптимизируем изображение: сжимаем JPEG с качеством 80% для уменьшения размера файла
+      // Оптимизируем изображение: агрессивное сжатие для быстрой загрузки
       try {
-        const optimizedBuffer = await sharp(buffer)
-          .jpeg({ quality: 80, mozjpeg: true }) // Качество 80%, mozjpeg для лучшего сжатия
+        const image = sharp(buffer);
+        const metadata = await image.metadata();
+        
+        // Если изображение очень большое, уменьшаем его до разумного размера
+        // Максимальная ширина/высота для портретов - 1024px (достаточно для отображения)
+        const maxDimension = 1024;
+        let resizeOptions = null;
+        
+        if (metadata.width > maxDimension || metadata.height > maxDimension) {
+          resizeOptions = {
+            width: metadata.width > metadata.height ? maxDimension : null,
+            height: metadata.height > metadata.width ? maxDimension : null,
+            fit: 'inside', // Сохраняем пропорции
+            withoutEnlargement: true, // Не увеличиваем маленькие изображения
+          };
+        }
+        
+        let processingPipeline = image;
+        if (resizeOptions) {
+          processingPipeline = processingPipeline.resize(resizeOptions.width, resizeOptions.height, resizeOptions);
+        }
+        
+        // Агрессивное сжатие JPEG: качество 65% для значительного уменьшения размера
+        const optimizedBuffer = await processingPipeline
+          .jpeg({ 
+            quality: 65, // Уменьшено с 80% до 65% для более сильного сжатия
+            mozjpeg: true, // mozjpeg для лучшего сжатия
+            progressive: true, // Прогрессивный JPEG для лучшего восприятия при загрузке
+          })
           .toBuffer();
+        
         await fs.writeFile(filePath, optimizedBuffer);
-        console.log(`[saveImageForOrder] Optimized image saved: ${fileName}, original: ${buffer.length} bytes, optimized: ${optimizedBuffer.length} bytes`);
+        const compressionRatio = ((1 - optimizedBuffer.length / buffer.length) * 100).toFixed(1);
+        console.log(`[saveImageForOrder] Optimized image saved: ${fileName}, original: ${(buffer.length / 1024).toFixed(1)}KB, optimized: ${(optimizedBuffer.length / 1024).toFixed(1)}KB, compression: ${compressionRatio}%`);
       } catch (optimizeError) {
         // Если оптимизация не удалась, сохраняем оригинал
         console.warn(`[saveImageForOrder] Failed to optimize image, saving original:`, optimizeError);
