@@ -62,6 +62,8 @@ import {
   userBatchGroups,
   setLastBatchSendTime,
   currentJobIds,
+  addJobId,
+  removeJobId,
 } from './queues/generationQueue.js';
 import { 
   analysisQueue, 
@@ -121,7 +123,7 @@ function addToAnalysisQueueLocal(imageData, type) {
 // Обработка одной задачи генерации
 async function processJob(job) {
   activeJobs.add(job.id);
-  currentJobIds.push(job.id);
+  addJobId(job.id);
   job.startedAt = Date.now();
   
   safeLog('ProcessJob started', { 
@@ -271,7 +273,7 @@ async function processJob(job) {
           
           // Задача завершена успешно
           activeJobs.delete(job.id);
-          currentJobIds = currentJobIds.filter(id => id !== job.id);
+          removeJobId(job.id);
           processQueue(); // Проверяем, есть ли еще задачи для обработки
           return;
         }
@@ -525,7 +527,7 @@ async function processJob(job) {
           }
           
           activeJobs.delete(job.id);
-          currentJobIds = currentJobIds.filter(id => id !== job.id);
+          removeJobId(job.id);
           processQueue();
           
           safeLog('Intermediate image generated with minimal prompt', { jobId: job.id, duration });
@@ -646,7 +648,7 @@ async function processJob(job) {
     
     // Задача завершена с ошибкой
     activeJobs.delete(job.id);
-    currentJobIds = currentJobIds.filter(id => id !== job.id);
+    removeJobId(job.id);
     processQueue(); // Проверяем, есть ли еще задачи для обработки
   }
 }
@@ -739,7 +741,7 @@ async function processQueue() {
           }
           
           activeJobs.delete(job.id);
-          currentJobIds = currentJobIds.filter(id => id !== job.id);
+          removeJobId(job.id);
           // Перезапускаем обработку очереди после ошибки
           processQueue();
         });

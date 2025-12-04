@@ -18,6 +18,16 @@ export const generationQueue = [];
 export const activeJobs = new Set();
 export let currentJobIds = [];
 
+export function removeJobId(jobId) {
+  currentJobIds = currentJobIds.filter(id => id !== jobId);
+}
+
+export function addJobId(jobId) {
+  if (!currentJobIds.includes(jobId)) {
+    currentJobIds.push(jobId);
+  }
+}
+
 // Хранилище результатов завершенных задач
 export const completedJobs = new Map();
 
