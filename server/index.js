@@ -61,6 +61,7 @@ import {
   lastBatchSendTime,
   userBatchGroups,
   setLastBatchSendTime,
+  currentJobIds,
 } from './queues/generationQueue.js';
 import { 
   analysisQueue, 
