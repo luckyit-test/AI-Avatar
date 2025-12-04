@@ -2487,10 +2487,10 @@ function App() {
                     </aside>
                     
                     {/* --- Right Column: Results --- */}
-                    <section className="flex-1 relative overflow-hidden">
+                    <section ref={rightColumnRef} className="flex-1 relative overflow-hidden">
                         {/* Анимированный фон с портретами - заполняет всю секцию */}
                         {appState === 'idle' && (
-                            <AnimatedPortraitsBackground className="absolute inset-0" />
+                            <AnimatedPortraitsBackground className="absolute inset-0" containerRef={rightColumnRef} />
                         )}
                         
                         <AnimatePresence>

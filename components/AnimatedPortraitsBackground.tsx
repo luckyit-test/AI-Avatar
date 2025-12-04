@@ -35,8 +35,9 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
   useEffect(() => {
     // Обновляем размер контейнера при изменении размера окна
     const updateContainerSize = () => {
-      if (containerRef.current) {
-        const height = containerRef.current.clientHeight;
+      const element = containerRef.current as HTMLElement | null;
+      if (element) {
+        const height = element.clientHeight;
         setContainerHeight(height);
         // Триггерим обновление рядов при изменении размера
         setRows(prev => [...prev]);
@@ -44,13 +45,14 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
     };
 
     // Устанавливаем начальную высоту
-    if (containerRef.current) {
-      setContainerHeight(containerRef.current.clientHeight);
+    const element = containerRef.current as HTMLElement | null;
+    if (element) {
+      setContainerHeight(element.clientHeight);
     }
 
     window.addEventListener('resize', updateContainerSize);
     return () => window.removeEventListener('resize', updateContainerSize);
-  }, []);
+  }, [containerRef]);
 
   useEffect(() => {
     // Загружаем портреты с сервера
@@ -183,8 +185,9 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
       style={{ zIndex: 0 }}
     >
       {rows.map((row) => {
-        const containerWidth = containerRef.current?.clientWidth || 1200;
-        const rowWidth = row.portraits.length * portraitSize + (row.portraits.length - 1) * portraitGap;
+        const element = containerRef.current as HTMLElement | null;
+        const containerWidth = element?.clientWidth || 1200;
+        const rowWidth = row.portraits.length * portraitSize + (row.portraits.length - 1) * portraitGap + 32; // +32 для padding
         
         // Для движения влево: начинаем справа, заканчиваем слева
         // Для движения вправо: начинаем слева, заканчиваем справа
