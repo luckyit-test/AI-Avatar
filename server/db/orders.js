@@ -156,8 +156,37 @@ export function listOrders(filters = {}, pagination = {}) {
   );
   const rows = dataStmt.all({ ...params, limit: pageSize, offset });
 
+  // Миграция: для старых заказов вычисляем imagesCount из JSON и кешируем в БД
+  const mapped = rows.map((row) => {
+    let imagesCount = row.imagesCount;
+
+    // Для старых заказов, созданных до появления столбца imagesCount,
+    // один раз вычисляем количество портретов из JSON и кешируем в БД.
+    if (imagesCount == null && row.generatedImagesJson) {
+      try {
+        const images = JSON.parse(row.generatedImagesJson);
+        imagesCount = images && typeof images === 'object' ? Object.keys(images).length : 0;
+        if (typeof imagesCount === 'number' && imagesCount > 0) {
+          updateImagesCountStmt.run({
+            imagesCount,
+            invId: row.invId,
+          });
+        }
+      } catch (e) {
+        console.warn('[DB] Failed to parse generatedImagesJson for legacy order', row.invId, e);
+        imagesCount = 0;
+      }
+    }
+
+    const mappedRow = mapOrderRow(row);
+    // В списке не загружаем сами URL-ы изображений для экономии памяти
+    mappedRow.generatedImages = null;
+    mappedRow.imagesCount = imagesCount != null ? imagesCount : mappedRow.imagesCount || 0;
+    return mappedRow;
+  });
+
   return {
-    orders: rows.map(mapOrderRow),
+    orders: mapped,
     total,
     page,
     pageSize,
