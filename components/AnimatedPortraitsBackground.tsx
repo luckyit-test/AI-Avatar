@@ -175,16 +175,23 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
       {rows.map((row) => {
         const element = containerRef.current as HTMLElement | null;
         const containerWidth = element?.clientWidth || 1200;
+        const singlePortraitWidth = portraitSize + portraitGap;
         const rowWidth = row.portraits.length * portraitSize + (row.portraits.length - 1) * portraitGap + 32; // +32 для padding
         
-        // Для движения влево: начинаем справа, заканчиваем слева
-        // Для движения вправо: начинаем слева, заканчиваем справа
+        // Для бесконечного бесшовного движения:
+        // Рассчитываем ширину одного "блока" портретов (сколько нужно для заполнения экрана)
+        const portraitsPerCycle = Math.ceil(containerWidth / singlePortraitWidth) + 2; // +2 для запаса
+        const cycleWidth = portraitsPerCycle * singlePortraitWidth;
+        
+        // Для движения влево: начинаем справа, двигаемся влево на cycleWidth
+        // Для движения вправо: начинаем слева, двигаемся вправо на cycleWidth
+        // Это обеспечивает бесшовный переход, так как портреты повторяются циклически
         const startX = row.direction === 'left' 
           ? containerWidth + 100 // Начинаем справа за пределами экрана
-          : -rowWidth - 100; // Начинаем слева за пределами экрана
+          : -cycleWidth; // Начинаем слева так, чтобы следующий цикл был виден
         
         const endX = row.direction === 'left' 
-          ? -rowWidth - 100 // Заканчиваем слева за пределами экрана
+          ? containerWidth - cycleWidth + 100 // Заканчиваем так, чтобы следующий цикл начинался справа
           : containerWidth + 100; // Заканчиваем справа за пределами экрана
 
         return (
