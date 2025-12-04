@@ -17,10 +17,10 @@ const router = express.Router();
 
 // These functions should be imported from db/orders.js and services/payment.js
 // For now, they are placeholders that need to be implemented
-let createNextInvId, saveOrder, loadOrder, orderImages, generatePortraitsForOrder;
+let createNextInvId, saveOrder, loadOrder, orderImages, generatePortraitsForOrder, MAX_QUEUE_SIZE;
 
 export function initializePaymentRoutes(dependencies) {
-  ({ createNextInvId, saveOrder, loadOrder, orderImages, generatePortraitsForOrder } = dependencies);
+  ({ createNextInvId, saveOrder, loadOrder, orderImages, generatePortraitsForOrder, MAX_QUEUE_SIZE } = dependencies);
 }
 
 // Инициация платежа
@@ -131,7 +131,7 @@ function handleRobokassaResult(req, res) {
       saveOrder(order);
       
       // Запускаем генерацию портретов
-      generatePortraitsForOrder(invId).catch(err => {
+      generatePortraitsForOrder(invId, MAX_QUEUE_SIZE).catch(err => {
         console.error('[Robokassa] Failed to generate portraits:', err);
       });
     }

@@ -1461,7 +1461,7 @@ app.post(`${API_PREFIX}/order/:invId/retry`, express.json({ limit: '11mb' }), as
     orderImages.set(String(invId), imageData);
 
     // Запускаем генерацию асинхронно
-    generatePortraitsForOrder(invId).catch(err => {
+    generatePortraitsForOrder(invId, MAX_QUEUE_SIZE).catch(err => {
       console.error('[Retry] Error in portrait generation:', err);
       const failedOrder = loadOrder(invId);
       if (failedOrder) {
@@ -1805,7 +1805,7 @@ app.post(`${API_PREFIX}/promo/use`, express.json({ limit: '11mb' }), async (req,
     });
 
     // Запускаем генерацию асинхронно
-    generatePortraitsForOrder(invId).catch(err => {
+    generatePortraitsForOrder(invId, MAX_QUEUE_SIZE).catch(err => {
       console.error('[Promo] Error in portrait generation with promo:', err);
       const failedOrder = loadOrder(invId);
       if (failedOrder) {
@@ -1862,6 +1862,7 @@ initializePaymentRoutes({
   loadOrder,
   orderImages,
   generatePortraitsForOrder,
+  MAX_QUEUE_SIZE,
 });
 
 // Mount routes IMMEDIATELY after initialization, BEFORE other route handlers
