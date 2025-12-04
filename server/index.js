@@ -1554,6 +1554,104 @@ app.post(`${API_PREFIX}/payment/create`, async (req, res) => {
   }
 });
 
+// Вспомогательная функция для случайного выбора из массива
+function randomChoice(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+// Функция для генерации детального описания одежды на основе роли, компании и пола
+function attireByContext(gender, role, company) {
+  const baseFemale = 'No facial hair. No beard. No mustache.';
+  const baseMale = 'Preserve facial hair exactly as in original. If no facial hair in original, do not add any. Do not remove facial hair if present. Grooming neat and professional.';
+
+  const isFormalCompany = company === 'Enterprise' || company === 'Госкомпания' || company === 'Аутсорс/консалтинг';
+  const isModernCompany = company === 'Стартап' || company === 'Продуктовая компания' || company === 'Финтех';
+
+  // Role-centric attire defaults
+  const roleSmartCasual = 'smart-casual, solid neutral colors, no large logos';
+  const roleBusinessCasual = 'business-casual blazer or knit, shirt or blouse, no tie';
+  const roleFormal = 'business formal suit or tailored blazer, crisp shirt/blouse';
+
+  // Wardrobe pools for extra variability (picked later according to context)
+  const femaleModernPool = [
+    'minimal blouse',
+    'fine knit sweater',
+    'turtleneck knit',
+    'cardigan over tee',
+    'light overshirt',
+    'denim jacket (clean, no distress)',
+  ];
+  const femaleFormalPool = [
+    'tailored blazer over blouse',
+    'structured knit jacket',
+  ];
+  const maleModernPool = [
+    'plain tee under lightweight overshirt',
+    'oxford shirt, no tie',
+    'turtleneck knit',
+    'merino crewneck sweater',
+    'cardigan over shirt',
+  ];
+  const maleFormalPool = [
+    'tailored blazer, no tie',
+    'business suit with open collar',
+  ];
+  const roleCreative = 'smart-casual with tasteful minimal design accents';
+
+  let attireCore;
+  switch (role) {
+    case 'Разработчик':
+    case 'DevOps-инженер':
+    case 'QA-инженер':
+      attireCore = isFormalCompany ? roleBusinessCasual : `${roleSmartCasual}; t-shirt or plain shirt/hoodie acceptable`;
+      break;
+    case 'Дизайнер UI/UX':
+      attireCore = `${roleCreative}; premium minimal knit or blouse; no loud patterns`;
+      break;
+    case 'Дата-сайентист':
+    case 'ML-инженер':
+      attireCore = isFormalCompany ? roleBusinessCasual : `${roleSmartCasual}; cardigan or lightweight knit`;
+      break;
+    case 'Продуктовый менеджер':
+    case 'Проектный менеджер':
+      attireCore = isFormalCompany ? roleBusinessCasual : `${roleSmartCasual}; knit or blouse; no suit; no tie; no formal blazer`;
+      break;
+    case 'Архитектор':
+      attireCore = isFormalCompany ? `${roleBusinessCasual}; tailored blazer` : `${roleSmartCasual}; minimal knit or overshirt; no suit`;
+      break;
+    case 'Тимлид':
+      attireCore = isFormalCompany ? roleBusinessCasual : `${roleSmartCasual}; clean and approachable; no suit`;
+      break;
+    case 'CTO':
+      attireCore = isFormalCompany ? roleFormal : 'executive smart-casual; tailored blazer, no tie';
+      break;
+    default:
+      attireCore = isFormalCompany ? roleBusinessCasual : roleSmartCasual;
+  }
+
+  // Company flavor
+  let companyFlavor = '';
+  if (company === 'Финтех') companyFlavor = 'sleek monochrome palette';
+  if (company === 'Стартап') companyFlavor = 'fresh, dynamic, contemporary casual';
+  if (company === 'Продуктовая компания') companyFlavor = 'approachable and modern';
+  if (company === 'Госкомпания') companyFlavor = 'conservative and respectful styling';
+  if (company === 'Аутсорс/консалтинг') companyFlavor = 'polished and versatile';
+
+  const noSuitModern = (isModernCompany && role !== 'CTO') ? 'No suit. No tie. No tuxedo. Avoid formal blazer.' : '';
+  const femaleNoSuit = (gender === 'female' && isModernCompany && role !== 'CTO') ? 'Avoid suit jacket; prefer blouse/knit.' : '';
+
+  // Pick a concrete garment for higher outfit variety
+  let garment = '';
+  if (gender === 'female') {
+    garment = isFormalCompany ? randomChoice(femaleFormalPool) : randomChoice(femaleModernPool);
+  } else if (gender === 'male') {
+    garment = isFormalCompany ? randomChoice(maleFormalPool) : randomChoice(maleModernPool);
+  }
+
+  const grooming = gender === 'female' ? baseFemale : baseMale;
+  return `${attireCore}. ${companyFlavor}. Specific garment: ${garment}. ${noSuitModern} ${femaleNoSuit} ${grooming}`.trim();
+}
+
 // Функции для построения промптов портретов (упрощенная версия с фронтенда)
 function buildPortraitPrompts(gender, role, company) {
   const STYLES = ['Классический', 'Современный', 'Креативный', 'Технологичный', 'Дружелюбный', 'Уверенный'];
@@ -1574,12 +1672,15 @@ function buildPortraitPrompts(gender, role, company) {
     ? 'CRITICAL FACIAL HAIR RULE: Maintain the EXACT same facial hair style, length, thickness, density, and visibility as in the original photo. If the original shows a short, subtle, barely visible beard - keep it EXACTLY short, subtle, and barely visible. If clean-shaven in original, generate clean-shaven. Do NOT lengthen, thicken, densify, or enhance facial hair beyond what is visible in the original photo.'
     : '';
   
+  // Генерируем детальное описание одежды на основе контекста
+  const attire = attireByContext(gender, role, company);
+
   const base = (tone) => {
     const contextText = `The person works as a ${role || 'technology professional'} in a ${company || 'professional'} context. Convey this only through overall style, mood, clothing and atmosphere, not through any overlaid text.`;
 
     return `Create a professional, high-resolution ${
       gender === 'female' ? 'female ' : 'male '
-    }business portrait of the person in the photo, suitable for a LinkedIn profile. ${genderInstruction} ${facialHairPreservation} The style should be ${tone}. ${constraints} Attire: smart-casual, solid neutral colors, no large logos. Lighting: soft, even high-key lighting. Lens & crop: 85mm head-and-shoulders. Color grade: clean editorial grade. Pose: facing camera, subtle smile or neutral confident expression. Photorealistic and authentic. Preserve identity and facial features EXACTLY as in the original photo. ${contextText} CRITICAL: Do NOT add any text, titles, role names, company names, logos, watermarks, captions, UI elements, or typography inside the image. The image must look like a clean studio portrait photo without any overlaid writing.`;
+    }business portrait of the person in the photo, suitable for a LinkedIn profile. ${genderInstruction} ${facialHairPreservation} The style should be ${tone}. ${constraints} Attire: ${attire}. Lighting: soft, even high-key lighting. Lens & crop: 85mm head-and-shoulders. Color grade: clean editorial grade. Pose: facing camera, subtle smile or neutral confident expression. Photorealistic and authentic. Preserve identity and facial features EXACTLY as in the original photo. ${contextText} CRITICAL: Do NOT add any text, titles, role names, company names, logos, watermarks, captions, UI elements, or typography inside the image. The image must look like a clean studio portrait photo without any overlaid writing.`;
   };
   
   return {
