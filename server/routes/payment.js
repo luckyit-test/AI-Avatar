@@ -93,10 +93,7 @@ router.post(`${API_PREFIX}/payment/create`, async (req, res) => {
     // Формируем URL с правильным кодированием всех параметров
     const redirectUrl =
       `${robokassaBaseUrl}?MerchantLogin=${encodeURIComponent(ROBOKASSA_LOGIN)}` +
-      `&OutSum=${outSum}` +
-      `&InvId=${invId}` +
-      `&Description=${descriptionEncoded}` +
-      `&SignatureValue=${signature}${isTestParam}`;
+      `&OutSum=${outSum}&InvId=${invId}&Description=${descriptionEncoded}&SignatureValue=${signature}${isTestParam}`;
 
     console.log('[Robokassa] Creating payment:', {
       invId,
