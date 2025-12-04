@@ -1116,8 +1116,7 @@ app.post(`${API_PREFIX}/payment/create`, async (req, res) => {
 });
 
 // All prompt building functions are imported from services/promptBuilder.js
-// buildPortraitPrompts is imported from services/promptBuilder.js
-import { buildPortraitPrompts } from './services/promptBuilder.js';
+// buildPortraitPrompts is imported at the top of the file (line 82)
 
 // Old duplicate functions removed - using imported versions from modules
 
