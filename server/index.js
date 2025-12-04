@@ -1552,7 +1552,7 @@ app.post(`${API_PREFIX}/payment/create`, async (req, res) => {
       : 'https://auth.robokassa.ru/Merchant/Index.aspx'; // Оба варианта используют auth.robokassa.ru
 
     const redirectUrl =
-      `${robokassaUrl}?MerchantLogin=${encodeURIComponent(ROBOKASSA_LOGIN)}` +
+      `${robokassaBaseUrl}?MerchantLogin=${encodeURIComponent(ROBOKASSA_LOGIN)}` +
       `&OutSum=${outSum}&InvId=${invId}&Description=${descriptionEncoded}&SignatureValue=${signature}${isTestParam}`;
 
     // Логируем для отладки (без паролей)
