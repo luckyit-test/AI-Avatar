@@ -5,16 +5,16 @@ import express from 'express';
 import { Modality } from '@google/genai';
 import { API_PREFIX } from '../config/index.js';
 import { rateLimit } from '../middleware/rateLimit.js';
-import { addToAnalysisQueue, getAnalysisJobStatus } from '../queues/analysisQueue.js';
+import { getAnalysisJobStatus } from '../queues/analysisQueue.js';
 import { waitForGeminiAnalysisRateLimit } from '../queues/analysisQueue.js';
 
 const router = express.Router();
 
 // Dependencies that need to be injected
-let validateImageData, genAIAnalysis, safeLog;
+let validateImageData, genAIAnalysis, safeLog, addToAnalysisQueueLocal;
 
 export function initializeAnalysisRoutes(dependencies) {
-  ({ validateImageData, genAIAnalysis, safeLog } = dependencies);
+  ({ validateImageData, genAIAnalysis, safeLog, addToAnalysisQueueLocal } = dependencies);
 }
 
 // Evaluate image (with rate limiting)
@@ -51,7 +51,7 @@ router.post(`${API_PREFIX}/evaluate-image`, rateLimit, async (req, res) => {
       imageDataLength: imageData.length
     });
     
-    const queueResult = addToAnalysisQueue(imageData, 'evaluate');
+    const queueResult = addToAnalysisQueueLocal(imageData, 'evaluate');
     const jobId = queueResult.jobId;
     
     console.log('[evaluate-image] Job added to queue', {

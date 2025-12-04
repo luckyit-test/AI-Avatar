@@ -1853,6 +1853,7 @@ initializeAnalysisRoutes({
   validateImageData,
   genAIAnalysis,
   safeLog,
+  addToAnalysisQueueLocal,
 });
 
 initializePaymentRoutes({
