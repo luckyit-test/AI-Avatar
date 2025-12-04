@@ -58,18 +58,23 @@ export function GenerationActions({
                     <div className="flex gap-2">
                         <input
                             type="text"
+                            inputMode="text"
+                            autoCapitalize="characters"
+                            autoComplete="off"
+                            autoCorrect="off"
+                            spellCheck="false"
                             value={promoCodeInput}
                             onChange={(e) => {
                                 onPromoCodeChange(e.target.value.toUpperCase().slice(0, 6));
                             }}
                             placeholder="Введите промокод"
-                            className="flex-1 sm:flex-1 md:flex-1 h-10 px-3 rounded-lg border border-gray-300 text-sm tracking-[0.24em] uppercase max-w-[calc(100%-90px)] sm:max-w-none"
+                            className="flex-1 h-10 px-3 rounded-lg border border-gray-300 text-sm tracking-[0.15em] sm:tracking-[0.24em] uppercase focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         />
                         <button
                             type="button"
                             disabled={promoLoading || !promoCodeInput || promoCodeInput.length !== 6 || !canUsePromo}
                             onClick={onPromoCodeApply}
-                            className="inline-flex items-center justify-center h-10 px-3 rounded-lg text-xs font-medium text-white disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed"
+                            className="inline-flex items-center justify-center h-10 px-3 rounded-lg text-xs font-medium text-white disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed touch-manipulation active:scale-[0.98]"
                             style={{
                                 background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                                 boxShadow: '0 6px 14px rgba(16,185,129,0.35)',
@@ -127,16 +132,18 @@ export function GenerationActions({
             {appState === 'image-uploaded' && (
                 <div className="flex items-center gap-3">
                     <button 
+                        type="button"
                         onClick={onReset} 
-                        className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 flex-1 h-10 py-2 px-4 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm hover:shadow-md active:scale-[0.98]"
+                        className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 flex-1 h-10 py-2 px-4 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm hover:shadow-md active:scale-[0.98] touch-manipulation"
                     >
                         <Icons.reset className="w-4 h-4 mr-2" />
                         Сбросить
                     </button>
                     <button 
+                        type="button"
                         onClick={onGenerateClick} 
                         disabled={!canGenerate}
-                        className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 flex-1 h-10 py-2 px-4 text-white disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed"
+                        className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 flex-1 h-10 py-2 px-4 text-white disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed touch-manipulation active:scale-[0.98]"
                         style={{
                             background: canGenerate
                                 ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)'
@@ -146,15 +153,25 @@ export function GenerationActions({
                                 : '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
                         }}
                         onMouseEnter={(e) => {
-                            if (canGenerate) {
+                            if (canGenerate && window.matchMedia('(hover: hover)').matches) {
                                 e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(99, 102, 241, 0.4), 0 10px 10px -5px rgba(99, 102, 241, 0.4)';
                                 e.currentTarget.style.transform = 'scale(1.02)';
                             }
                         }}
                         onMouseLeave={(e) => {
-                            if (canGenerate) {
+                            if (canGenerate && window.matchMedia('(hover: hover)').matches) {
                                 e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(99, 102, 241, 0.3), 0 4px 6px -4px rgba(99, 102, 241, 0.3)';
                                 e.currentTarget.style.transform = 'scale(1)';
+                            }
+                        }}
+                        onTouchStart={(e) => {
+                            if (canGenerate) {
+                                e.currentTarget.style.opacity = '0.9';
+                            }
+                        }}
+                        onTouchEnd={(e) => {
+                            if (canGenerate) {
+                                e.currentTarget.style.opacity = '1';
                             }
                         }}
                     >

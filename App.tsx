@@ -1688,7 +1688,7 @@ function App() {
                 </div>
             </header>
             
-            <main className="flex-1 w-full container mx-auto p-4 sm:p-6 lg:p-8">
+            <main className="flex-1 w-full container mx-auto p-4 sm:p-6 lg:p-8" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingBottom: 'max(1rem, env(safe-area-inset-bottom))', paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
                 <div className="flex flex-col lg:flex-row gap-8">
                     {/* --- Left Column: Controls --- */}
                     <aside className="w-full lg:w-1/3 lg:max-w-sm flex-shrink-0">

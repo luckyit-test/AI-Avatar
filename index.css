@@ -5,6 +5,40 @@
 body {
     background: #f8f9fa;
     color: #212529;
+    /* iOS Safari оптимизации */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
+    /* Safe area insets для iPhone X+ (notch) */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+}
+
+/* Разрешаем выделение текста только в input и textarea */
+input,
+textarea {
+    -webkit-user-select: text;
+    user-select: text;
+}
+
+/* Touch manipulation для всех кнопок */
+button {
+    touch-action: manipulation;
+}
+
+/* Предотвращение двойного тапа для зума на iOS */
+* {
+    touch-action: manipulation;
+}
+
+/* Исключения для элементов, которым нужен стандартный touch */
+input[type="range"],
+input[type="file"],
+textarea {
+    touch-action: auto;
 }
 
 /* Профессиональная цветовая схема для карьерного роста */
