@@ -2603,7 +2603,7 @@ const GEMINI_API_KEY_ANALYSIS = process.env.GEMINI_API_KEY_ANALYSIS; // Ключ
 const ROBOKASSA_LOGIN = process.env.ROBOKASSA_LOGIN || 'NEWAVA.pro';
 const ROBOKASSA_PASSWORD1 = process.env.ROBOKASSA_PASSWORD1 || '1m8G0UNfjydU08B0wnhbY';
 const ROBOKASSA_PASSWORD2 = process.env.ROBOKASSA_PASSWORD2 || 'QyX8XB3lmYkaYxIH79Z9';
-const ROBOKASSA_IS_TEST = process.env.ROBOKASSA_IS_TEST === '0' ? 0 : 1; // 0 = продакшен, 1 = тест
+const ROBOKASSA_IS_TEST = process.env.ROBOKASSA_IS_TEST === '1' ? 1 : 0; // 0 = продакшен (по умолчанию), 1 = тест
 const ROBOKASSA_PAYMENT_AMOUNT = parseFloat(process.env.ROBOKASSA_PAYMENT_AMOUNT || '100.00');
 const ROBOKASSA_PAYMENT_DESC =
   process.env.ROBOKASSA_PAYMENT_DESC || 'Генерация бизнес‑портретов (1 пакет из 6 изображений)';
