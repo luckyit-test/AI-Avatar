@@ -37,8 +37,32 @@ import { saveOrder, loadOrder, listOrders, createNextInvId, orderImages } from '
 import { getPromoByCode, savePromo, listPromos, normalizePromoCode, deletePromoStmt, promoAttemptsByIp } from './db/promocodes.js';
 
 // Import queues
-import { initializeGenerationQueue, generationQueue, activeJobs, completedJobs, generationTimes } from './queues/generationQueue.js';
-import { initializeAnalysisQueue, analysisQueue, activeAnalysisJobs, completedAnalysisJobs } from './queues/analysisQueue.js';
+import { 
+  generationQueue, 
+  activeJobs, 
+  completedJobs, 
+  generationTimes,
+  GenerationJob,
+  buildFallbackPrompt,
+  calculateAverageGenerationTime,
+  cleanupGeminiRequestTimestamps,
+  cleanupGeminiRequestsPerSecond,
+  addToQueue,
+  getJobStatus,
+  geminiRequestTimestamps,
+  geminiRequestsPerSecond,
+  lastBatchSendTime,
+  userBatchGroups,
+} from './queues/generationQueue.js';
+import { 
+  analysisQueue, 
+  activeAnalysisJobs, 
+  completedAnalysisJobs,
+  AnalysisJob,
+  waitForGeminiAnalysisRateLimit,
+  addToAnalysisQueue,
+  getAnalysisJobStatus,
+} from './queues/analysisQueue.js';
 
 // Import middleware
 import { rateLimit } from './middleware/rateLimit.js';
@@ -56,6 +80,30 @@ import analysisRoutes, { initializeAnalysisRoutes } from './routes/analysis.js';
 
 const app = express();
 
+// Initialize database
+initializeDatabase();
+
+// Local wrapper functions that call processQueue/processAnalysisQueue
+// These functions are needed because processQueue/processAnalysisQueue are server-specific
+function addToQueueLocal(imageData, prompt) {
+  const result = addToQueueModule(imageData, prompt, MAX_QUEUE_SIZE);
+  processQueue();
+  return result;
+}
+
+// Alias for compatibility - use local wrapper that calls processQueue
+const addToQueue = addToQueueLocal;
+
+function addToAnalysisQueueLocal(imageData, type) {
+  const result = addToAnalysisQueueModule(imageData, type);
+  processAnalysisQueue();
+  return result;
+}
+
+// Alias for compatibility - use local wrapper that calls processAnalysisQueue
+const addToAnalysisQueue = addToAnalysisQueueLocal;
+
+// Old code below - will be removed after integration
 // Структура задачи в очереди генерации
 class GenerationJob {
   constructor(id, imageData, prompt) {
@@ -1213,26 +1261,12 @@ async function processAnalysisQueue() {
 }
 
 // Добавление задачи в очередь анализа
-function addToAnalysisQueue(imageData, type) {
-  if (analysisQueue.length >= MAX_QUEUE_SIZE) {
-    throw new Error('Очередь анализа переполнена. Попробуйте позже.');
-  }
-  
-  const jobId = `analysis_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  const job = new AnalysisJob(jobId, imageData, type);
-  analysisQueue.push(job);
-  
-  safeLog('Analysis job added to queue', { jobId, type, queueSize: analysisQueue.length, position: job.getPosition() });
-  
-  // Запускаем обработку очереди, если она не запущена
-  processAnalysisQueue();
-  
-  // Возвращаем jobId для отслеживания статуса
-  return { jobId, position: job.getPosition(), estimatedWaitTime: job.getEstimatedWaitTime() };
-}
+// addToAnalysisQueue is now imported from modules, use addToAnalysisQueueLocal wrapper
 
-// Получение статуса задачи анализа
-function getAnalysisJobStatus(jobId) {
+// getAnalysisJobStatus is now imported from modules
+
+// Получение статуса задачи анализа (old version - will be removed)
+function getAnalysisJobStatusOld(jobId) {
   // Проверяем завершенные задачи
   const completedJob = completedAnalysisJobs.get(jobId);
   if (completedJob) {
@@ -1283,8 +1317,10 @@ function getAnalysisJobStatus(jobId) {
   return null; // Задача не найдена
 }
 
-// Получение статуса задачи генерации
-function getJobStatus(jobId) {
+// getJobStatus is now imported from modules
+
+// Получение статуса задачи генерации (old version - will be removed)
+function getJobStatusOld(jobId) {
   // Проверяем завершенные задачи
   const completedJob = completedJobs.get(jobId);
   if (completedJob) {
