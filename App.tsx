@@ -4,7 +4,7 @@
 */
 import React, { useState, ChangeEvent, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { generateImage, evaluateImage, addGenerationToQueue, createPayment, checkPaymentStatus, fetchOrder, usePromoCode, adminCheckSession, adminLogin, adminLogout, type DetectedGender, type QueueStatus, type ImageEvaluationResult, type OrderInfo } from './services/geminiService';
+import { generateImage, evaluateImage, addGenerationToQueue, createPayment, checkPaymentStatus, fetchOrder, retryOrder, usePromoCode, adminCheckSession, adminLogin, adminLogout, type DetectedGender, type QueueStatus, type ImageEvaluationResult, type OrderInfo } from './services/geminiService';
 import { createAlbumPage } from './lib/albumUtils';
 import { compressImage, shouldCompressImage } from './lib/imageCompression';
 import { errorLogger } from './lib/errorLogger';
@@ -356,7 +356,7 @@ interface GeneratedImage {
     estimatedWaitTime?: number;
 }
 
-type AppState = 'idle' | 'image-uploaded' | 'generating' | 'results-shown';
+type AppState = 'idle' | 'image-uploaded' | 'generating' | 'results-shown' | 'failed';
 
 function App() {
     const onboarding = useOnboarding();
@@ -564,7 +564,7 @@ function App() {
                                 setSelectedCompany(order.company as (typeof COMPANY_TYPES)[number]);
                             }
                             
-                            // Если заказ завершен - показываем результаты
+                        // Если заказ завершен - показываем результаты
                             if (order.status === 'completed' && order.generatedImages) {
                                 const images: Record<string, GeneratedImage> = {};
                                 STYLES.forEach(style => {
@@ -594,6 +594,13 @@ function App() {
                                 setAppState('generating');
                                 
                                 console.log('[App] App state set to generating, generatedImages keys:', Object.keys(images));
+                            } else if (order.status === 'failed') {
+                                console.log('[App] Order is in failed status after load, showing failed state');
+                                setHasActivePayment(false);
+                                setGeneratedImages({});
+                                setUploadedImage(null);
+                                setIntermediateImage(null);
+                                setAppState('failed');
                             }
                         } catch (e) {
                             console.warn('[App] Failed to restore order state:', e);
@@ -689,9 +696,12 @@ function App() {
                     setAppState('results-shown');
                     clearInterval(pollInterval);
                 } else if (order.status === 'failed') {
-                    // Заказ провалился
-                    console.log('[App] Order failed');
-                    setAppState('image-uploaded');
+                    // Заказ провалился - показываем специальное состояние для повторной попытки
+                    console.log('[App] Order failed during polling, switching to failed state');
+                    setGeneratedImages({});
+                    setUploadedImage(null);
+                    setIntermediateImage(null);
+                    setAppState('failed');
                     clearInterval(pollInterval);
                 }
             } catch (err) {
@@ -993,6 +1003,56 @@ function App() {
         // Если есть активный заказ в состоянии processing или completed - не запускаем генерацию заново
         if (currentOrder && (currentOrder.status === 'processing' || currentOrder.status === 'completed')) {
             console.log('[App] Order already processing or completed, skipping generation');
+            return;
+        }
+
+        // Если у заказа статус failed — запускаем повторную генерацию через backend без новой оплаты
+        if (currentOrder && currentOrder.status === 'failed') {
+            try {
+                console.log('[App] Retrying failed order via /order/:invId/retry');
+                setAppState('generating');
+
+                const images: Record<string, GeneratedImage> = {};
+                STYLES.forEach(style => {
+                    images[style] = { status: 'processing' };
+                });
+                setGeneratedImages(images);
+
+                const effectiveGenderRetry = getEffectiveGender();
+                if (!effectiveGenderRetry || (effectiveGenderRetry !== 'male' && effectiveGenderRetry !== 'female')) {
+                    console.warn('[App] Gender not selected on retry, aborting');
+                    setAppState('failed');
+                    return;
+                }
+
+                const retryResult = await retryOrder(
+                    currentOrder.invId,
+                    uploadedImage,
+                    effectiveGenderRetry,
+                    selectedRole || '',
+                    selectedCompany || ''
+                );
+
+                if (!retryResult.ok) {
+                    console.error('[App] Retry order failed:', retryResult.error);
+                    setAppState('failed');
+                    return;
+                }
+
+                // Обновляем счётчик ретраев и статус, чтобы запустить polling
+                setCurrentOrder(prev => {
+                    if (!prev) return prev;
+                    return {
+                        ...prev,
+                        status: 'processing',
+                        retries: retryResult.retries ?? prev.retries,
+                    };
+                });
+                setHasActivePayment(true);
+            } catch (err) {
+                console.error('[App] Failed to retry order:', err);
+                setAppState('failed');
+            }
             return;
         }
 
@@ -1816,7 +1876,7 @@ function App() {
                             />
                             
                             <AnimatePresence mode="wait">
-                                {appState === 'idle' && !imageValidationError && !isValidatingImage && (
+                                {(appState === 'idle' || appState === 'failed') && !imageValidationError && !isValidatingImage && (
                                     <motion.div key="uploader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                                         <Uploader onImageUpload={handleImageUpload} />
                                     </motion.div>
@@ -2347,6 +2407,44 @@ function App() {
                                     <p className="text-gray-500 mt-2 max-w-md">
                                         После загрузки фото здесь появятся ваши сгенерированные изображения.
                                     </p>
+                                </motion.div>
+                            )}
+
+                            {appState === 'failed' && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="h-full flex flex-col items-center justify-center bg-white rounded-lg border border-red-200 p-6 text-center"
+                                >
+                                    <Icons.xCircle className="h-16 w-16 text-red-500 mb-4" />
+                                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                                        Не удалось сгенерировать портреты
+                                    </h3>
+                                    <p className="text-sm text-gray-600 mb-4 max-w-md">
+                                        Произошла техническая ошибка при генерации. Попробуйте загрузить другое фото и
+                                        повторить попытку. Оплата за заказ сохранена, повторная оплата не требуется.
+                                    </p>
+                                    {currentOrder && (
+                                        <p className="text-xs text-gray-500 max-w-md">
+                                            {currentOrder.failureReason && (
+                                                <span className="block mb-1">
+                                                    Причина: {currentOrder.failureReason}
+                                                </span>
+                                            )}
+                                            Осталось попыток:{' '}
+                                            <span className="font-semibold">
+                                                {Math.max(0, 2 - (currentOrder.retries ?? 0))}
+                                            </span>{' '}
+                                            из 2. Если повторные попытки не помогут, напишите в поддержку:&nbsp;
+                                            <a
+                                                href="mailto:kuznetsov@i-integrator.com"
+                                                className="text-blue-600 hover:underline"
+                                            >
+                                                kuznetsov@i-integrator.com
+                                            </a>
+                                            .
+                                        </p>
+                                    )}
                                 </motion.div>
                             )}
                         </AnimatePresence>
