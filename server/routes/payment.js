@@ -129,12 +129,35 @@ router.get(`${API_PREFIX}/payment/status`, (req, res) => {
 // Robokassa result callback
 function handleRobokassaResult(req, res) {
   try {
+    console.log('[Robokassa] Result callback received', {
+      method: req.method,
+      hasBody: !!req.body,
+      bodyKeys: req.body ? Object.keys(req.body) : [],
+      hasQuery: !!req.query,
+      queryKeys: req.query ? Object.keys(req.query) : [],
+      rawBody: req.body,
+      rawQuery: req.query,
+    });
+
     const params = req.method === 'POST' ? req.body : req.query;
     const outSum = params.OutSum;
     const invId = params.InvId;
     const signature = (params.SignatureValue || '').toString().toLowerCase();
 
+    console.log('[Robokassa] Parsed params', {
+      outSum,
+      invId,
+      hasSignature: !!signature,
+      signatureLength: signature ? signature.length : 0,
+    });
+
     if (!outSum || !invId || !signature) {
+      console.warn('[Robokassa] Missing required params', {
+        hasOutSum: !!outSum,
+        hasInvId: !!invId,
+        hasSignature: !!signature,
+        params,
+      });
       return res.status(400).send('Bad Request');
     }
 
@@ -184,7 +207,9 @@ function handleRobokassaResult(req, res) {
   }
 }
 
-router.post(`${API_PREFIX}/robokassa/result`, express.urlencoded({ extended: false }), handleRobokassaResult);
+// Robokassa может отправлять как POST, так и GET запросы на Result URL
+// В настройках магазина указан метод GET, но поддерживаем оба
+router.post(`${API_PREFIX}/robokassa/result`, express.urlencoded({ extended: true }), handleRobokassaResult);
 router.get(`${API_PREFIX}/robokassa/result`, handleRobokassaResult);
 
 // Payment redirects
