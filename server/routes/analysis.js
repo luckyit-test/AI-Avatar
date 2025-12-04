@@ -61,16 +61,22 @@ router.post(`${API_PREFIX}/evaluate-image`, rateLimit, async (req, res) => {
     });
     
     // Устанавливаем явные заголовки для избежания проблем с HTTP/2 в nginx
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    
-    return res.json({
+    // НЕ устанавливаем Connection: keep-alive для HTTP/2 (это может вызвать ERR_HTTP2_PROTOCOL_ERROR)
+    const responseData = {
       jobId: jobId,
       status: 'queued',
       position: queueResult.position,
       estimatedWaitTime: queueResult.estimatedWaitTime,
-    });
+    };
+    
+    const responseJson = JSON.stringify(responseData);
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Length', Buffer.byteLength(responseJson, 'utf8'));
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    return res.send(responseJson);
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
