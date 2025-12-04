@@ -2495,10 +2495,10 @@ function App() {
                                     className="h-full flex flex-col items-center justify-center bg-white rounded-lg border-2 border-dashed border-gray-300 p-8 text-center relative overflow-hidden"
                                 >
                                     {/* Анимированный фон с портретами */}
-                                    <AnimatedPortraitsBackground className="absolute inset-0" />
+                                    <AnimatedPortraitsBackground className="absolute inset-0 rounded-lg" />
                                     
                                     {/* Полупрозрачный оверлей для читаемости текста */}
-                                    <div className="absolute inset-0 bg-gradient-to-b from-white/80 via-white/60 to-white/80 z-10" />
+                                    <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-white/50 to-white/70 z-10 rounded-lg" />
                                     
                                     {/* Контент поверх анимации */}
                                     <div className="relative z-20">
