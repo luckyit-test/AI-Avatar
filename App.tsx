@@ -652,7 +652,7 @@ function App() {
         }
     }, []);
 
-    // Polling статуса заказа, если он в состоянии paid или processing
+    // Polling статуса заказа с exponential backoff и оптимизацией
     useEffect(() => {
         if (!currentInvId) return;
         
@@ -662,56 +662,97 @@ function App() {
         // Запускаем polling только для paid или processing
         if (currentOrder.status !== 'processing' && currentOrder.status !== 'paid') return;
 
-        console.log('[App] Starting polling for order', { invId: currentInvId, status: currentOrder.status });
+        // AbortController для отмены запросов при размонтировании
+        const abortController = new AbortController();
+        
+        // Exponential backoff: начинаем с 2s, увеличиваем до максимума 30s
+        let pollDelay = 2000; // Начальная задержка 2 секунды
+        const MIN_POLL_DELAY = 2000;
+        const MAX_POLL_DELAY = 30000;
+        const BACKOFF_MULTIPLIER = 1.5;
+        
+        let pollTimeoutId: NodeJS.Timeout | null = null;
+        let isPolling = true;
 
-        const pollInterval = setInterval(async () => {
+        const pollOrderStatus = async () => {
+            if (!isPolling || abortController.signal.aborted) return;
+
             try {
-                console.log('[App] Polling order status...', { invId: currentInvId });
-                const order = await fetchOrder(currentInvId);
-                console.log('[App] Polled order status:', { status: order.status, hasGeneratedImages: !!order.generatedImages, generatedImagesCount: order.generatedImages ? Object.keys(order.generatedImages).length : 0 });
-                setCurrentOrder(order);
+                const order = await fetchOrder(currentInvId!);
+                
+                // Проверяем, изменился ли статус заказа
+                if (order.status !== currentOrder?.status) {
+                    setCurrentOrder(order);
 
-                // Если заказ перешел в processing - обновляем UI
-                if (order.status === 'processing' && appState !== 'generating') {
-                    const images: Record<string, GeneratedImage> = {};
-                    STYLES.forEach(style => {
-                        images[style] = { status: 'processing' };
-                    });
-                    setGeneratedImages(images);
-                    setAppState('generating');
+                    // Если заказ перешел в processing - обновляем UI
+                    if (order.status === 'processing' && appState !== 'generating') {
+                        const images: Record<string, GeneratedImage> = {};
+                        STYLES.forEach(style => {
+                            images[style] = { status: 'processing' };
+                        });
+                        setGeneratedImages(images);
+                        setAppState('generating');
+                        // Сбрасываем задержку при изменении статуса
+                        pollDelay = MIN_POLL_DELAY;
+                    }
+
+                    // Если заказ завершен - обновляем UI и останавливаем polling
+                    if (order.status === 'completed' && order.generatedImages) {
+                        const images: Record<string, GeneratedImage> = {};
+                        STYLES.forEach(style => {
+                            if (order.generatedImages && order.generatedImages[style]) {
+                                images[style] = { status: 'done', url: order.generatedImages[style] };
+                            } else {
+                                images[style] = { status: 'error', error: 'Не сгенерировано' };
+                            }
+                        });
+                        setGeneratedImages(images);
+                        setAppState('results-shown');
+                        isPolling = false;
+                        return; // Останавливаем polling
+                    } else if (order.status === 'failed') {
+                        // Заказ провалился - показываем специальное состояние для повторной попытки
+                        setGeneratedImages({});
+                        setUploadedImage(null);
+                        setIntermediateImage(null);
+                        setAppState('failed');
+                        isPolling = false;
+                        return; // Останавливаем polling
+                    }
                 }
 
-                // Если заказ завершен - обновляем UI
-                if (order.status === 'completed' && order.generatedImages) {
-                    console.log('[App] Order completed, updating UI with results');
-                    const images: Record<string, GeneratedImage> = {};
-                    STYLES.forEach(style => {
-                        if (order.generatedImages && order.generatedImages[style]) {
-                            images[style] = { status: 'done', url: order.generatedImages[style] };
-                        } else {
-                            images[style] = { status: 'error', error: 'Не сгенерировано' };
-                        }
-                    });
-                    setGeneratedImages(images);
-                    setAppState('results-shown');
-                    clearInterval(pollInterval);
-                } else if (order.status === 'failed') {
-                    // Заказ провалился - показываем специальное состояние для повторной попытки
-                    console.log('[App] Order failed during polling, switching to failed state');
-                    setGeneratedImages({});
-                    setUploadedImage(null);
-                    setIntermediateImage(null);
-                    setAppState('failed');
-                    clearInterval(pollInterval);
+                // Если статус не изменился, увеличиваем задержку (exponential backoff)
+                if (order.status === currentOrder?.status) {
+                    pollDelay = Math.min(pollDelay * BACKOFF_MULTIPLIER, MAX_POLL_DELAY);
+                } else {
+                    // При изменении статуса сбрасываем задержку
+                    pollDelay = MIN_POLL_DELAY;
+                }
+
+                // Планируем следующий запрос с учетом backoff
+                if (isPolling && !abortController.signal.aborted) {
+                    pollTimeoutId = setTimeout(pollOrderStatus, pollDelay);
                 }
             } catch (err) {
-                console.error('[App] Failed to poll order status:', err);
+                if (abortController.signal.aborted) return;
+                
+                // При ошибке увеличиваем задержку и продолжаем polling
+                pollDelay = Math.min(pollDelay * BACKOFF_MULTIPLIER, MAX_POLL_DELAY);
+                if (isPolling && !abortController.signal.aborted) {
+                    pollTimeoutId = setTimeout(pollOrderStatus, pollDelay);
+                }
             }
-        }, 2000); // Проверяем каждые 2 секунды для более быстрого обновления
+        };
+
+        // Запускаем первый запрос сразу
+        pollOrderStatus();
 
         return () => {
-            console.log('[App] Stopping polling');
-            clearInterval(pollInterval);
+            isPolling = false;
+            abortController.abort();
+            if (pollTimeoutId) {
+                clearTimeout(pollTimeoutId);
+            }
         };
     }, [currentInvId, currentOrder, appState]);
 
