@@ -159,7 +159,7 @@ const ProcessingVideoBackground: React.FC<{
     );
 };
 
-const ImageCard: React.FC<ImageCardProps> = ({ 
+const ImageCard: React.FC<ImageCardProps> = React.memo(({ 
     imageUrl, 
     caption, 
     status, 
@@ -449,6 +449,8 @@ const ImageCard: React.FC<ImageCardProps> = ({
             </div>
         </div>
     );
-};
+});
+
+ImageCard.displayName = 'ImageCard';
 
 export default ImageCard;

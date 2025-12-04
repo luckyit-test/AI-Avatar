@@ -11,7 +11,7 @@ interface UploaderProps {
     fileInputRef?: React.RefObject<HTMLInputElement>;
 }
 
-const Uploader: React.FC<UploaderProps> = ({ onImageUpload, fileInputRef: externalRef }) => {
+const Uploader: React.FC<UploaderProps> = React.memo(({ onImageUpload, fileInputRef: externalRef }) => {
     const [isDragging, setIsDragging] = useState(false);
     const internalRef = useRef<HTMLInputElement>(null);
     const fileInputRef = externalRef || internalRef;
@@ -92,6 +92,8 @@ const Uploader: React.FC<UploaderProps> = ({ onImageUpload, fileInputRef: extern
             </span>
         </div>
     );
-};
+});
+
+Uploader.displayName = 'Uploader';
 
 export default Uploader;

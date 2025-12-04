@@ -13,7 +13,7 @@ interface CustomSelectProps {
   description?: string;
 }
 
-export const CustomSelect: React.FC<CustomSelectProps> = ({
+export const CustomSelect: React.FC<CustomSelectProps> = React.memo(({
   options,
   value,
   onChange,
@@ -143,5 +143,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
       </div>
     </div>
   );
-};
+});
+
+CustomSelect.displayName = 'CustomSelect';
 
