@@ -85,11 +85,7 @@ router.post(`${API_PREFIX}/payment/create`, async (req, res) => {
       .digest('hex');
 
     // Robokassa требует, чтобы Description был закодирован в UTF-8 и затем в URL-кодирование
-    // Также ограничиваем длину описания (Robokassa может иметь ограничения)
-    const description = ROBOKASSA_PAYMENT_DESC.length > 100 
-      ? ROBOKASSA_PAYMENT_DESC.substring(0, 100) 
-      : ROBOKASSA_PAYMENT_DESC;
-    const descriptionEncoded = encodeURIComponent(description);
+    const descriptionEncoded = encodeURIComponent(ROBOKASSA_PAYMENT_DESC);
     
     const isTestParam = ROBOKASSA_IS_TEST ? '&IsTest=1' : '';
     const robokassaBaseUrl = 'https://auth.robokassa.ru/Merchant/Index.aspx';

@@ -945,8 +945,8 @@ function App() {
                         invId: payment.invId 
                     });
                     
-                    // Используем window.location.replace вместо href для предотвращения возврата назад
-                    window.location.replace(payment.redirectUrl);
+                    // Редирект на страницу оплаты Robokassa
+                    window.location.href = payment.redirectUrl;
                     return;
                 } else {
                     devLog.error('[App] Payment created but no redirectUrl:', payment);
