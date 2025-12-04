@@ -100,11 +100,10 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
           
           // Распределяем ряды по высоте контейнера БЕЗ перекрытий
           // Портерты начинаются с самого верха секции (без белой области)
-          // Первый ряд (rowIndex=0) должен начинаться с самого верха (y=0 для верхнего края)
-          // Используем portraitSize/2 для первого ряда (без padding), чтобы убрать отступ сверху
-          // Для остальных рядов используем rowHeight/2 (с padding)
+          // Первый ряд (rowIndex=0) начинается с самого верха: y=0 для верхнего края портрета
+          // Используем portraitSize/2 для центрирования через translateY(-50%)
           const yPosition = rowIndex === 0 
-            ? portraitSize / 2  // Первый ряд начинается с самого верха (только половина высоты портрета, без padding)
+            ? portraitSize / 2  // Первый ряд: центр портрета на portraitSize/2 от верха (верхний край на y=0)
             : (rowIndex * rowHeight) + (rowHeight / 2); // Остальные ряды идут друг за другом
           
           console.log(`[AnimatedPortraitsBackground] Row ${rowIndex}: yPosition=${yPosition}px, height=${currentHeight}, direction=${direction}`);
@@ -180,23 +179,25 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
         const element = containerRef.current as HTMLElement | null;
         const containerWidth = element?.clientWidth || 1200;
         const singlePortraitWidth = portraitSize + portraitGap;
-        const rowWidth = row.portraits.length * portraitSize + (row.portraits.length - 1) * portraitGap + 32; // +32 для padding
+        const rowPadding = 32; // padding ряда
+        const rowWidth = row.portraits.length * portraitSize + (row.portraits.length - 1) * portraitGap + rowPadding;
         
         // Для бесконечного бесшовного движения:
-        // Рассчитываем ширину одного "блока" портретов (сколько нужно для заполнения экрана)
-        const portraitsPerCycle = Math.ceil(containerWidth / singlePortraitWidth) + 2; // +2 для запаса
+        // Рассчитываем ширину одного "блока" портретов (сколько нужно для заполнения экрана + запас)
+        const portraitsPerCycle = Math.ceil(containerWidth / singlePortraitWidth) + 3; // +3 для запаса
         const cycleWidth = portraitsPerCycle * singlePortraitWidth;
         
-        // Для движения влево: начинаем справа, двигаемся влево на cycleWidth
-        // Для движения вправо: начинаем слева, двигаемся вправо на cycleWidth
-        // Это обеспечивает бесшовный переход, так как портреты повторяются циклически
+        // Ряды должны сразу отображаться в контейнере (не начинаться за пределами экрана)
+        // Для движения влево: начинаем так, чтобы портреты были видны справа, двигаемся влево
+        // Для движения вправо: начинаем так, чтобы портреты были видны слева, двигаемся вправо
+        // Это создает эффект бесконечного движения с портретами, которые сразу видны
         const startX = row.direction === 'left' 
-          ? containerWidth + 100 // Начинаем справа за пределами экрана
-          : -cycleWidth; // Начинаем слева так, чтобы следующий цикл был виден
+          ? containerWidth - cycleWidth + rowPadding // Начинаем так, чтобы портреты были видны справа
+          : -cycleWidth + containerWidth + rowPadding; // Начинаем так, чтобы портреты были видны слева
         
         const endX = row.direction === 'left' 
-          ? containerWidth - cycleWidth + 100 // Заканчиваем так, чтобы следующий цикл начинался справа
-          : containerWidth + 100; // Заканчиваем справа за пределами экрана
+          ? -cycleWidth + containerWidth + rowPadding // Заканчиваем так, чтобы следующий цикл начинался справа
+          : containerWidth + rowPadding; // Заканчиваем справа, чтобы следующий цикл начинался слева
 
         return (
           <motion.div
@@ -220,7 +221,7 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
               transform: `translateY(-50%)`, // Центрируем по вертикали
               display: 'flex',
               gap: `${portraitGap}px`,
-              padding: '16px',
+              padding: row.row === 0 ? '0 16px 16px 16px' : '16px', // Убираем верхний padding у первого ряда
               backgroundColor: 'white',
               borderRadius: '16px',
               boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
