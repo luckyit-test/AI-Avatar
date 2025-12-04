@@ -100,11 +100,14 @@ async function saveImageForOrder(style, dataUrl, invId) {
  * Генерирует портреты для заказа
  */
 export async function generatePortraitsForOrder(invId, MAX_QUEUE_SIZE, addToQueueFn = null) {
+  console.log(`[generatePortraitsForOrder] Called with invId=${invId}, MAX_QUEUE_SIZE=${MAX_QUEUE_SIZE}, addToQueueFn=${!!addToQueueFn}, addToQueueWithProcessing=${!!addToQueueWithProcessing}`);
+  
   const order = loadOrder(invId);
   const imageData = orderImages.get(String(invId));
   if (!order || !imageData) {
     console.error(
-      `[generatePortraitsForOrder] Order ${invId} not found or missing imageData`
+      `[generatePortraitsForOrder] Order ${invId} not found or missing imageData`,
+      { hasOrder: !!order, hasImageData: !!imageData }
     );
     return;
   }
@@ -141,6 +144,13 @@ export async function generatePortraitsForOrder(invId, MAX_QUEUE_SIZE, addToQueu
         // Используем функцию с обработкой очереди, если передана, иначе обычную addToQueue
         // Используем функцию с обработкой очереди, если передана или установлена через setAddToQueueFunction
         const queueFn = addToQueueFn || addToQueueWithProcessing || addToQueue;
+        console.log(`[generatePortraitsForOrder] Using queue function:`, {
+          style,
+          hasAddToQueueFn: !!addToQueueFn,
+          hasAddToQueueWithProcessing: !!addToQueueWithProcessing,
+          usingAddToQueue: queueFn === addToQueue,
+          queueFnName: queueFn.name || 'anonymous'
+        });
         const queueResult = queueFn(intermediateImage, prompt, MAX_QUEUE_SIZE);
         const jobId = queueResult.jobId;
         console.log(`[generatePortraitsForOrder] Added job to queue for ${style}, jobId: ${jobId}`);
