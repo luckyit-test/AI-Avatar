@@ -1544,8 +1544,8 @@ app.post(`${API_PREFIX}/payment/create`, async (req, res) => {
       .digest('hex');
 
     const isTestParam = ROBOKASSA_IS_TEST ? '&IsTest=1' : '';
-    // Кодируем Description дважды для правильной работы с кириллицей в Robokassa
-    const descriptionEncoded = encodeURIComponent(encodeURIComponent(ROBOKASSA_PAYMENT_DESC));
+    // Кодируем Description один раз (Robokassa сам декодирует)
+    const descriptionEncoded = encodeURIComponent(ROBOKASSA_PAYMENT_DESC);
 
     // URL для Robokassa (одинаковый для теста и продакшена)
     const robokassaBaseUrl = 'https://auth.robokassa.ru/Merchant/Index.aspx';
