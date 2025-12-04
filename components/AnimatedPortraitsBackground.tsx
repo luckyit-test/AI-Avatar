@@ -29,7 +29,8 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
   const [containerHeight, setContainerHeight] = useState(800); // Высота контейнера
   const portraitSize = 200; // Размер каждого портрета
   const portraitGap = 12; // Отступ между портретами
-  const rowHeight = portraitSize + 32; // Высота ряда (портрет + padding)
+  const rowVerticalPadding = 8; // Вертикальный padding (сверху и снизу)
+  const rowHeight = portraitSize + (rowVerticalPadding * 2); // Высота ряда (портрет + padding сверху и снизу)
   const rowGap = 0; // Без отступов между рядами
 
   useEffect(() => {
@@ -100,22 +101,20 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
         for (let rowIndex = 0; rowIndex < numRows; rowIndex++) {
           const direction = rowIndex % 2 === 0 ? 'left' : 'right'; // Четные ряды - влево, нечетные - вправо
           
-          // Распределяем ряды по высоте контейнера БЕЗ перекрытий
+          // Распределяем ряды по высоте контейнера БЕЗ перекрытий и БЕЗ свободного пространства
           // Портерты начинаются с самого верха секции (без белой области)
           // Первый ряд (rowIndex=0) начинается с самого верха: y=0 для верхнего края портрета
           // Используем portraitSize/2 для центрирования через translateY(-50%)
           // Вычитаем 100px чтобы подтянуть все ряды выше
-          // Все ряды идут друг за другом БЕЗ отступов
+          // Все ряды прижаты друг к другу БЕЗ свободного пространства между ними
           let yPosition;
           if (rowIndex === 0) {
-            yPosition = portraitSize / 2 - 100; // Первый ряд начинается выше на 100px
+            // Первый ряд: центр на portraitSize/2 от верха (с учетом смещения -100px)
+            yPosition = portraitSize / 2 - 100;
           } else {
-            // Для всех остальных рядов рассчитываем позицию относительно предыдущего ряда
-            // Каждый следующий ряд начинается сразу после предыдущего без отступа
-            const firstRowY = portraitSize / 2 - 100;
-            const firstRowCenter = firstRowY;
-            // Каждый ряд имеет высоту rowHeight, центрируем через translateY(-50%)
-            // Поэтому центр следующего ряда = центр предыдущего + rowHeight
+            // Для всех остальных рядов: центр = центр первого ряда + (индекс * высота ряда)
+            // rowHeight уже включает padding, поэтому ряды будут прижаты друг к другу
+            const firstRowCenter = portraitSize / 2 - 100;
             yPosition = firstRowCenter + (rowIndex * rowHeight);
           }
           
@@ -241,7 +240,7 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
               transform: `translateY(-50%)`, // Центрируем по вертикали
               display: 'flex',
               gap: `${portraitGap}px`,
-              padding: '8px 16px', // Уменьшен padding сверху и снизу в 2 раза (было 16px, стало 8px)
+              padding: `${rowVerticalPadding}px 16px`, // Минимальный вертикальный padding для прижатия рядов друг к другу
               backgroundColor: 'white',
               borderRadius: '16px',
               boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
