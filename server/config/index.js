@@ -68,12 +68,23 @@ export const API_PREFIX = '/api';
 
 // Проверка обязательных переменных окружения
 if (!GEMINI_API_KEY_GENERATION) {
-  console.error('ERROR: GEMINI_API_KEY не установлен в переменных окружения');
+  console.error('❌ ERROR: GEMINI_API_KEY не установлен в переменных окружения');
+  console.error('   Установите переменную GEMINI_API_KEY в .env файле или через docker-compose.yml');
   process.exit(1);
 }
 
 if (!GEMINI_API_KEY_ANALYSIS) {
-  console.error('ERROR: GEMINI_API_KEY_ANALYSIS не установлен в переменных окружения');
+  console.error('❌ ERROR: GEMINI_API_KEY_ANALYSIS не установлен в переменных окружения');
+  console.error('   Установите переменную GEMINI_API_KEY_ANALYSIS в .env файле или через docker-compose.yml');
   process.exit(1);
 }
+
+// Выводим информацию о загруженных переменных (без значений для безопасности)
+console.log('✅ Переменные окружения загружены:');
+console.log(`   - GEMINI_API_KEY: ${GEMINI_API_KEY_GENERATION ? '✅ установлен' : '❌ не установлен'}`);
+console.log(`   - GEMINI_API_KEY_ANALYSIS: ${GEMINI_API_KEY_ANALYSIS ? '✅ установлен' : '❌ не установлен'}`);
+console.log(`   - PORT: ${PORT}`);
+console.log(`   - ALLOWED_ORIGINS: ${ALLOWED_ORIGINS.join(', ')}`);
+console.log(`   - ROBOKASSA_LOGIN: ${ROBOKASSA_LOGIN}`);
+console.log(`   - ROBOKASSA_IS_TEST: ${ROBOKASSA_IS_TEST}`);
 

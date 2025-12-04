@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import crypto from 'crypto';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { join, basename } from 'path';
 import { promises as fs } from 'fs';
@@ -29,6 +30,12 @@ import {
   GEMINI_API_KEY_ANALYSIS,
   ALLOWED_ORIGINS,
   API_PREFIX,
+  ROBOKASSA_LOGIN,
+  ROBOKASSA_PASSWORD1,
+  ROBOKASSA_PASSWORD2,
+  ROBOKASSA_IS_TEST,
+  ROBOKASSA_PAYMENT_AMOUNT,
+  ROBOKASSA_PAYMENT_DESC,
 } from './config/index.js';
 
 // Import database
@@ -74,10 +81,14 @@ import { replaceBackgroundWithGray, processIntermediateImageAggressively } from 
 import { generatePortraitsForOrder } from './services/portraitGeneration.js';
 import { buildPortraitPrompts } from './services/promptBuilder.js';
 
+// Import utilities
+import { safeLog, getLogBuffer } from './lib/utils.js';
+
 // Import routes
 import adminRoutes, { initializeAdminRoutes } from './routes/admin.js';
 import generationRoutes, { initializeGenerationRoutes } from './routes/generation.js';
 import analysisRoutes, { initializeAnalysisRoutes } from './routes/analysis.js';
+import paymentRoutes, { initializePaymentRoutes } from './routes/payment.js';
 
 const app = express();
 
@@ -87,22 +98,16 @@ initializeDatabase();
 // Local wrapper functions that call processQueue/processAnalysisQueue
 // These functions are needed because processQueue/processAnalysisQueue are server-specific
 function addToQueueLocal(imageData, prompt) {
-  const result = addToQueueModule(imageData, prompt, MAX_QUEUE_SIZE);
+  const result = addToQueue(imageData, prompt, MAX_QUEUE_SIZE);
   processQueue();
   return result;
 }
 
-// Alias for compatibility - use local wrapper that calls processQueue
-const addToQueue = addToQueueLocal;
-
 function addToAnalysisQueueLocal(imageData, type) {
-  const result = addToAnalysisQueueModule(imageData, type);
+  const result = addToAnalysisQueue(imageData, type);
   processAnalysisQueue();
   return result;
 }
-
-// Alias for compatibility - use local wrapper that calls processAnalysisQueue
-const addToAnalysisQueue = addToAnalysisQueueLocal;
 
 // All classes and utility functions are now imported from modules:
 // - GenerationJob, AnalysisJob from queues modules
@@ -998,51 +1003,10 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' })); // Уменьшено с 50mb для безопасности
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Rate limiting middleware (простая реализация)
-const rateLimitStore = new Map();
-const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 минут
-const RATE_LIMIT_MAX_REQUESTS = 200; // Максимум 200 запросов за окно (увеличено для тестирования и генерации множества изображений)
+// rateLimit and API_PREFIX are imported from middleware/rateLimit.js and config/index.js
 
-function rateLimit(req, res, next) {
-  const clientId = req.ip || req.connection.remoteAddress;
-  const now = Date.now();
-  
-  if (!rateLimitStore.has(clientId)) {
-    rateLimitStore.set(clientId, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
-    return next();
-  }
-  
-  const clientData = rateLimitStore.get(clientId);
-  
-  if (now > clientData.resetTime) {
-    // Окно истекло, сбрасываем счетчик
-    clientData.count = 1;
-    clientData.resetTime = now + RATE_LIMIT_WINDOW;
-    return next();
-  }
-  
-  if (clientData.count >= RATE_LIMIT_MAX_REQUESTS) {
-    return res.status(429).json({ 
-      error: 'Превышен лимит запросов. Попробуйте позже.' 
-    });
-  }
-  
-  clientData.count++;
-  next();
-}
-
-// Очистка старых записей rate limit (каждые 5 минут)
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of rateLimitStore.entries()) {
-    if (now > value.resetTime) {
-      rateLimitStore.delete(key);
-    }
-  }
-}, 5 * 60 * 1000);
-
-// Префикс для всех API эндпоинтов
-const API_PREFIX = '/api';
+// Initialize routes BEFORE other handlers to ensure they have priority
+// Routes are initialized after genAI and genAIAnalysis are created (see below)
 
 // Логирование всех запросов для диагностики
 app.use((req, res, next) => {
@@ -1798,6 +1762,45 @@ app.post(`${API_PREFIX}/promo/use`, express.json({ limit: '11mb' }), async (req,
 const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY_GENERATION }); // Для генерации
 const genAIAnalysis = new GoogleGenAI({ apiKey: GEMINI_API_KEY_ANALYSIS }); // Для анализа
 
+// Initialize routes with dependencies
+initializeAdminRoutes({
+  listOrders,
+  loadOrder,
+  listPromos,
+  getPromoByCode,
+  savePromo,
+  normalizePromoCode,
+  deletePromoStmt,
+});
+
+initializeGenerationRoutes({
+  validateImageData,
+  validatePrompt,
+  replaceBackgroundWithGray,
+  processIntermediateImageAggressively,
+  safeLog,
+});
+
+initializeAnalysisRoutes({
+  validateImageData,
+  genAIAnalysis,
+  safeLog,
+});
+
+initializePaymentRoutes({
+  createNextInvId,
+  saveOrder,
+  loadOrder,
+  orderImages,
+  generatePortraitsForOrder,
+});
+
+// Mount routes IMMEDIATELY after initialization, BEFORE other route handlers
+app.use(adminRoutes);
+app.use(generationRoutes);
+app.use(analysisRoutes);
+app.use(paymentRoutes);
+
 // --- SQLite orders storage + in-memory image store ---
 // Для продакшена используем SQLite как простую БД, файл монтируем в volume (/data).
 // Database initialization and all DB operations are now in db/index.js, db/orders.js, db/promocodes.js
@@ -1934,6 +1937,7 @@ function listOrders(filters = {}, pagination = {}) {
 let lastInvId = Date.now();
 
 // createNextInvId is imported from db/orders.js
+// Routes are already mounted above (after initialization)
 
 // Раздаём сохранённые изображения как статику
 app.use('/images', express.static(IMAGE_ROOT_DIR));
@@ -2184,31 +2188,7 @@ function validatePrompt(prompt) {
   return { valid: true };
 }
 
-// Буфер для хранения последних логов (для отладки)
-const logBuffer = [];
-const MAX_LOG_BUFFER_SIZE = 1000; // Храним последние 1000 записей
-
-// Безопасное логирование (без секретов)
-function safeLog(message, data = {}) {
-  const sanitizedData = { ...data };
-  if (sanitizedData.apiKey) delete sanitizedData.apiKey;
-  if (sanitizedData.imageData) {
-    sanitizedData.imageData = sanitizedData.imageData.substring(0, 50) + '...';
-  }
-  const logEntry = {
-    timestamp: new Date().toISOString(),
-    message,
-    data: sanitizedData
-  };
-  
-  // Добавляем в буфер
-  logBuffer.push(logEntry);
-  if (logBuffer.length > MAX_LOG_BUFFER_SIZE) {
-    logBuffer.shift(); // Удаляем старые записи
-  }
-  
-  console.log(`[${logEntry.timestamp}] ${message}`, sanitizedData);
-}
+// safeLog is imported from lib/utils.js
 
 // Эндпоинт для генерации изображения (через очередь)
 app.post(`${API_PREFIX}/generate-image`, async (req, res) => {
@@ -2293,8 +2273,8 @@ app.post(`${API_PREFIX}/generate-image`, async (req, res) => {
       return res.status(400).json({ error: promptValidation.error });
     }
 
-    // Добавляем задачу в очередь (теперь синхронная функция)
-    const queueResult = addToQueue(imageData, prompt);
+    // Добавляем задачу в очередь (используем локальную обертку, которая вызывает processQueue)
+    const queueResult = addToQueueLocal(imageData, prompt);
     
     // Рассчитываем точное время начала генерации
     const estimatedStartTime = Date.now() + queueResult.estimatedWaitTime;
@@ -2472,7 +2452,7 @@ app.get(`${API_PREFIX}/logs`, (req, res) => {
     includeIntermediate = 'true' // По умолчанию показываем все логи
   } = req.query;
   
-  let filteredLogs = [...logBuffer];
+  let filteredLogs = getLogBuffer();
   
   // Фильтр по тексту
   if (filter) {
@@ -2552,7 +2532,7 @@ app.post(`${API_PREFIX}/evaluate-image`, async (req, res) => {
       imageDataLength: imageData.length
     });
     
-    const queueResult = addToAnalysisQueue(imageData, 'evaluate');
+    const queueResult = addToAnalysisQueueLocal(imageData, 'evaluate');
     const jobId = queueResult.jobId;
     
     console.log('[evaluate-image] Job added to queue', {
