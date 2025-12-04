@@ -1049,6 +1049,15 @@ function App() {
 
         // Если у заказа статус failed — запускаем повторную генерацию через backend без новой оплаты
         if (currentOrder && currentOrder.status === 'failed') {
+            // Проверяем наличие изображения перед retry
+            if (!uploadedImage) {
+                devLog.warn('[App] Cannot retry: no image uploaded');
+                // Показываем понятное сообщение пользователю
+                setImageValidationError('Для повторной генерации необходимо загрузить новое фото. Пожалуйста, выберите изображение выше.');
+                setAppState('failed');
+                return;
+            }
+
             try {
                 devLog.log('[App] Retrying failed order via /order/:invId/retry');
                 setAppState('generating');
