@@ -771,25 +771,56 @@ export async function createPayment(
   role: string,
   company: string
 ): Promise<CreatePaymentResponse> {
-  const response = await fetch(`${API_BASE_URL}/payment/create`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      imageData,
-      gender,
-      role,
-      company,
-    }),
-  });
+  try {
+    const response = await fetch(`${API_BASE_URL}/payment/create`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        imageData,
+        gender,
+        role,
+        company,
+      }),
+    });
 
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => '');
-    throw new Error(errorText || 'Не удалось создать платёж');
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      let errorMessage = 'Не удалось создать платёж';
+      
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorMessage;
+      } catch {
+        errorMessage = errorText || errorMessage;
+      }
+      
+      console.error('[createPayment] Server error:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorText,
+        errorMessage,
+      });
+      
+      throw new Error(errorMessage);
+    }
+
+    const result = await response.json();
+    
+    if (!result.redirectUrl) {
+      console.error('[createPayment] Missing redirectUrl in response:', result);
+      throw new Error('Сервер не вернул URL для оплаты. Попробуйте позже.');
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('[createPayment] Request failed:', error);
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('Не удалось создать платёж. Проверьте подключение к интернету.');
   }
-
-  return response.json();
 }
 
 /**

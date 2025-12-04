@@ -16,6 +16,11 @@ import AnimatedPortraitsBackground from './components/AnimatedPortraitsBackgroun
 import { Icons } from './components/Icons';
 import { CustomSelect } from './components/CustomSelect';
 import { Onboarding, useOnboarding } from './components/Onboarding';
+import { ImageUploadFlow } from './components/ImageUploadFlow';
+import { ImageConfiguration } from './components/ImageConfiguration';
+import { GenerationActions } from './components/GenerationActions';
+import { GenerationFlow } from './components/GenerationFlow';
+import { ResultsView } from './components/ResultsView';
 import { cn, devLog } from './lib/utils';
 import { STYLES, IT_ROLES, COMPANY_TYPES, type VariabilityLevel } from './lib/constants';
 import { buildPromptsByContext } from './lib/promptUtils';
@@ -744,6 +749,87 @@ function App() {
         })();
     };
 
+    const handlePromoCodeApply = async () => {
+        setPromoMessage(null);
+        setPromoError(null);
+        if (!uploadedImage) return;
+        const effectiveGender = getEffectiveGender();
+        if (!effectiveGender || (effectiveGender !== 'male' && effectiveGender !== 'female')) return;
+
+        // Ограничение на количество попыток промокода на клиенте
+        const ATTEMPTS_KEY = 'newava_promo_attempts';
+        try {
+            const raw = typeof window !== 'undefined' ? window.localStorage.getItem(ATTEMPTS_KEY) : null;
+            const parsed = raw ? JSON.parse(raw) as { count: number } : { count: 0 };
+            if (parsed.count >= 5) {
+                setPromoError('Превышено количество попыток ввода промокода. Попробуйте позже.');
+                return;
+            }
+        } catch {
+            // если что-то не так с хранилищем, просто продолжаем
+        }
+
+        try {
+            setPromoLoading(true);
+            const response = await usePromoCode(
+                promoCodeInput,
+                uploadedImage,
+                effectiveGender,
+                selectedRole || '',
+                selectedCompany || ''
+            );
+
+            if (!response.ok || !response.invId) {
+                setPromoError(response.error || 'Промокод недействителен или исчерпал лимит.');
+                // Инкрементируем счётчик попыток
+                try {
+                    if (typeof window !== 'undefined') {
+                        const raw = window.localStorage.getItem(ATTEMPTS_KEY);
+                        const parsed = raw ? JSON.parse(raw) as { count: number } : { count: 0 };
+                        parsed.count = (parsed.count || 0) + 1;
+                        window.localStorage.setItem(ATTEMPTS_KEY, JSON.stringify(parsed));
+                    }
+                } catch {
+                    // игнорируем
+                }
+                return;
+            }
+
+            // Успех: промокод применён, генерация стартовала на бэкенде
+            setPromoApplied(true);
+            setPromoMessage(
+                response.remainingUses !== undefined
+                    ? `Промокод применён. Осталось активаций: ${response.remainingUses}.`
+                    : 'Промокод применён. Генерация началась.'
+            );
+
+            const invId = String(response.invId);
+            setCurrentInvId(invId);
+            setHasActivePayment(true);
+            if (typeof window !== 'undefined') {
+                window.localStorage.setItem(CURRENT_ORDER_KEY, invId);
+            }
+
+            // Инициализируем состояние генерации с красивыми превью
+            const initialImages: Record<string, GeneratedImage> = {};
+            STYLES.forEach(style => {
+                initialImages[style] = { status: 'processing' };
+            });
+            setGeneratedImages(initialImages);
+            setAppState('generating');
+
+            // Сразу подгружаем информацию о заказе, чтобы включить текущую логику polling
+            try {
+                const order = await fetchOrder(invId);
+                setCurrentOrder(order);
+            } catch (e) {
+                devLog.warn('[App] Failed to fetch order after promo apply:', e);
+            }
+        } finally {
+            setPromoLoading(false);
+        }
+    };
+
     const handleGenerateClick = async () => {
         if (!uploadedImage) return;
         
@@ -853,11 +939,26 @@ function App() {
                     if (typeof window !== 'undefined' && payment.invId) {
                         window.localStorage.setItem(CURRENT_ORDER_KEY, String(payment.invId));
                     }
-                    window.location.href = payment.redirectUrl;
+                    
+                    devLog.log('[App] Redirecting to Robokassa:', { 
+                        redirectUrl: payment.redirectUrl,
+                        invId: payment.invId 
+                    });
+                    
+                    // Используем window.location.replace вместо href для предотвращения возврата назад
+                    window.location.replace(payment.redirectUrl);
                     return;
+                } else {
+                    devLog.error('[App] Payment created but no redirectUrl:', payment);
+                    setImageValidationError('Не удалось получить URL для оплаты. Попробуйте позже.');
+                    setAppState('failed');
                 }
             } catch (err) {
                 console.error('[App] Failed to create payment:', err);
+                const errorMessage = err instanceof Error ? err.message : 'Неизвестная ошибка';
+                devLog.error('[App] Payment creation error:', { error: errorMessage, err });
+                setImageValidationError(`Ошибка создания платежа: ${errorMessage}. Попробуйте позже или обратитесь в поддержку.`);
+                setAppState('failed');
             }
             // Если платёж не удалось создать - не запускаем генерацию
             return;
@@ -1592,195 +1693,22 @@ function App() {
                     {/* --- Left Column: Controls --- */}
                     <aside className="w-full lg:w-1/3 lg:max-w-sm flex-shrink-0">
                         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm sticky top-8 transition-shadow duration-300 hover:shadow-md">
-                            <div data-onboarding="upload" className="mb-4">
-                                <div className="flex items-start gap-3">
-                                    <span
-                                        className="flex h-12 w-12 items-center justify-center rounded-full text-base font-semibold text-white flex-shrink-0 mt-0.5"
-                                        style={{
-                                            background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                                            boxShadow: '0 10px 20px rgba(79,70,229,0.35)',
-                                        }}
-                                    >
-                                        1
-                                    </span>
-                                    <div>
-                                        <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-0.5">
-                                            Загрузите ваше фото
-                                        </h2>
-                                        <p className="text-xs sm:text-sm text-gray-500">
-                                            Прикрепите фото анфас.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            {/* Скрытый input для кнопки ошибки - всегда в DOM */}
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                className="hidden"
-                                accept="image/png, image/jpeg, image/webp"
-                                onChange={(e) => {
-                                    const files = e.target.files;
-                                    if (files && files.length > 0) {
-                                        handleImageUpload(files[0]);
-                                    }
-                                }}
+                            <ImageUploadFlow
+                                uploadedImage={uploadedImage}
+                                isValidatingImage={isValidatingImage}
+                                validationStatusMessage={validationStatusMessage}
+                                validationTimer={validationTimer}
+                                imageValidationError={imageValidationError}
+                                onImageUpload={handleImageUpload}
+                                onReset={handleReset}
                             />
                             
-                            <AnimatePresence mode="wait">
-                                {(appState === 'idle' || appState === 'failed') && !imageValidationError && !isValidatingImage && (
-                                    <motion.div key="uploader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                                        <Uploader onImageUpload={handleImageUpload} />
-                                    </motion.div>
-                                )}
-                                {isValidatingImage && (
-                                    <motion.div 
-                                        key="analyzing" 
-                                        initial={{ opacity: 0 }} 
-                                        animate={{ opacity: 1 }} 
-                                        exit={{ opacity: 0 }}
-                                        className="w-full aspect-square rounded-md border-2 border-dashed border-blue-200 bg-blue-50 flex flex-col items-center justify-center p-6"
-                                    >
-                                        <Icons.spinner className="w-12 h-12 text-blue-600 animate-spin mb-4" />
-                                        <p className="text-sm font-medium text-gray-700 mb-1">{validationStatusMessage}</p>
-                                        {validationTimer > 1 ? (
-                                            <p className="text-xs text-gray-500">Осталось: {validationTimer} сек</p>
-                                        ) : validationTimer === 1 ? (
-                                            <p className="text-xs text-gray-500">Ожидаем завершения анализа</p>
-                                        ) : null}
-                                    </motion.div>
-                                )}
-                                {imageValidationError && (
-                                    <motion.div 
-                                        key="error" 
-                                        initial={{ opacity: 0 }} 
-                                        animate={{ opacity: 1 }} 
-                                        exit={{ opacity: 0 }}
-                                        className="w-full aspect-square rounded-md border-2 border-red-300 bg-gradient-to-br from-red-50 to-orange-50 flex flex-col items-center justify-center p-6 text-center"
-                                    >
-                                        <Icons.xCircle className="w-12 h-12 text-red-600 mb-4" />
-                                        <p className="text-sm font-medium text-red-800 mb-2">Ошибка загрузки</p>
-                                        <p className="text-xs text-red-700 leading-relaxed mb-4">{imageValidationError}</p>
-                                        
-                                        {/* Кнопки для диагностики */}
-                                        <div className="flex flex-col gap-2 w-full max-w-xs">
-                                            <button
-                                                onClick={async (e) => {
-                                                    e.stopPropagation();
-                                                    
-                                                    // Собираем все доступные логи
-                                                    let logs = errorLogger.getLogsAsText();
-                                                    
-                                                    // Если логов нет, собираем информацию из консоли и текущего состояния
-                                                    if (!logs || logs.trim().length === 0) {
-                                                        const diagnosticInfo = {
-                                                            timestamp: new Date().toISOString(),
-                                                            userAgent: navigator.userAgent,
-                                                            url: window.location.href,
-                                                            isMobile: /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent),
-                                                            isYandex: /YaBrowser|Yandex/i.test(navigator.userAgent),
-                                                            errorMessage: imageValidationError,
-                                                            screenSize: `${window.screen.width}x${window.screen.height}`,
-                                                            viewportSize: `${window.innerWidth}x${window.innerHeight}`,
-                                                            language: navigator.language,
-                                                            platform: navigator.platform,
-                                                            cookieEnabled: navigator.cookieEnabled,
-                                                            onLine: navigator.onLine
-                                                        };
-                                                        
-                                                        logs = `=== ДИАГНОСТИЧЕСКАЯ ИНФОРМАЦИЯ ===\n\n` +
-                                                               `Время: ${diagnosticInfo.timestamp}\n` +
-                                                               `Ошибка: ${diagnosticInfo.errorMessage}\n` +
-                                                               `URL: ${diagnosticInfo.url}\n\n` +
-                                                               `=== ИНФОРМАЦИЯ ОБ УСТРОЙСТВЕ ===\n` +
-                                                               `User-Agent: ${diagnosticInfo.userAgent}\n` +
-                                                               `Платформа: ${diagnosticInfo.platform}\n` +
-                                                               `Язык: ${diagnosticInfo.language}\n` +
-                                                               `Мобильное устройство: ${diagnosticInfo.isMobile ? 'Да' : 'Нет'}\n` +
-                                                               `Яндекс браузер: ${diagnosticInfo.isYandex ? 'Да' : 'Нет'}\n` +
-                                                               `Размер экрана: ${diagnosticInfo.screenSize}\n` +
-                                                               `Размер окна: ${diagnosticInfo.viewportSize}\n` +
-                                                               `Cookies включены: ${diagnosticInfo.cookieEnabled ? 'Да' : 'Нет'}\n` +
-                                                               `Онлайн: ${diagnosticInfo.onLine ? 'Да' : 'Нет'}\n\n` +
-                                                               `=== ИНСТРУКЦИЯ ===\n` +
-                                                               `1. Откройте консоль браузера (F12 или через меню)\n` +
-                                                               `2. Найдите все записи, начинающиеся с [App] или [evaluateImage]\n` +
-                                                               `3. Скопируйте их и отправьте разработчику\n`;
-                                                    }
-                                                    
-                                                    // Пробуем скопировать через Clipboard API
-                                                    try {
-                                                        if (navigator.clipboard && navigator.clipboard.writeText) {
-                                                            await navigator.clipboard.writeText(logs);
-                                                            alert('✅ Логи скопированы в буфер обмена!\n\nОтправьте их разработчику для диагностики.');
-                                                            return;
-                                                        }
-                                                    } catch (clipboardError) {
-                                                        console.warn('Clipboard API failed, trying fallback:', clipboardError);
-                                                    }
-                                                    
-                                                    // Fallback: используем старый метод через textarea
-                                                    try {
-                                                        const textarea = document.createElement('textarea');
-                                                        textarea.value = logs;
-                                                        textarea.style.position = 'fixed';
-                                                        textarea.style.left = '-999999px';
-                                                        textarea.style.top = '-999999px';
-                                                        document.body.appendChild(textarea);
-                                                        textarea.focus();
-                                                        textarea.select();
-                                                        
-                                                        const successful = document.execCommand('copy');
-                                                        document.body.removeChild(textarea);
-                                                        
-                                                        if (successful) {
-                                                            alert('✅ Логи скопированы в буфер обмена!\n\nОтправьте их разработчику для диагностики.');
-                                                        } else {
-                                                            throw new Error('execCommand failed');
-                                                        }
-                                                    } catch (fallbackError) {
-                                                        console.error('All copy methods failed:', fallbackError);
-                                                        // Последний fallback: показываем логи в alert
-                                                        const preview = logs.substring(0, 1500) + (logs.length > 1500 ? '\n\n... (еще ' + (logs.length - 1500) + ' символов, откройте консоль для полных логов)' : '');
-                                                        alert('Не удалось скопировать автоматически.\n\nЛоги (первые 1500 символов):\n\n' + preview + '\n\nОткройте консоль браузера (F12) для полных логов.');
-                                                    }
-                                                }}
-                                                className="px-4 py-2 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-                                            >
-                                                📋 Скопировать логи для диагностики
-                                            </button>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    errorLogger.clearLogs();
-                                                    setImageValidationError(null);
-                                                }}
-                                                className="px-4 py-2 text-xs bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
-                                            >
-                                                Очистить и попробовать снова
-                                            </button>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    // Открываем файловый диалог сразу, без задержек
-                                                    if (fileInputRef.current) {
-                                                        fileInputRef.current.value = ''; // Сбрасываем предыдущий выбор
-                                                        fileInputRef.current.click();
-                                                    }
-                                                }}
-                                                className="px-4 py-2 text-xs font-medium text-white bg-gray-700 rounded hover:bg-gray-800 transition-colors"
-                                            >
-                                                Выбрать другое изображение
-                                            </button>
-                                        </div>
-                                    </motion.div>
-                                )}
-                                {/* Показываем исходник всегда, если есть uploadedImage или если заказ в процессе генерации/завершен */}
+                            {/* Показываем исходник всегда, если есть uploadedImage или если заказ в процессе генерации/завершен */}
+                            <AnimatePresence>
                                 {((uploadedImage && (appState === 'image-uploaded' || appState === 'generating' || appState === 'results-shown')) || 
                                   (appState === 'generating' || appState === 'results-shown')) && 
                                   !imageValidationError && !isValidatingImage && (
-                                     <motion.div key="preview" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                                     <motion.div key="preview" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mt-6">
                                         {uploadedImage ? (
                                             <img src={uploadedImage} alt="Uploaded preview" className="w-full rounded-md object-cover aspect-square" />
                                         ) : (
@@ -1795,365 +1723,38 @@ function App() {
                             
                             <div className="mt-6">
                                 {!isValidatingImage && !imageValidationError && uploadedImage && (appState === 'image-uploaded' || appState === 'generating' || appState === 'results-shown') && (
-                                    <div className="mb-6" data-onboarding="gender">
-                                        <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900 mb-1">
-                                            <Icons.career className="w-4 h-4 text-blue-500" />
-                                            Пол
-                                        </h2>
-                                        <p className="text-sm text-gray-500 mb-3">
-                                            {genderOverride === null 
-                                                ? 'Выберите пол для генерации портретов' 
-                                                : genderOverride === 'male'
-                                                ? 'Выбран: Мужской'
-                                                : 'Выбран: Женский'}
-                                        </p>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <button
-                                                className={cn(
-                                                    'px-3 py-2 text-sm rounded-lg border transition-all duration-200',
-                                                    genderOverride === 'male'
-                                                        ? 'bg-blue-50 border-blue-300 text-blue-700 shadow-sm font-medium' 
-                                                        : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300',
-                                                    (appState === 'generating' || appState === 'results-shown') && 'opacity-60 cursor-not-allowed'
-                                                )}
-                                                onClick={() => {
-                                                    if (appState === 'image-uploaded') {
-                                                        setGenderOverride('male');
-                                                    }
-                                                }}
-                                                disabled={appState === 'generating' || appState === 'results-shown'}
-                                            >
-                                                Мужской
-                                            </button>
-                                            <button
-                                                className={cn(
-                                                    'px-3 py-2 text-sm rounded-lg border transition-all duration-200',
-                                                    genderOverride === 'female'
-                                                        ? 'bg-blue-50 border-blue-300 text-blue-700 shadow-sm font-medium' 
-                                                        : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300',
-                                                    (appState === 'generating' || appState === 'results-shown') && 'opacity-60 cursor-not-allowed'
-                                                )}
-                                                onClick={() => {
-                                                    if (appState === 'image-uploaded') {
-                                                        setGenderOverride('female');
-                                                    }
-                                                }}
-                                                disabled={appState === 'generating' || appState === 'results-shown'}
-                                            >
-                                                Женский
-                                            </button>
-                                        </div>
-                                    </div>
+                                    <ImageConfiguration
+                                        genderOverride={genderOverride}
+                                        selectedRole={selectedRole}
+                                        selectedCompany={selectedCompany}
+                                        appState={appState}
+                                        onGenderChange={setGenderOverride}
+                                        onRoleChange={setSelectedRole}
+                                        onCompanyChange={setSelectedCompany}
+                                        getEffectiveGender={getEffectiveGender}
+                                    />
                                 )}
-
-                                {/* Role & Company selectors */}
-                                <div className="mb-6 grid grid-cols-1 gap-4">
-                                    <div data-onboarding="role">
-                                        <CustomSelect
-                                            label={(
-                                                <span className="inline-flex items-center gap-2">
-                                                    <Icons.logo className="w-4 h-4 text-blue-500" />
-                                                    <span>Должность в ИТ</span>
-                                                </span>
-                                            ) as unknown as string}
-                                            options={IT_ROLES}
-                                            value={selectedRole}
-                                            onChange={(value) => setSelectedRole(value as typeof IT_ROLES[number])}
-                                            placeholder="Выберите должность"
-                                        />
-                                    </div>
-                                    <div data-onboarding="company">
-                                        <CustomSelect
-                                            label={(
-                                                <span className="inline-flex items-center gap-2">
-                                                    <Icons.logo className="w-4 h-4 text-blue-500" />
-                                                    <span>Тип компании</span>
-                                                </span>
-                                            ) as unknown as string}
-                                            options={COMPANY_TYPES}
-                                            value={selectedCompany}
-                                            onChange={(value) => setSelectedCompany(value as typeof COMPANY_TYPES[number])}
-                                            placeholder="Выберите тип компании"
-                                        />
-                                    </div>
-                                    {/* Вариативность и естественность зафиксированы в коде (Высокая, включено) */}
-                                </div>
-                                {/* Блок промокода - скрываем после применения */}
-                                {!currentOrder && (
-                                <div className="mb-4">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <span className="inline-flex items-center gap-2 text-sm font-medium text-gray-900">
-                                            <Icons.sparkles className="w-4 h-4 text-emerald-500" />
-                                            <span>Промокод</span>
-                                        </span>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            value={promoCodeInput}
-                                            onChange={(e) => {
-                                                setPromoCodeInput(e.target.value.toUpperCase().slice(0, 6));
-                                                setPromoMessage(null);
-                                                setPromoError(null);
-                                            }}
-                                            placeholder="Введите промокод"
-                                            className="flex-1 sm:flex-1 md:flex-1 h-10 px-3 rounded-lg border border-gray-300 text-sm tracking-[0.24em] uppercase max-w-[calc(100%-90px)] sm:max-w-none"
-                                        />
-                                        <button
-                                            type="button"
-                                            disabled={
-                                                promoLoading ||
-                                                !promoCodeInput ||
-                                                promoCodeInput.length !== 6 ||
-                                                !uploadedImage ||
-                                                !getEffectiveGender() ||
-                                                (getEffectiveGender() !== 'male' && getEffectiveGender() !== 'female')
-                                            }
-                                            onClick={async () => {
-                                                setPromoMessage(null);
-                                                setPromoError(null);
-                                                if (!uploadedImage) return;
-                                                const effectiveGender = getEffectiveGender();
-                                                if (!effectiveGender || (effectiveGender !== 'male' && effectiveGender !== 'female')) return;
-
-                                                // Ограничение на количество попыток промокода на клиенте
-                                                const ATTEMPTS_KEY = 'newava_promo_attempts';
-                                                try {
-                                                    const raw = typeof window !== 'undefined' ? window.localStorage.getItem(ATTEMPTS_KEY) : null;
-                                                    const parsed = raw ? JSON.parse(raw) as { count: number } : { count: 0 };
-                                                    if (parsed.count >= 5) {
-                                                        setPromoError('Превышено количество попыток ввода промокода. Попробуйте позже.');
-                                                        return;
-                                                    }
-                                                } catch {
-                                                    // если что-то не так с хранилищем, просто продолжаем
-                                                }
-
-                                                try {
-                                                    setPromoLoading(true);
-                                                    const response = await usePromoCode(
-                                                        promoCodeInput,
-                                                        uploadedImage,
-                                                        effectiveGender,
-                                                        selectedRole || '',
-                                                        selectedCompany || ''
-                                                    );
-
-                                                    if (!response.ok || !response.invId) {
-                                                        setPromoError(response.error || 'Промокод недействителен или исчерпал лимит.');
-                                                        // Инкрементируем счётчик попыток
-                                                        try {
-                                                            if (typeof window !== 'undefined') {
-                                                                const raw = window.localStorage.getItem(ATTEMPTS_KEY);
-                                                                const parsed = raw ? JSON.parse(raw) as { count: number } : { count: 0 };
-                                                                parsed.count = (parsed.count || 0) + 1;
-                                                                window.localStorage.setItem(ATTEMPTS_KEY, JSON.stringify(parsed));
-                                                            }
-                                                        } catch {
-                                                            // игнорируем
-                                                        }
-                                                        return;
-                                                    }
-
-                                                    // Успех: промокод применён, генерация стартовала на бэкенде
-                                                    setPromoApplied(true);
-                                                    setPromoMessage(
-                                                        response.remainingUses !== undefined
-                                                            ? `Промокод применён. Осталось активаций: ${response.remainingUses}.`
-                                                            : 'Промокод применён. Генерация началась.'
-                                                    );
-
-                                                    const invId = String(response.invId);
-                                                    setCurrentInvId(invId);
-                                                    setHasActivePayment(true);
-                                                    if (typeof window !== 'undefined') {
-                                                        window.localStorage.setItem(CURRENT_ORDER_KEY, invId);
-                                                    }
-
-                                                    // Инициализируем состояние генерации с красивыми превью
-                                                    const initialImages: Record<string, GeneratedImage> = {};
-                                                    STYLES.forEach(style => {
-                                                        initialImages[style] = { status: 'processing' };
-                                                    });
-                                                    setGeneratedImages(initialImages);
-                                                    setAppState('generating');
-
-                                                    // Сразу подгружаем информацию о заказе, чтобы включить текущую логику polling
-                                                    try {
-                                                        const order = await fetchOrder(invId);
-                                                        setCurrentOrder(order);
-                                                    } catch (e) {
-                                                        devLog.warn('[App] Failed to fetch order after promo apply:', e);
-                                                    }
-                                                } finally {
-                                                    setPromoLoading(false);
-                                                }
-                                            }}
-                                            className="inline-flex items-center justify-center h-10 px-3 rounded-lg text-xs font-medium text-white disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed"
-                                            style={{
-                                                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                                boxShadow: '0 6px 14px rgba(16,185,129,0.35)',
-                                            }}
-                                        >
-                                            {promoLoading ? 'Проверяем…' : 'Применить'}
-                                        </button>
-                                    </div>
-                                    {promoMessage && (
-                                        <div className="mt-2 flex items-center text-[11px] text-emerald-600">
-                                            <Icons.checkCircle className="w-3.5 h-3.5 mr-1.5" />
-                                            <span>{promoMessage}</span>
-                                        </div>
-                                    )}
-                                    {!promoMessage && promoError && (
-                                        <p className="mt-2 text-[11px] text-red-600">
-                                            {promoError}
-                                        </p>
-                                    )}
-                                </div>
-                                )}
-                                {!currentOrder && (
-                                <div data-onboarding="generate" className="mt-4">
-                                    <div className="flex items-start gap-3 mb-3">
-                                        <span
-                                            className="flex h-12 w-12 items-center justify-center rounded-full text-base font-semibold text-white flex-shrink-0 mt-0.5"
-                                            style={{
-                                                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                                                boxShadow: '0 10px 20px rgba(79,70,229,0.35)',
-                                            }}
-                                        >
-                                            2
-                                        </span>
-                                        <div className="flex-1">
-                                            <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-0.5">
-                                                Сгенерируйте портреты
-                                            </h2>
-                                            <p className="text-xs sm:text-sm text-gray-500">
-                                                Мы создадим 6 портретов.
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="mb-4 w-full rounded-lg border border-gray-200 bg-slate-50 px-3 h-16 flex items-center justify-between">
-                                        <span className="text-xs sm:text-sm text-gray-500">
-                                            Стоимость генерации
-                                        </span>
-                                        <span className="text-sm sm:text-lg font-semibold text-gray-900">
-                                            100 ₽
-                                        </span>
-                                    </div>
-                                </div>
-                                )}
-                                {appState === 'image-uploaded' && (
-                                    <div className="flex items-center gap-3">
-                                        <button 
-                                            onClick={handleReset} 
-                                            className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 flex-1 h-10 py-2 px-4 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm hover:shadow-md active:scale-[0.98]"
-                                        >
-                                            <Icons.reset className="w-4 h-4 mr-2" />
-                                            Сбросить
-                                        </button>
-                                        <button 
-                                            onClick={handleGenerateClick} 
-                                            disabled={!getEffectiveGender() || (getEffectiveGender() !== 'male' && getEffectiveGender() !== 'female')}
-                                            className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 flex-1 h-10 py-2 px-4 text-white disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed"
-                                            style={{
-                                                background: getEffectiveGender() && (getEffectiveGender() === 'male' || getEffectiveGender() === 'female')
-                                                    ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)'
-                                                    : 'linear-gradient(135deg, #9ca3af 0%, #6b7280 100%)',
-                                                boxShadow: getEffectiveGender() && (getEffectiveGender() === 'male' || getEffectiveGender() === 'female')
-                                                    ? '0 10px 15px -3px rgba(99, 102, 241, 0.3), 0 4px 6px -4px rgba(99, 102, 241, 0.3)'
-                                                    : '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                if (getEffectiveGender() && (getEffectiveGender() === 'male' || getEffectiveGender() === 'female')) {
-                                                    e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(99, 102, 241, 0.4), 0 10px 10px -5px rgba(99, 102, 241, 0.4)';
-                                                    e.currentTarget.style.transform = 'scale(1.02)';
-                                                }
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                if (getEffectiveGender() && (getEffectiveGender() === 'male' || getEffectiveGender() === 'female')) {
-                                                    e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(99, 102, 241, 0.3), 0 4px 6px -4px rgba(99, 102, 241, 0.3)';
-                                                    e.currentTarget.style.transform = 'scale(1)';
-                                                }
-                                            }}
-                                        >
-                                        <Icons.sparkles className="w-4 h-4 mr-2" />
-                                            {getEffectiveGender() && (getEffectiveGender() === 'male' || getEffectiveGender() === 'female') 
-                                                ? 'Сгенерировать' 
-                                                : 'Выберите пол'}
-                                    </button>
-                                    </div>
-                                )}
-                                 {appState === 'generating' && (
-                                     <div className="w-full">
-                                         {isGeneratingIntermediate ? (
-                                             <button 
-                                                 disabled 
-                                                 className="inline-flex items-center justify-center rounded-lg text-sm font-medium w-full h-10 py-2 px-4 text-white opacity-70 cursor-not-allowed"
-                                                 style={{
-                                                     background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                                                     boxShadow: '0 10px 15px -3px rgba(99, 102, 241, 0.3), 0 4px 6px -4px rgba(99, 102, 241, 0.3)',
-                                                 }}
-                                             >
-                                                 <Icons.spinner className="w-4 h-4 mr-2 animate-spin" />
-                                                 Подготовка изображения...
-                                             </button>
-                                         ) : (
-                                             <button 
-                                                 disabled 
-                                                 className="inline-flex items-center justify-center rounded-lg text-sm font-medium w-full h-10 py-2 px-4 text-white opacity-70 cursor-not-allowed"
-                                                 style={{
-                                                     background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                                                     boxShadow: '0 10px 15px -3px rgba(99, 102, 241, 0.3), 0 4px 6px -4px rgba(99, 102, 241, 0.3)',
-                                                 }}
-                                             >
-                                                 <Icons.spinner className="w-4 h-4 mr-2 animate-spin" />
-                                                 Генерация портретов...
-                                             </button>
-                                         )}
-                                     </div>
-                                 )}
-                                {appState === 'results-shown' && (
-                                     <div className="flex items-center gap-3">
-                                        <button 
-                                            onClick={handleReset} 
-                                            className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 flex-1 h-10 py-2 px-4 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm hover:shadow-md active:scale-[0.98]"
-                                        >
-                                            <Icons.reset className="w-4 h-4 mr-2" />
-                                            Сбросить
-                                        </button>
-                                        <button 
-                                            onClick={handleDownloadAlbum} 
-                                            disabled={isDownloading} 
-                                            className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 flex-1 h-10 py-2 px-4 text-white disabled:opacity-50 disabled:pointer-events-none"
-                                            style={{
-                                                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                                                boxShadow: '0 10px 15px -3px rgba(99, 102, 241, 0.3), 0 4px 6px -4px rgba(99, 102, 241, 0.3)',
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                if (!isDownloading) {
-                                                    e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(99, 102, 241, 0.4), 0 10px 10px -5px rgba(99, 102, 241, 0.4)';
-                                                    e.currentTarget.style.transform = 'scale(1.02)';
-                                                }
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(99, 102, 241, 0.3), 0 4px 6px -4px rgba(99, 102, 241, 0.3)';
-                                                e.currentTarget.style.transform = 'scale(1)';
-                                            }}
-                                        >
-                                            {isDownloading ? (
-                                                <>
-                                                <Icons.spinner className="w-4 h-4 mr-2 animate-spin" />
-                                                    Скачать
-                                                </>
-                                            ) : (
-                                                <>
-                                                <Icons.download className="w-4 h-4 mr-2" />
-                                            Скачать
-                                                </>
-                                            )}
-                                        </button>
-                                    </div>
-                                )}
+                                
+                                <GenerationActions
+                                    promoCodeInput={promoCodeInput}
+                                    promoMessage={promoMessage}
+                                    promoError={promoError}
+                                    promoLoading={promoLoading}
+                                    promoApplied={promoApplied}
+                                    currentOrder={currentOrder}
+                                    uploadedImage={uploadedImage}
+                                    appState={appState}
+                                    isGeneratingIntermediate={isGeneratingIntermediate}
+                                    onPromoCodeChange={(code) => {
+                                        setPromoCodeInput(code);
+                                        setPromoMessage(null);
+                                        setPromoError(null);
+                                    }}
+                                    onPromoCodeApply={handlePromoCodeApply}
+                                    onGenerateClick={handleGenerateClick}
+                                    onReset={handleReset}
+                                    getEffectiveGender={getEffectiveGender}
+                                />
                             </div>
                         </div>
                     </aside>
@@ -2226,50 +1827,29 @@ function App() {
                             )}
                         </AnimatePresence>
 
-                        {(appState === 'generating' || appState === 'results-shown') && (
-                             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-                                <AnimatePresence>
-                                {STYLES.map((style, index) => {
-                                    // Если generatedImages пустой, показываем processing для всех карточек
-                                    const imageState = generatedImages[style];
-                                    // Fallback: если нет состояния, но appState = generating, показываем processing
-                                    const status = imageState?.status || (appState === 'generating' ? 'processing' : 'pending');
-                                    
-                                    // Логируем для отладки (только первые несколько раз)
-                                    if (index < 2) {
-                                        console.log(`[App] Rendering card ${style}:`, { 
-                                            status, 
-                                            hasImageState: !!imageState, 
-                                            appState,
-                                            generatedImagesKeys: Object.keys(generatedImages),
-                                            generatedImagesLength: Object.keys(generatedImages).length
-                                        });
-                                    }
-                                    
-                                    return (
-                                    <motion.div
-                                        key={style}
-                                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                                        transition={{ delay: index * 0.1 }}
-                                    >
-                                        <ImageCard
-                                            caption={style}
-                                            status={status}
-                                            queuePosition={imageState?.queuePosition}
-                                            estimatedWaitTime={imageState?.estimatedWaitTime}
-                                            imageUrl={imageState?.url}
-                                            error={imageState?.error}
-                                            gender={genderOverride || (currentOrder?.gender === 'male' ? 'male' : currentOrder?.gender === 'female' ? 'female' : null)}
-                                            onRegenerate={() => handleRegenerateStyle(style)}
-                                            onDownload={() => handleDownloadIndividualImage(style)}
-                                            onOpen={(url) => setLightboxUrl(url)}
-                                        />
-                                    </motion.div>
-                                    );
-                                })}
-                                </AnimatePresence>
-                            </div>
+                        {appState === 'generating' && (
+                            <GenerationFlow
+                                generatedImages={generatedImages}
+                                genderOverride={genderOverride}
+                                currentOrderGender={currentOrder?.gender === 'male' ? 'male' : currentOrder?.gender === 'female' ? 'female' : null}
+                                onRegenerate={handleRegenerateStyle}
+                                onDownload={handleDownloadIndividualImage}
+                                onOpen={setLightboxUrl}
+                            />
+                        )}
+                        
+                        {appState === 'results-shown' && (
+                            <ResultsView
+                                generatedImages={generatedImages}
+                                genderOverride={genderOverride}
+                                currentOrderGender={currentOrder?.gender === 'male' ? 'male' : currentOrder?.gender === 'female' ? 'female' : null}
+                                isDownloading={isDownloading}
+                                onRegenerate={handleRegenerateStyle}
+                                onDownload={handleDownloadIndividualImage}
+                                onDownloadAll={handleDownloadAlbum}
+                                onOpen={setLightboxUrl}
+                                onReset={handleReset}
+                            />
                         )}
                     </section>
                 </div>

@@ -76,18 +76,31 @@ router.post(`${API_PREFIX}/payment/create`, async (req, res) => {
       orderImages.set(String(invId), imageData);
     }
 
+    // Формируем подпись для Robokassa
+    // Формат: MerchantLogin:OutSum:InvId:Password#1
     const signatureString = `${ROBOKASSA_LOGIN}:${outSum}:${invId}:${ROBOKASSA_PASSWORD1}`;
     const signature = crypto
       .createHash('md5')
       .update(signatureString, 'utf8')
       .digest('hex');
 
+    // Robokassa требует, чтобы Description был закодирован в UTF-8 и затем в URL-кодирование
+    // Также ограничиваем длину описания (Robokassa может иметь ограничения)
+    const description = ROBOKASSA_PAYMENT_DESC.length > 100 
+      ? ROBOKASSA_PAYMENT_DESC.substring(0, 100) 
+      : ROBOKASSA_PAYMENT_DESC;
+    const descriptionEncoded = encodeURIComponent(description);
+    
     const isTestParam = ROBOKASSA_IS_TEST ? '&IsTest=1' : '';
-    const descriptionEncoded = encodeURIComponent(ROBOKASSA_PAYMENT_DESC);
     const robokassaBaseUrl = 'https://auth.robokassa.ru/Merchant/Index.aspx';
+    
+    // Формируем URL с правильным кодированием всех параметров
     const redirectUrl =
       `${robokassaBaseUrl}?MerchantLogin=${encodeURIComponent(ROBOKASSA_LOGIN)}` +
-      `&OutSum=${outSum}&InvId=${invId}&Description=${descriptionEncoded}&SignatureValue=${signature}${isTestParam}`;
+      `&OutSum=${outSum}` +
+      `&InvId=${invId}` +
+      `&Description=${descriptionEncoded}` +
+      `&SignatureValue=${signature}${isTestParam}`;
 
     console.log('[Robokassa] Creating payment:', {
       invId,
