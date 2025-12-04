@@ -2620,7 +2620,7 @@ const GEMINI_API_KEY_GENERATION = process.env.GEMINI_API_KEY; // Основно�
 const GEMINI_API_KEY_ANALYSIS = process.env.GEMINI_API_KEY_ANALYSIS; // Ключ для анализа изображений
 
 // Robokassa config (настоящие пароли для продакшена)
-const ROBOKASSA_LOGIN = process.env.ROBOKASSA_LOGIN || 'NEWAVA.pro';
+const ROBOKASSA_LOGIN = process.env.ROBOKASSA_LOGIN || 'newava.pro';
 const ROBOKASSA_PASSWORD1 = process.env.ROBOKASSA_PASSWORD1 || '1m8G0UNfjydU08B0wnhbY';
 const ROBOKASSA_PASSWORD2 = process.env.ROBOKASSA_PASSWORD2 || 'QyX8XB3lmYkaYxIH79Z9';
 const ROBOKASSA_IS_TEST = process.env.ROBOKASSA_IS_TEST === '1' ? 1 : 0; // 0 = продакшен (по умолчанию), 1 = тест
