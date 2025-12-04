@@ -2225,7 +2225,7 @@ function App() {
                                                 setPromoError(null);
                                             }}
                                             placeholder="Введите промокод"
-                                            className="flex-1 h-10 px-3 rounded-lg border border-gray-300 text-sm tracking-[0.24em] uppercase"
+                                            className="flex-1 sm:flex-1 md:flex-1 h-10 px-3 rounded-lg border border-gray-300 text-sm tracking-[0.24em] uppercase max-w-[calc(100%-90px)] sm:max-w-none"
                                         />
                                         <button
                                             type="button"
