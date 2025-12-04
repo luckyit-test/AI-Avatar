@@ -2632,8 +2632,8 @@ const GEMINI_API_KEY_ANALYSIS = process.env.GEMINI_API_KEY_ANALYSIS; // Ключ
 
 // Robokassa config (настоящие пароли для продакшена)
 const ROBOKASSA_LOGIN = process.env.ROBOKASSA_LOGIN || 'newava.pro';
-const ROBOKASSA_PASSWORD1 = process.env.ROBOKASSA_PASSWORD1 || '1m8G0UNfjydU08B0wnhbY';
-const ROBOKASSA_PASSWORD2 = process.env.ROBOKASSA_PASSWORD2 || 'QyX8XB3lmYkaYxIH79Z9';
+const ROBOKASSA_PASSWORD1 = process.env.ROBOKASSA_PASSWORD1 || 'm8G0UNfjydU08B0wnhbY';
+const ROBOKASSA_PASSWORD2 = process.env.ROBOKASSA_PASSWORD2 || 'aCnv87oSLo5n9wICTAb0';
 const ROBOKASSA_IS_TEST = process.env.ROBOKASSA_IS_TEST === '1' ? 1 : 0; // 0 = продакшен (по умолчанию), 1 = тест
 const ROBOKASSA_PAYMENT_AMOUNT = parseFloat(process.env.ROBOKASSA_PAYMENT_AMOUNT || '100.00');
 const ROBOKASSA_PAYMENT_DESC =
