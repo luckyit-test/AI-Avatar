@@ -1,83 +1,60 @@
-import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
-import { dirname, join, basename } from 'path';
-import { promises as fs } from 'fs';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Загружаем .env.local если существует, иначе .env
-dotenv.config({ path: join(__dirname, '../.env.local') });
-dotenv.config({ path: join(__dirname, '../.env') }); // fallback на .env
 import express from 'express';
 import cors from 'cors';
 import { GoogleGenAI, Modality } from '@google/genai';
-import sharp from 'sharp';
-import Database from 'better-sqlite3';
-import crypto from 'crypto';
+import { join, basename } from 'path';
+import { promises as fs } from 'fs';
+
+// Import configuration
+import {
+  PORT,
+  IMAGE_ROOT_DIR,
+  GENERATION_INTERVAL,
+  MAX_QUEUE_SIZE,
+  MAX_CONCURRENT_GENERATIONS,
+  GEMINI_RPM_LIMIT,
+  GEMINI_MIN_INTERVAL,
+  GEMINI_ANALYSIS_RPM_LIMIT,
+  GEMINI_ANALYSIS_MIN_INTERVAL,
+  GEMINI_WINDOW_SIZE,
+  MAX_REQUESTS_PER_SECOND,
+  SECOND_DELAY_ON_LIMIT,
+  BATCH_SIZE,
+  USER_BATCH_WINDOW,
+  MAX_CONCURRENT_ANALYSIS,
+  AVERAGE_ANALYSIS_TIME,
+  MAX_COMPLETED_JOBS,
+  MAX_HISTORY_SIZE,
+  MAX_PROMPT_SOFTENING_LEVEL,
+  GEMINI_API_KEY_GENERATION,
+  GEMINI_API_KEY_ANALYSIS,
+  ALLOWED_ORIGINS,
+  API_PREFIX,
+} from './config/index.js';
+
+// Import database
+import { initializeDatabase, db, getAdminSettingsStmt } from './db/index.js';
+import { saveOrder, loadOrder, listOrders, createNextInvId, orderImages } from './db/orders.js';
+import { getPromoByCode, savePromo, listPromos, normalizePromoCode, deletePromoStmt, promoAttemptsByIp } from './db/promocodes.js';
+
+// Import queues
+import { initializeGenerationQueue, generationQueue, activeJobs, completedJobs, generationTimes } from './queues/generationQueue.js';
+import { initializeAnalysisQueue, analysisQueue, activeAnalysisJobs, completedAnalysisJobs } from './queues/analysisQueue.js';
+
+// Import middleware
+import { rateLimit } from './middleware/rateLimit.js';
+import { requireAdminAuth, getAdminSessionFromRequest, createAdminSession, deleteAdminSession } from './middleware/auth.js';
+
+// Import services
+import { validateImageData, validatePrompt } from './services/validation.js';
+import { replaceBackgroundWithGray, processIntermediateImageAggressively } from './services/imageProcessing.js';
+import { generatePortraitsForOrder } from './services/portraitGeneration.js';
+
+// Import routes
+import adminRoutes, { initializeAdminRoutes } from './routes/admin.js';
+import generationRoutes, { initializeGenerationRoutes } from './routes/generation.js';
+import analysisRoutes, { initializeAnalysisRoutes } from './routes/analysis.js';
 
 const app = express();
-const PORT = process.env.PORT || 3001;
-const IMAGE_ROOT_DIR = process.env.IMAGE_ROOT_DIR || '/data/images';
-
-// Настройки очереди генерации
-const GENERATION_INTERVAL = parseInt(process.env.GENERATION_INTERVAL || '3000'); // Интервал между генерациями в мс (по умолчанию 3 секунды)
-const MAX_QUEUE_SIZE = parseInt(process.env.MAX_QUEUE_SIZE || '100'); // Максимальный размер очереди
-const MAX_CONCURRENT_GENERATIONS = parseInt(process.env.MAX_CONCURRENT_GENERATIONS || '6'); // Максимум параллельных генераций
-
-// Настройки rate limiting для Gemini API (Tier 1)
-// Для генерации: максимум 6 одновременных запросов, задержка 1 секунда при превышении лимита в текущую секунду
-const GEMINI_RPM_LIMIT = parseInt(process.env.GEMINI_RPM_LIMIT || '15'); // Requests Per Minute для генерации (для sliding window)
-const GEMINI_MIN_INTERVAL = Math.ceil(60000 / GEMINI_RPM_LIMIT); // Минимальный интервал между запросами генерации в мс
-
-// Отдельные настройки для анализа - Tier 1: 500 RPM (8.3 запроса в секунду)
-const GEMINI_ANALYSIS_RPM_LIMIT = parseInt(process.env.GEMINI_ANALYSIS_RPM_LIMIT || '500'); // Requests Per Minute для анализа (Tier 1)
-const GEMINI_ANALYSIS_MIN_INTERVAL = Math.ceil(60000 / GEMINI_ANALYSIS_RPM_LIMIT); // Минимальный интервал между запросами анализа в мс (~120 мс)
-
-// Система отслеживания запросов к Gemini API для генерации (sliding window по минутам)
-const geminiRequestTimestamps = [];
-const GEMINI_WINDOW_SIZE = 60000; // Окно в 1 минуту
-
-// Система отслеживания запросов в текущую секунду для генерации (не более 6 за секунду)
-const geminiRequestsPerSecond = new Map(); // Ключ: timestamp в секундах, значение: количество запросов
-const MAX_REQUESTS_PER_SECOND = 6; // Максимум 6 запросов в секунду
-const SECOND_DELAY_ON_LIMIT = 2000; // Задержка 2 секунды при превышении лимита
-
-// Отслеживание времени последней отправки порции (6 запросов)
-let lastBatchSendTime = 0; // Время последней отправки порции из 6 запросов
-const BATCH_SIZE = 6; // Размер порции (6 стилей от одного пользователя)
-
-// Группировка задач по пользователям (задачи добавленные в течение 200мс считаются от одного пользователя)
-const userBatchGroups = new Map(); // Ключ: timestamp группы (округленный до 200мс), значение: массив задач
-const USER_BATCH_WINDOW = 200; // Окно группировки: 200 мс
-
-// Система отслеживания запросов к Gemini API для анализа (отдельный трекер)
-const geminiAnalysisRequestTimestamps = [];
-
-// Очередь генерации
-const generationQueue = [];
-const activeJobs = new Set(); // Множество активных задач (до 6)
-let currentJobIds = []; // Массив ID активных задач (для обратной совместимости)
-
-// Очередь анализа изображений (отдельная от генерации)
-const analysisQueue = [];
-const activeAnalysisJobs = new Set(); // Множество активных задач анализа
-const MAX_CONCURRENT_ANALYSIS = parseInt(process.env.MAX_CONCURRENT_ANALYSIS || '7'); // Максимум параллельных анализов (7 запросов в секунду)
-
-// Среднее время анализа изображения (в мс)
-const AVERAGE_ANALYSIS_TIME = 10000; // 10 секунд на анализ
-
-// Хранилище результатов завершенных задач (храним 100 последних)
-const completedJobs = new Map();
-const MAX_COMPLETED_JOBS = 100;
-
-// Хранилище результатов завершенных задач анализа
-const completedAnalysisJobs = new Map();
-
-// Статистика времени генерации для предсказания
-const generationTimes = []; // История времени генерации в мс
-const MAX_HISTORY_SIZE = 50; // Храним последние 50 генераций
-const MAX_PROMPT_SOFTENING_LEVEL = 4; // Сколько ступеней смягчения промпта пробуем при IMAGE_OTHER
 
 // Структура задачи в очереди генерации
 class GenerationJob {
