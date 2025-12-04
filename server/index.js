@@ -1942,8 +1942,8 @@ async function generatePortraitsForOrder(invId) {
         const metadata = await image.metadata();
         
         // Если изображение очень большое, уменьшаем его до разумного размера
-        // Максимальная ширина/высота для портретов - 1024px (достаточно для отображения)
-        const maxDimension = 1024;
+        // Максимальная ширина/высота для портретов - 800px (достаточно для отображения и быстрой загрузки)
+        const maxDimension = 800;
         let resizeOptions = null;
         
         if (metadata.width > maxDimension || metadata.height > maxDimension) {
