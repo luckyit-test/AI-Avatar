@@ -73,7 +73,7 @@ import {
 
 // Import middleware
 import { rateLimit } from './middleware/rateLimit.js';
-import { requireAdminAuth, getAdminSessionFromRequest, createAdminSession, deleteAdminSession } from './middleware/auth.js';
+import { requireAdminAuth, getAdminSessionFromRequest, createAdminSession, deleteAdminSession, ADMIN_SESSION_TTL_MS } from './middleware/auth.js';
 
 // Import services
 import { validateImageData, validatePrompt } from './services/validation.js';
@@ -1577,12 +1577,7 @@ app.post(`${API_PREFIX}/admin/login`, express.json(), (req, res) => {
       return res.status(401).json({ error: 'Неверный пароль' });
     }
 
-    const token = crypto.randomBytes(32).toString('hex');
-    const now = Date.now();
-    adminSessions.set(token, {
-      createdAt: now,
-      expiresAt: now + ADMIN_SESSION_TTL_MS,
-    });
+    const token = createAdminSession();
 
     res.setHeader(
       'Set-Cookie',
@@ -1602,7 +1597,7 @@ app.post(`${API_PREFIX}/admin/logout`, (req, res) => {
   try {
     const session = getAdminSessionFromRequest(req);
     if (session && session.token) {
-      adminSessions.delete(session.token);
+      deleteAdminSession(session.token);
     }
     res.setHeader('Set-Cookie', 'admin_session=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax');
     res.json({ ok: true });
@@ -1806,46 +1801,8 @@ app.use(paymentRoutes);
 // orderImages Map is exported from db/orders.js
 // promoAttemptsByIp is imported from db/promocodes.js (line 44)
 
-// In-memory сессии админа
-const adminSessions = new Map(); // key: token, value: { createdAt, expiresAt }
-const ADMIN_SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 часа
-
-function parseCookies(req) {
-  const header = req.headers.cookie;
-  const cookies = {};
-  if (!header) return cookies;
-  const parts = header.split(';');
-  for (const part of parts) {
-    const [name, ...rest] = part.split('=');
-    const key = name && name.trim();
-    if (!key) continue;
-    const value = rest.join('=').trim();
-    cookies[key] = decodeURIComponent(value || '');
-  }
-  return cookies;
-}
-
-function getAdminSessionFromRequest(req) {
-  const cookies = parseCookies(req);
-  const token = cookies['admin_session'];
-  if (!token) return null;
-  const session = adminSessions.get(token);
-  if (!session) return null;
-  if (session.expiresAt <= Date.now()) {
-    adminSessions.delete(token);
-    return null;
-  }
-  return { token, ...session };
-}
-
-function requireAdminAuth(req, res, next) {
-  const session = getAdminSessionFromRequest(req);
-  if (!session) {
-    return res.status(401).json({ error: 'Требуется авторизация администратора' });
-  }
-  req.adminSession = session;
-  next();
-}
+// Admin session functions are imported from middleware/auth.js
+// adminSessions Map is internal to middleware/auth.js module
 
 function listOrders(filters = {}, pagination = {}) {
   const { from, to, status } = filters;

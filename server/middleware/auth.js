@@ -4,10 +4,25 @@
 import crypto from 'crypto';
 
 const adminSessions = new Map(); // key: token, value: { createdAt, expiresAt }
-const ADMIN_SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 часа
+export const ADMIN_SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 часа
+
+function parseCookies(req) {
+  const header = req.headers.cookie;
+  const cookies = {};
+  if (!header) return cookies;
+  const parts = header.split(';');
+  for (const part of parts) {
+    const [name, ...rest] = part.split('=');
+    const key = name && name.trim();
+    if (!key) continue;
+    const value = rest.join('=').trim();
+    cookies[key] = decodeURIComponent(value || '');
+  }
+  return cookies;
+}
 
 export function getAdminSessionFromRequest(req) {
-  const cookies = req.cookies || {};
+  const cookies = parseCookies(req);
   const token = cookies['admin_session'];
   if (!token) return null;
   const session = adminSessions.get(token);
