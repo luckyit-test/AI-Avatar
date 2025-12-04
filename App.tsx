@@ -1740,11 +1740,10 @@ function App() {
                             </div>
                             
                             {/* Заголовок */}
-                            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-4">
-                                <span className="text-gray-900">Профессиональные портреты</span>
-                                <br />
+                            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
+                                <span className="text-gray-900">Профессиональные портреты </span>
                                 <span 
-                                    className="text-3xl sm:text-4xl lg:text-5xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
+                                    className="text-2xl sm:text-3xl lg:text-4xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
                                 >
                                     за несколько минут
                                 </span>
