@@ -72,6 +72,7 @@ import { requireAdminAuth, getAdminSessionFromRequest, createAdminSession, delet
 import { validateImageData, validatePrompt } from './services/validation.js';
 import { replaceBackgroundWithGray, processIntermediateImageAggressively } from './services/imageProcessing.js';
 import { generatePortraitsForOrder } from './services/portraitGeneration.js';
+import { buildPortraitPrompts } from './services/promptBuilder.js';
 
 // Import routes
 import adminRoutes, { initializeAdminRoutes } from './routes/admin.js';
@@ -747,31 +748,7 @@ async function processQueue() {
   }
 }
 
-// Добавление задачи в очередь генерации
-// Упрощенная логика: сразу добавляем задачу в очередь, без группировки по времени
-function addToQueue(imageData, prompt) {
-  if (generationQueue.length >= MAX_QUEUE_SIZE) {
-    throw new Error('Очередь переполнена. Попробуйте позже.');
-  }
-  
-  const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  const job = new GenerationJob(jobId, imageData, prompt);
-  
-  // Сразу добавляем задачу в очередь
-  generationQueue.push(job);
-  
-  safeLog('Job added to queue', { 
-    jobId, 
-    queueSize: generationQueue.length,
-    position: job.getPosition()
-  });
-  
-  // Запускаем обработку очереди (если еще не запущена)
-  processQueue();
-  
-  // Возвращаем jobId для отслеживания статуса
-  return { jobId, position: job.getPosition(), estimatedWaitTime: job.getEstimatedWaitTime() };
-}
+// addToQueue is now handled by addToQueueLocal wrapper above
 
 // Выполнение анализа изображения (общая функция для всех типов анализа)
 async function performImageAnalysis(imageData, type, jobId = null) {
@@ -972,140 +949,7 @@ async function processAnalysisQueue() {
 // Добавление задачи в очередь анализа
 // addToAnalysisQueue is now imported from modules, use addToAnalysisQueueLocal wrapper
 
-// getAnalysisJobStatus is now imported from modules
-
-// Получение статуса задачи анализа (old version - will be removed)
-function getAnalysisJobStatusOld(jobId) {
-  // Проверяем завершенные задачи
-  const completedJob = completedAnalysisJobs.get(jobId);
-  if (completedJob) {
-    if (completedJob.error) {
-      return {
-        status: 'error',
-        error: completedJob.error.message || 'Ошибка анализа',
-      };
-    }
-    return {
-      status: 'completed',
-      result: completedJob.result,
-    };
-  }
-  
-  // Проверяем очередь и активные задачи
-  const queueJob = analysisQueue.find(job => job.id === jobId);
-  if (queueJob) {
-    const estimatedWaitTime = queueJob.getEstimatedWaitTime();
-    const elapsedTime = Date.now() - queueJob.createdAt;
-    const remainingTime = Math.max(0, estimatedWaitTime - elapsedTime);
-    
-    return {
-      status: 'queued',
-      position: queueJob.getPosition(),
-      estimatedWaitTime: estimatedWaitTime,
-      remainingTime: remainingTime,
-      statusMessage: getAnalysisStatusMessage('queued', remainingTime),
-    };
-  }
-  
-  if (activeAnalysisJobs.has(jobId)) {
-    // Задача обрабатывается - показываем оставшееся время
-    // Ищем задачу в активных задачах
-    const activeJob = Array.from(analysisQueue).find(j => j.id === jobId && j.startedAt);
-    const elapsedTime = activeJob && activeJob.startedAt ? Date.now() - activeJob.startedAt : 0;
-    const remainingTime = Math.max(0, AVERAGE_ANALYSIS_TIME - elapsedTime);
-    
-    return {
-      status: 'processing',
-      position: 0,
-      estimatedWaitTime: 0,
-      remainingTime: remainingTime,
-      statusMessage: getAnalysisStatusMessage('processing', remainingTime),
-    };
-  }
-  
-  return null; // Задача не найдена
-}
-
-// getJobStatus is now imported from modules
-
-// Получение статуса задачи генерации (old version - will be removed)
-function getJobStatusOld(jobId) {
-  // Проверяем завершенные задачи
-  const completedJob = completedJobs.get(jobId);
-  if (completedJob) {
-    if (completedJob.error) {
-      return {
-        status: 'error',
-        error: completedJob.error.message || 'Ошибка генерации',
-        errorDetails: completedJob.errorDetails || null,
-        finishReason: completedJob.errorDetails?.finishReason || null,
-        safetyRatings: completedJob.errorDetails?.safetyRatings || null,
-      };
-    }
-    return {
-      status: 'completed',
-      result: completedJob.result,
-    };
-  }
-  
-  // Проверяем обрабатываемую задачу
-  // activeJobs содержит только ID, нужно найти задачу в completedJobs или по другому способу
-  if (activeJobs.has(jobId)) {
-    // Ищем задачу в завершенных (может быть уже завершена)
-    const completedJob = completedJobs.get(jobId);
-    if (completedJob) {
-      if (completedJob.error) {
-        return {
-          status: 'error',
-          error: completedJob.error.message || 'Ошибка генерации',
-          errorDetails: completedJob.errorDetails || null,
-          finishReason: completedJob.errorDetails?.finishReason || null,
-          safetyRatings: completedJob.errorDetails?.safetyRatings || null,
-        };
-      }
-      return {
-        status: 'completed',
-        result: completedJob.result,
-      };
-    }
-    
-    // Задача активна, но еще не завершена
-    // Возвращаем статус processing с примерным временем генерации
-    const avgGenTime = calculateAverageGenerationTime();
-    return {
-      status: 'processing',
-      position: 0,
-      estimatedWaitTime: avgGenTime || 30000, // По умолчанию 30 секунд если нет статистики
-      estimatedStartTime: Date.now(), // Уже началась
-    };
-  }
-  
-  // Проверяем очередь
-  const queuedJob = generationQueue.find(j => j.id === jobId);
-  if (queuedJob) {
-    const estimatedWaitTime = queuedJob.getEstimatedWaitTime();
-    return {
-      status: 'queued',
-      position: queuedJob.getPosition(),
-      estimatedWaitTime: estimatedWaitTime,
-      estimatedStartTime: Date.now() + estimatedWaitTime, // Абсолютное время начала
-      createdAt: queuedJob.createdAt,
-    };
-  }
-  
-  // Дополнительное логирование для отладки
-  safeLog('Job not found', {
-    jobId,
-    queueSize: generationQueue.length,
-    activeJobsCount: activeJobs.size,
-    completedJobsCount: completedJobs.size,
-    queueJobIds: generationQueue.map(j => j.id).slice(0, 10),
-    activeJobIds: Array.from(activeJobs).slice(0, 10),
-    completedJobIds: Array.from(completedJobs.keys()).slice(0, 10)
-  });
-  
-  return null; // Задача не найдена
-}
+// getAnalysisJobStatus and getJobStatus are imported from queue modules
 
 // --- Robokassa success / fail redirects ---
 
@@ -1307,180 +1151,13 @@ app.post(`${API_PREFIX}/payment/create`, async (req, res) => {
   }
 });
 
-// Вспомогательная функция для случайного выбора из массива
-function randomChoice(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
+// All prompt building functions are imported from services/promptBuilder.js
+// buildPortraitPrompts is imported from services/promptBuilder.js
+import { buildPortraitPrompts } from './services/promptBuilder.js';
 
-// Описание роли для контекста промпта
-function describeRole(role) {
-  switch (role) {
-    case 'Разработчик':
-      return 'focus on a hands-on software engineer; practical, focused, clean look';
-    case 'Тимлид':
-      return 'team lead presence; approachable leadership, confident yet friendly';
-    case 'Архитектор':
-      return 'solution architect; strategic, minimalistic aesthetic, systems-thinking vibe';
-    case 'DevOps-инженер':
-      return 'DevOps engineer; pragmatic, modern tech environment, reliability mindset';
-    case 'Дата-сайентист':
-      return 'data scientist; analytical, thoughtful expression, subtle academic touch';
-    case 'ML-инженер':
-      return 'machine learning engineer; innovative, research-meets-engineering tone';
-    case 'Продуктовый менеджер':
-      return 'product manager; customer-centric, strategic and collaborative presence';
-    case 'Проектный менеджер':
-      return 'project manager; organized and composed, clarity and control';
-    case 'Системный аналитик':
-      return 'systems analyst; detail-oriented, structured and precise';
-    case 'Дизайнер UI/UX':
-      return 'UI/UX designer; creative yet professional, tasteful minimalism';
-    case 'QA-инженер':
-      return 'QA engineer; meticulous, quality-driven, methodical calmness';
-    case 'CTO':
-      return 'CTO; executive gravitas, visionary leadership, crisp and premium look';
-    default:
-      return 'technology professional; credible and modern';
-  }
-}
-
-// Описание компании для контекста промпта
-function describeCompany(company) {
-  switch (company) {
-    case 'Стартап':
-      return 'startup context; dynamic, energetic, minimalistic background or open space';
-    case 'Продуктовая компания':
-      return 'product company; polished yet approachable, modern product-office background';
-    case 'Enterprise':
-      return 'enterprise context; formal, premium lighting, subtle corporate background';
-    case 'Аутсорс/консалтинг':
-      return 'consulting; versatile, neutral background with tidy professional styling';
-    case 'Госкомпания':
-      return 'public sector; conservative and respectful styling, neutral elegant backdrop';
-    case 'Финтех':
-      return 'fintech; clean, confident, high-contrast corporate aesthetic';
-    case 'Банк':
-      return 'banking; conservative modern corporate environment, high trust aesthetic';
-    case 'Страховая':
-      return 'insurance; reassuring, trustworthy, balanced corporate tone';
-    case 'Ритейл':
-      return 'retail; practical and approachable, lively yet professional vibe';
-    case 'Маркетплейс':
-      return 'marketplace; dynamic and product-centric, modern office look';
-    case 'Медиа':
-      return 'media; creative corporate style, light editorial touch';
-    case 'EdTech':
-      return 'edtech; friendly and modern academic-corporate blend';
-    case 'HealthTech':
-      return 'healthtech; clean, clinical-inspired but warm and human tone';
-    case 'Телеком':
-      return 'telecom; high-tech corporate, sleek and structured';
-    case 'Производство':
-      return 'manufacturing; robust and grounded, clean industrial hints';
-    case 'Логистика':
-      return 'logistics; efficient, organized, neutral corporate environment';
-    case 'GameDev':
-      return 'gamedev; creative tech culture, relaxed smart-casual aesthetic';
-    default:
-      return 'professional context; neutral corporate setting';
-  }
-}
-
-// Функция для генерации детального описания одежды на основе роли, компании и пола
-function attireByContext(gender, role, company) {
-  const baseFemale = 'No facial hair. No beard. No mustache.';
-  const baseMale = 'Preserve facial hair exactly as in original. If no facial hair in original, do not add any. Do not remove facial hair if present. Grooming neat and professional.';
-
-  const isFormalCompany = company === 'Enterprise' || company === 'Госкомпания' || company === 'Аутсорс/консалтинг';
-  const isModernCompany = company === 'Стартап' || company === 'Продуктовая компания' || company === 'Финтех';
-
-  // Role-centric attire defaults
-  const roleSmartCasual = 'smart-casual, solid neutral colors, no large logos';
-  const roleBusinessCasual = 'business-casual blazer or knit, shirt or blouse, no tie';
-  const roleFormal = 'business formal suit or tailored blazer, crisp shirt/blouse';
-
-  // Wardrobe pools for extra variability (picked later according to context)
-  const femaleModernPool = [
-    'minimal blouse',
-    'fine knit sweater',
-    'turtleneck knit',
-    'cardigan over tee',
-    'light overshirt',
-    'denim jacket (clean, no distress)',
-  ];
-  const femaleFormalPool = [
-    'tailored blazer over blouse',
-    'structured knit jacket',
-  ];
-  const maleModernPool = [
-    'plain tee under lightweight overshirt',
-    'oxford shirt, no tie',
-    'turtleneck knit',
-    'merino crewneck sweater',
-    'cardigan over shirt',
-  ];
-  const maleFormalPool = [
-    'tailored blazer, no tie',
-    'business suit with open collar',
-  ];
-  const roleCreative = 'smart-casual with tasteful minimal design accents';
-
-  let attireCore;
-  switch (role) {
-    case 'Разработчик':
-    case 'DevOps-инженер':
-    case 'QA-инженер':
-      attireCore = isFormalCompany ? roleBusinessCasual : `${roleSmartCasual}; t-shirt or plain shirt/hoodie acceptable`;
-      break;
-    case 'Дизайнер UI/UX':
-      attireCore = `${roleCreative}; premium minimal knit or blouse; no loud patterns`;
-      break;
-    case 'Дата-сайентист':
-    case 'ML-инженер':
-      attireCore = isFormalCompany ? roleBusinessCasual : `${roleSmartCasual}; cardigan or lightweight knit`;
-      break;
-    case 'Продуктовый менеджер':
-    case 'Проектный менеджер':
-      attireCore = isFormalCompany ? roleBusinessCasual : `${roleSmartCasual}; knit or blouse; no suit; no tie; no formal blazer`;
-      break;
-    case 'Архитектор':
-      attireCore = isFormalCompany ? `${roleBusinessCasual}; tailored blazer` : `${roleSmartCasual}; minimal knit or overshirt; no suit`;
-      break;
-    case 'Тимлид':
-      attireCore = isFormalCompany ? roleBusinessCasual : `${roleSmartCasual}; clean and approachable; no suit`;
-      break;
-    case 'CTO':
-      attireCore = isFormalCompany ? roleFormal : 'executive smart-casual; tailored blazer, no tie';
-      break;
-    default:
-      attireCore = isFormalCompany ? roleBusinessCasual : roleSmartCasual;
-  }
-
-  // Company flavor
-  let companyFlavor = '';
-  if (company === 'Финтех') companyFlavor = 'sleek monochrome palette';
-  if (company === 'Стартап') companyFlavor = 'fresh, dynamic, contemporary casual';
-  if (company === 'Продуктовая компания') companyFlavor = 'approachable and modern';
-  if (company === 'Госкомпания') companyFlavor = 'conservative and respectful styling';
-  if (company === 'Аутсорс/консалтинг') companyFlavor = 'polished and versatile';
-
-  const noSuitModern = (isModernCompany && role !== 'CTO') ? 'No suit. No tie. No tuxedo. Avoid formal blazer.' : '';
-  const femaleNoSuit = (gender === 'female' && isModernCompany && role !== 'CTO') ? 'Avoid suit jacket; prefer blouse/knit.' : '';
-
-  // Pick a concrete garment for higher outfit variety
-  let garment = '';
-  if (gender === 'female') {
-    garment = isFormalCompany ? randomChoice(femaleFormalPool) : randomChoice(femaleModernPool);
-  } else if (gender === 'male') {
-    garment = isFormalCompany ? randomChoice(maleFormalPool) : randomChoice(maleModernPool);
-  }
-
-  const grooming = gender === 'female' ? baseFemale : baseMale;
-  return `${attireCore}. ${companyFlavor}. Specific garment: ${garment}. ${noSuitModern} ${femaleNoSuit} ${grooming}`.trim();
-}
-
-// Функции для построения промптов портретов (упрощенная версия с фронтенда)
-function buildPortraitPrompts(gender, role, company) {
+// Old duplicate functions removed - using imported versions from services/promptBuilder.js
+// Функции для построения промптов портретов (old duplicate - using imported version)
+function buildPortraitPromptsOld(gender, role, company) {
   const STYLES = ['Классический', 'Современный', 'Креативный', 'Технологичный', 'Дружелюбный', 'Уверенный'];
   
   if (!gender || (gender !== 'male' && gender !== 'female')) {
@@ -1609,8 +1286,9 @@ function buildPortraitPrompts(gender, role, company) {
   };
 }
 
-// Функция генерации портретов (запускается асинхронно после подтверждения оплаты)
-async function generatePortraitsForOrder(invId) {
+// generatePortraitsForOrder is imported from services/portraitGeneration.js
+// Old duplicate function removed - using imported version
+async function generatePortraitsForOrderOld(invId) {
   const order = loadOrder(invId);
   const imageData = orderImages.get(String(invId));
   if (!order || !imageData) {
@@ -1951,7 +1629,7 @@ function handleRobokassaResult(req, res) {
       const hasImageData = order.hasImageData;
       if (hasImageData && order.gender && order.role && order.company) {
         console.log('[Robokassa] Starting portrait generation for order', { invId });
-        generatePortraitsForOrder(invId).catch(err => {
+        generatePortraitsForOrder(invId, MAX_QUEUE_SIZE).catch(err => {
           console.error('[Robokassa] Error in portrait generation:', err);
           const failedOrder = loadOrder(invId);
           if (failedOrder) {
