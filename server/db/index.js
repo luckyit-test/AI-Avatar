@@ -8,6 +8,16 @@ import { DB_PATH } from '../config/index.js';
 export const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 
+/**
+ * Initialize database tables and settings
+ * This function is called explicitly, but initialization also happens on module load
+ */
+export function initializeDatabase() {
+  // Database initialization happens automatically when module is imported
+  // This function exists for explicit initialization if needed
+  console.log('[DB] Database initialized');
+}
+
 // Initialize tables
 db.exec(`
 CREATE TABLE IF NOT EXISTS orders (
