@@ -2344,17 +2344,17 @@ function App() {
                                      </div>
                                  )}
                                 {appState === 'results-shown' && (
-                                     <div className="flex items-center gap-3">
-                                        <button 
-                                            onClick={handleReset} 
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            onClick={handleReset}
                                             className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 flex-1 h-10 py-2 px-4 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm hover:shadow-md active:scale-[0.98]"
                                         >
                                             <Icons.reset className="w-4 h-4 mr-2" />
                                             Сбросить
                                         </button>
-                                        <button 
-                                            onClick={handleDownloadAlbum} 
-                                            disabled={isDownloading} 
+                                        <button
+                                            onClick={handleDownloadAlbum}
+                                            disabled={isDownloading}
                                             className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 flex-1 h-10 py-2 px-4 text-white disabled:opacity-50 disabled:pointer-events-none"
                                             style={{
                                                 background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
@@ -2362,31 +2362,30 @@ function App() {
                                             }}
                                             onMouseEnter={(e) => {
                                                 if (!isDownloading) {
-                                                    e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(99, 102, 241, 0.4), 0 10px 10px -5px rgba(99, 102, 241, 0.4)';
+                                                    e.currentTarget.style.boxShadow =
+                                                        '0 20px 25px -5px rgba(99, 102, 241, 0.4), 0 10px 10px -5px rgba(99, 102, 241, 0.4)';
                                                     e.currentTarget.style.transform = 'scale(1.02)';
                                                 }
                                             }}
                                             onMouseLeave={(e) => {
-                                                e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(99, 102, 241, 0.3), 0 4px 6px -4px rgba(99, 102, 241, 0.3)';
+                                                e.currentTarget.style.boxShadow =
+                                                    '0 10px 15px -3px rgba(99, 102, 241, 0.3), 0 4px 6px -4px rgba(99, 102, 241, 0.3)';
                                                 e.currentTarget.style.transform = 'scale(1)';
                                             }}
                                         >
                                             {isDownloading ? (
                                                 <>
-                                                <Icons.spinner className="w-4 h-4 mr-2 animate-spin" />
+                                                    <Icons.spinner className="w-4 h-4 mr-2 animate-spin" />
                                                     Альбом
                                                 </>
                                             ) : (
                                                 <>
-                                                <Icons.download className="w-4 h-4 mr-2" />
-                                            Альбом
+                                                    <Icons.download className="w-4 h-4 mr-2" />
+                                                    Альбом
                                                 </>
                                             )}
                                         </button>
-                                        </div>
-                                        )}
                                     </div>
-                                </div>
                                 )}
                         </div>
                     </aside>
