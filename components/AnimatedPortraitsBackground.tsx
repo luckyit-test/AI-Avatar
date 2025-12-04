@@ -226,9 +226,9 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
               padding: '16px',
               backgroundColor: 'white',
               borderRadius: '16px',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
               alignItems: 'center',
-              zIndex: 1,
+              zIndex: 2,
             }}
           >
             {row.portraits.map((portrait) => (
