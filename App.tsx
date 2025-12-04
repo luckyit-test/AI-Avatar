@@ -2501,8 +2501,8 @@ function App() {
                                     className="h-full flex flex-col items-center justify-center bg-white rounded-lg border-2 border-dashed border-gray-300 p-8 text-center relative overflow-hidden"
                                 >
                                     {/* Градиентные оверлеи для читаемости текста (как на сайте) */}
-                                    <div className="absolute inset-0 bg-gradient-to-b from-white/80 via-white/60 to-white/95 z-10 rounded-lg" />
-                                    <div className="absolute inset-0 bg-gradient-to-r from-white/70 via-transparent to-white/50 z-10 rounded-lg" />
+                                    <div className="absolute inset-0 bg-gradient-to-b from-white/60 via-white/40 to-white/80 z-[5] rounded-lg" />
+                                    <div className="absolute inset-0 bg-gradient-to-r from-white/50 via-transparent to-white/30 z-[5] rounded-lg" />
                                     
                                     {/* Контент поверх анимации */}
                                     <div className="relative z-20">
