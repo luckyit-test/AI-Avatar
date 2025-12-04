@@ -150,12 +150,21 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
           });
         }
 
-        console.log('[AnimatedPortraitsBackground] Created rows:', newRows.length);
-        setRows(newRows);
-        setIsLoading(false);
-      } catch (error) {
-        console.error('[AnimatedPortraitsBackground] Failed to load portraits:', error);
-        setIsLoading(false);
+          console.log('[AnimatedPortraitsBackground] Created rows:', newRows.length);
+          setRows(newRows);
+          setIsLoading(false);
+        } catch (error) {
+          console.error('[AnimatedPortraitsBackground] Failed to load portraits:', error);
+          setIsLoading(false);
+        }
+      };
+      
+      // Используем requestIdleCallback для неблокирующей загрузки после рендера страницы
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(loadData, { timeout: 2000 });
+      } else {
+        // Fallback для браузеров без requestIdleCallback
+        setTimeout(loadData, 100);
       }
     };
 
