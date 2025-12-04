@@ -132,7 +132,7 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
             portraits: rowPortraits,
             row: rowIndex,
             direction,
-            y: finalYPosition, // Используем абсолютную позицию в пикселях
+            y: yPosition, // Используем абсолютную позицию в пикселях
             duration: 120 + Math.random() * 40, // 120-160 секунд (в 2 раза медленнее)
           });
         }
