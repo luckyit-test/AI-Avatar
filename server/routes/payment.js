@@ -26,6 +26,30 @@ export function initializePaymentRoutes(dependencies) {
 // Инициация платежа
 router.post(`${API_PREFIX}/payment/create`, async (req, res) => {
   try {
+    // Проверяем, что зависимости инициализированы
+    if (typeof createNextInvId !== 'function') {
+      console.error('[Robokassa] createNextInvId is not a function');
+      return res.status(500).json({ error: 'Ошибка инициализации сервера. Попробуйте позже.' });
+    }
+    if (typeof saveOrder !== 'function') {
+      console.error('[Robokassa] saveOrder is not a function');
+      return res.status(500).json({ error: 'Ошибка инициализации сервера. Попробуйте позже.' });
+    }
+    if (!orderImages || typeof orderImages.set !== 'function') {
+      console.error('[Robokassa] orderImages is not initialized');
+      return res.status(500).json({ error: 'Ошибка инициализации сервера. Попробуйте позже.' });
+    }
+
+    // Проверяем конфигурацию Robokassa
+    if (!ROBOKASSA_LOGIN || !ROBOKASSA_PASSWORD1 || !ROBOKASSA_PASSWORD2) {
+      console.error('[Robokassa] Missing required configuration:', {
+        hasLogin: !!ROBOKASSA_LOGIN,
+        hasPassword1: !!ROBOKASSA_PASSWORD1,
+        hasPassword2: !!ROBOKASSA_PASSWORD2,
+      });
+      return res.status(500).json({ error: 'Ошибка конфигурации платежной системы. Обратитесь в поддержку.' });
+    }
+
     const invId = createNextInvId();
     const outSum = ROBOKASSA_PAYMENT_AMOUNT.toFixed(2);
 
@@ -65,9 +89,20 @@ router.post(`${API_PREFIX}/payment/create`, async (req, res) => {
       `${robokassaBaseUrl}?MerchantLogin=${encodeURIComponent(ROBOKASSA_LOGIN)}` +
       `&OutSum=${outSum}&InvId=${invId}&Description=${descriptionEncoded}&SignatureValue=${signature}${isTestParam}`;
 
+    console.log('[Robokassa] Creating payment:', {
+      invId,
+      outSum,
+      login: ROBOKASSA_LOGIN,
+      isTest: ROBOKASSA_IS_TEST,
+      signatureString: `${ROBOKASSA_LOGIN}:${outSum}:${invId}:***`,
+      signature,
+      redirectUrl,
+    });
+
     res.json({ redirectUrl, invId });
   } catch (err) {
     console.error('[Robokassa] payment/create error:', err);
+    console.error('[Robokassa] Error stack:', err instanceof Error ? err.stack : 'No stack trace');
     res.status(500).json({ error: 'Не удалось создать платёж. Попробуйте позже.' });
   }
 });
