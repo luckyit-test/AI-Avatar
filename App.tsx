@@ -364,6 +364,7 @@ function App() {
     const [genderOverride, setGenderOverride] = useState<'male' | 'female' | null>(null);
     const [selectedRole, setSelectedRole] = useState<typeof IT_ROLES[number]>('Разработчик');
     const [selectedCompany, setSelectedCompany] = useState<typeof COMPANY_TYPES[number]>('Стартап');
+    const [isRulesOpen, setIsRulesOpen] = useState<boolean>(false);
     // Fixed settings per request: always High variability and maximum naturalness
     const variability: VariabilityLevel = 'high';
     const naturalLook: boolean = true;
@@ -1047,7 +1048,7 @@ function App() {
                     </section>
                 </div>
             </main>
-            <Footer />
+            <Footer onOpenRules={() => setIsRulesOpen(true)} />
             
             {/* Onboarding */}
             <Onboarding
@@ -1086,6 +1087,63 @@ function App() {
                             className="max-h-[90vh] max-w-[90vw] object-contain rounded-md shadow-2xl"
                             onClick={(e) => e.stopPropagation()}
                         />
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Правила генераций */}
+            <AnimatePresence>
+                {isRulesOpen && (
+                    <motion.div
+                        key="rules-modal"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4"
+                        onClick={() => setIsRulesOpen(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0, y: 10 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.95, opacity: 0, y: 10 }}
+                            className="max-w-lg w-full bg-white rounded-xl shadow-2xl p-6 relative"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <button
+                                aria-label="Закрыть"
+                                className="absolute top-3 right-3 h-8 w-8 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center hover:bg-gray-200"
+                                onClick={() => setIsRulesOpen(false)}
+                            >
+                                <Icons.close className="h-4 w-4" />
+                            </button>
+                            <h2 className="text-lg font-semibold text-gray-900 mb-3">Правила генерации портретов</h2>
+                            <div className="text-sm text-gray-700 space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+                                <p>
+                                    Для получения качественных бизнес-портретов, пожалуйста, загружайте фото, которое соответствует этим требованиям:
+                                </p>
+                                <ul className="list-disc list-inside space-y-1">
+                                    <li>На фото должен быть один человек, без животных, пейзажей и посторонних объектов.</li>
+                                    <li>Лицо должно быть хорошо видно: анфас или лёгкий поворот, без сильных теней и засветов.</li>
+                                    <li>Фото должно быть настоящей фотографией, а не рисунком, 3D-рендером или скриншотом из игры.</li>
+                                    <li>Не загружайте изображения с неприемлемым или запрещённым контентом.</li>
+                                    <li>Используйте форматы JPG, PNG или WEBP, размером до 10 МБ.</li>
+                                </ul>
+                                <p className="text-xs text-gray-600">
+                                    Нажимая кнопку <span className="font-semibold">«Сгенерировать»</span>, пользователь подтверждает, что ознакомился с этими правилами и соглашается с ними.
+                                    В случае нарушения правил сервис не несёт ответственности за потраченные средства и результат генерации.
+                                </p>
+                                <p className="text-xs text-gray-600">
+                                    Если вы не согласны с полученными результатами или столкнулись с технической ошибкой, вы можете написать в службу поддержки:&nbsp;
+                                    <a
+                                        href="mailto:kuznetsov@i-integrator.com"
+                                        className="text-blue-600 underline decoration-dotted"
+                                    >
+                                        kuznetsov@i-integrator.com
+                                    </a>
+                                    .
+                                </p>
+                            </div>
+                        </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>
