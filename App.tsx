@@ -491,26 +491,16 @@ function App() {
                 window.localStorage.setItem(CURRENT_ORDER_KEY, invId);
             }
 
-            // Сразу показываем состояние загрузки, чтобы пользователь не видел пустую страницу
-            console.log('[App] Loading order info for invId:', invId);
-            
-            // Сразу инициализируем состояние генерации (оптимистичный UI)
-            // Это гарантирует, что пользователь увидит карточки генерации сразу
-            const initialImages: Record<string, GeneratedImage> = {};
-            STYLES.forEach(style => {
-                initialImages[style] = { status: 'processing' };
-            });
-            setGeneratedImages(initialImages);
-            setAppState('generating');
-            console.log('[App] Optimistically set generation state while loading order');
+                    // Сразу показываем состояние загрузки, чтобы пользователь не видел пустую страницу
+                    console.log('[App] Loading order info for invId:', invId);
 
             // Загружаем информацию о заказе с бэкенда
             fetchOrder(invId)
                 .then((order) => {
                     setCurrentOrder(order);
 
-                    // Если заказ оплачен или обрабатывается - показываем генерацию
-                    if (order.status === 'paid' || order.status === 'processing' || order.status === 'completed') {
+                    // Если заказ оплачен / обрабатывается / уже был завершён или упал с ошибкой — не сбрасываем пользователя
+                    if (order.status === 'paid' || order.status === 'processing' || order.status === 'completed' || order.status === 'failed') {
                         setHasActivePayment(true);
                         
                         // Восстанавливаем настройки из localStorage
@@ -519,7 +509,9 @@ function App() {
                             if (raw) {
                                 const data = JSON.parse(raw);
                                 console.log('[App] Restoring from localStorage:', { hasImage: !!data?.uploadedImage, hasGender: !!data?.genderOverride });
-                                if (data?.uploadedImage) {
+                                if (data?.uploadedImage && order.status !== 'failed') {
+                                    // Для провалившихся заказов не восстанавливаем старое изображение,
+                                    // чтобы пользователь загрузил новое фото для ретрая.
                                     setUploadedImage(data.uploadedImage);
                                     console.log('[App] Restored uploadedImage from localStorage');
                                 }
@@ -538,7 +530,7 @@ function App() {
                             }
                             
                             // Если изображение всё ещё не восстановилось — пробуем взять последнее исходное из отдельного ключа
-                            if (!uploadedImage) {
+                            if (!uploadedImage && order.status !== 'failed') {
                                 try {
                                     const lastSource = window.localStorage.getItem(LAST_SOURCE_IMAGE_KEY);
                                     if (lastSource) {
@@ -594,6 +586,13 @@ function App() {
                                 setAppState('generating');
                                 
                                 console.log('[App] App state set to generating, generatedImages keys:', Object.keys(images));
+                            } else if (order.status === 'failed') {
+                                // Провалившийся заказ после возврата с оплаты — показываем экран ошибки,
+                                // но форма слева остаётся пустой, чтобы пользователь мог загрузить новое фото.
+                                setGeneratedImages({});
+                                setUploadedImage(null);
+                                setIntermediateImage(null);
+                                setAppState('failed');
                             }
                         } catch (e) {
                             console.warn('[App] Failed to restore order state:', e);
@@ -689,8 +688,12 @@ function App() {
                     setAppState('results-shown');
                     clearInterval(pollInterval);
                 } else if (order.status === 'failed') {
-                    // Заказ провалился
+                    // Заказ провалился (техническая ошибка после оплаты/промокода)
                     console.log('[App] Order failed', { failureReason: order.failureReason, retries: order.retries });
+                    // Очищаем предыдущее изображение, чтобы пользователь сразу выбрал новое
+                    setUploadedImage(null);
+                    setIntermediateImage(null);
+                    setGeneratedImages({});
                     setAppState('failed');
                     clearInterval(pollInterval);
                 }
