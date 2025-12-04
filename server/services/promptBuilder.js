@@ -1,7 +1,7 @@
 /**
  * Prompt building service for portrait generation
  */
-import { describeRole, describeCompany, attireByContext } from '../../lib/promptUtils.js';
+import { describeRole, describeCompany, attireByContext } from './promptUtils.js';
 
 function randomChoice(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
