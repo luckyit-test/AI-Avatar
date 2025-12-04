@@ -362,6 +362,7 @@ type AppState = 'idle' | 'image-uploaded' | 'generating' | 'results-shown' | 'fa
 function App() {
     const onboarding = useOnboarding();
     const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const rightColumnRef = React.useRef<HTMLElement>(null);
     
     // Проверка и автоматическое перенаправление на HTTPS
     useEffect(() => {
@@ -2486,7 +2487,12 @@ function App() {
                     </aside>
                     
                     {/* --- Right Column: Results --- */}
-                    <section className="flex-1 relative">
+                    <section className="flex-1 relative overflow-hidden">
+                        {/* Анимированный фон с портретами - заполняет всю секцию */}
+                        {appState === 'idle' && (
+                            <AnimatedPortraitsBackground className="absolute inset-0" />
+                        )}
+                        
                         <AnimatePresence>
                             {appState === 'idle' && (
                                 <motion.div 
@@ -2494,9 +2500,6 @@ function App() {
                                     animate={{ opacity: 1, y: 0 }}
                                     className="h-full flex flex-col items-center justify-center bg-white rounded-lg border-2 border-dashed border-gray-300 p-8 text-center relative overflow-hidden"
                                 >
-                                    {/* Анимированный фон с портретами */}
-                                    <AnimatedPortraitsBackground className="absolute inset-0 rounded-lg" />
-                                    
                                     {/* Градиентные оверлеи для читаемости текста (как на сайте) */}
                                     <div className="absolute inset-0 bg-gradient-to-b from-white/80 via-white/60 to-white/95 z-10 rounded-lg" />
                                     <div className="absolute inset-0 bg-gradient-to-r from-white/70 via-transparent to-white/50 z-10 rounded-lg" />

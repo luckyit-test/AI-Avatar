@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 
 interface AnimatedPortraitsBackgroundProps {
   className?: string;
+  containerRef?: React.RefObject<HTMLElement>; // Опциональный ref родительского контейнера
 }
 
 interface Portrait {
@@ -20,10 +21,11 @@ interface PortraitRow {
   duration: number; // секунды
 }
 
-const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = ({ className = '' }) => {
+const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = ({ className = '', containerRef: externalContainerRef }) => {
   const [rows, setRows] = useState<PortraitRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const internalContainerRef = useRef<HTMLDivElement>(null);
+  const containerRef = externalContainerRef || internalContainerRef;
   const [containerHeight, setContainerHeight] = useState(800); // Высота контейнера
   const portraitSize = 200; // Размер каждого портрета
   const portraitGap = 12; // Отступ между портретами
@@ -72,8 +74,9 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
 
         // Создаем ряды портретов
         const newRows: PortraitRow[] = [];
-        const containerWidth = containerRef.current?.clientWidth || 1200;
-        const currentHeight = containerRef.current?.clientHeight || containerHeight;
+        const element = containerRef.current as HTMLElement | null;
+        const containerWidth = element?.clientWidth || 1200;
+        const currentHeight = element?.clientHeight || containerHeight;
         
         // Вычисляем количество рядов, которые поместятся в контейнер
         // Учитываем отступы сверху и снизу (по 50px)
@@ -175,7 +178,7 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
 
   return (
     <div
-      ref={containerRef}
+      ref={internalContainerRef}
       className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`}
       style={{ zIndex: 0 }}
     >
