@@ -60,6 +60,11 @@ router.post(`${API_PREFIX}/evaluate-image`, rateLimit, async (req, res) => {
       estimatedWaitTime: queueResult.estimatedWaitTime
     });
     
+    // Устанавливаем явные заголовки для избежания проблем с HTTP/2 в nginx
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    
     return res.json({
       jobId: jobId,
       status: 'queued',
