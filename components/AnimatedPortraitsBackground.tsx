@@ -105,18 +105,18 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
           // Первый ряд (rowIndex=0) начинается с самого верха: y=0 для верхнего края портрета
           // Используем portraitSize/2 для центрирования через translateY(-50%)
           // Вычитаем 100px чтобы подтянуть все ряды выше
-          // Убираем отступ между первым и вторым рядом - второй ряд начинается сразу после первого
+          // Все ряды идут друг за другом БЕЗ отступов
           let yPosition;
           if (rowIndex === 0) {
             yPosition = portraitSize / 2 - 100; // Первый ряд начинается выше на 100px
-          } else if (rowIndex === 1) {
-            // Второй ряд начинается сразу после первого без отступа
-            const firstRowY = portraitSize / 2 - 100;
-            const firstRowBottom = firstRowY + (rowHeight / 2); // Нижний край первого ряда
-            yPosition = firstRowBottom + (rowHeight / 2); // Центр второго ряда сразу после первого
           } else {
-            // Остальные ряды идут друг за другом
-            yPosition = (rowIndex * rowHeight) + (rowHeight / 2) - 100;
+            // Для всех остальных рядов рассчитываем позицию относительно предыдущего ряда
+            // Каждый следующий ряд начинается сразу после предыдущего без отступа
+            const firstRowY = portraitSize / 2 - 100;
+            const firstRowCenter = firstRowY;
+            // Каждый ряд имеет высоту rowHeight, центрируем через translateY(-50%)
+            // Поэтому центр следующего ряда = центр предыдущего + rowHeight
+            yPosition = firstRowCenter + (rowIndex * rowHeight);
           }
           
           console.log(`[AnimatedPortraitsBackground] Row ${rowIndex}: yPosition=${yPosition}px, height=${currentHeight}, direction=${direction}`);
@@ -241,7 +241,7 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
               transform: `translateY(-50%)`, // Центрируем по вертикали
               display: 'flex',
               gap: `${portraitGap}px`,
-              padding: '16px',
+              padding: '8px 16px', // Уменьшен padding сверху и снизу в 2 раза (было 16px, стало 8px)
               backgroundColor: 'white',
               borderRadius: '16px',
               boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
