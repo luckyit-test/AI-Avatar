@@ -890,11 +890,22 @@ function getAnalysisStatusMessage(status, remainingTimeMs) {
 
 // Обработка одной задачи анализа
 async function processAnalysisJob(job) {
+  safeLog('processAnalysisJob started', {
+    jobId: job.id,
+    type: job.type,
+    queueSize: analysisQueue.length,
+    activeJobs: activeAnalysisJobs.size,
+    maxConcurrent: MAX_CONCURRENT_ANALYSIS
+  });
+  
   activeAnalysisJobs.add(job.id);
   job.startedAt = Date.now();
   
   try {
+    safeLog('Calling performImageAnalysis', { jobId: job.id, type: job.type });
     const result = await performImageAnalysis(job.imageData, job.type, job.id);
+    safeLog('performImageAnalysis completed', { jobId: job.id, hasResult: !!result });
+    
     job.setResult(result);
     
     // Сохраняем завершенную задачу
@@ -905,6 +916,7 @@ async function processAnalysisJob(job) {
     }
     
     activeAnalysisJobs.delete(job.id);
+    safeLog('Analysis job completed successfully', { jobId: job.id });
     processAnalysisQueue(); // Проверяем, есть ли еще задачи для обработки
     
   } catch (error) {
@@ -937,17 +949,42 @@ async function processAnalysisJob(job) {
 
 // Обработчик очереди анализа (запускает до MAX_CONCURRENT_ANALYSIS задач параллельно)
 async function processAnalysisQueue() {
+  safeLog('processAnalysisQueue called', {
+    queueSize: analysisQueue.length,
+    activeJobs: activeAnalysisJobs.size,
+    maxConcurrent: MAX_CONCURRENT_ANALYSIS
+  });
+  
   // Запускаем новые задачи, пока не достигнут лимит параллельных анализов
   while (activeAnalysisJobs.size < MAX_CONCURRENT_ANALYSIS && analysisQueue.length > 0) {
     const job = analysisQueue.shift();
+    safeLog('Starting analysis job from queue', {
+      jobId: job.id,
+      type: job.type,
+      queueSize: analysisQueue.length,
+      activeJobs: activeAnalysisJobs.size
+    });
+    
     // Запускаем задачу асинхронно (не ждем завершения)
     processAnalysisJob(job).catch(err => {
       console.error('Unexpected error in processAnalysisJob:', err);
+      safeLog('Unexpected error in processAnalysisJob', {
+        jobId: job.id,
+        error: err instanceof Error ? err.message : String(err)
+      });
       activeAnalysisJobs.delete(job.id);
     });
     
     // Небольшая задержка между запусками для снижения нагрузки
     await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  
+  if (analysisQueue.length > 0) {
+    safeLog('processAnalysisQueue: queue not empty but max concurrent reached', {
+      queueSize: analysisQueue.length,
+      activeJobs: activeAnalysisJobs.size,
+      maxConcurrent: MAX_CONCURRENT_ANALYSIS
+    });
   }
 }
 
