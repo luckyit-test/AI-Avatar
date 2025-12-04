@@ -102,9 +102,10 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
           // Портерты начинаются с самого верха секции (без белой области)
           // Первый ряд (rowIndex=0) начинается с самого верха: y=0 для верхнего края портрета
           // Используем portraitSize/2 для центрирования через translateY(-50%)
+          // Вычитаем 100px чтобы подтянуть все ряды выше
           const yPosition = rowIndex === 0 
-            ? portraitSize / 2  // Первый ряд: центр портрета на portraitSize/2 от верха (верхний край на y=0)
-            : (rowIndex * rowHeight) + (rowHeight / 2); // Остальные ряды идут друг за другом
+            ? portraitSize / 2 - 100  // Первый ряд начинается выше на 100px
+            : (rowIndex * rowHeight) + (rowHeight / 2) - 100; // Остальные ряды идут друг за другом, все выше на 100px
           
           console.log(`[AnimatedPortraitsBackground] Row ${rowIndex}: yPosition=${yPosition}px, height=${currentHeight}, direction=${direction}`);
           
