@@ -294,7 +294,8 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
     console.log('[evaluateImage] Response received', {
       ok: response.ok,
       status: response.status,
-      statusText: response.statusText
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries())
     });
 
     if (!response.ok) {
@@ -317,8 +318,39 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
       throw new Error(errorData.error || `HTTP ${response.status}`);
     }
 
-    const queueResult = await response.json();
+    // Пробуем получить текст ответа для диагностики
+    const responseText = await response.text();
+    console.log('[evaluateImage] Response text received', {
+      textLength: responseText.length,
+      textPreview: responseText.substring(0, 200),
+      hasJobId: responseText.includes('jobId')
+    });
+
+    let queueResult;
+    try {
+      queueResult = JSON.parse(responseText);
+      console.log('[evaluateImage] Response parsed successfully', {
+        hasJobId: !!queueResult.jobId,
+        jobId: queueResult.jobId,
+        status: queueResult.status,
+        position: queueResult.position
+      });
+    } catch (parseError) {
+      console.error('[evaluateImage] Failed to parse JSON response', {
+        error: parseError instanceof Error ? parseError.message : String(parseError),
+        responseText: responseText.substring(0, 500)
+      });
+      throw new Error('Не удалось обработать ответ сервера');
+    }
+
     const jobId = queueResult.jobId;
+    
+    if (!jobId) {
+      console.error('[evaluateImage] No jobId in response', { queueResult });
+      throw new Error('Сервер не вернул идентификатор задачи');
+    }
+    
+    console.log('[evaluateImage] Starting polling for jobId:', jobId);
     
     // Polling статуса задачи
     // Используем интервал 1 секунда - достаточно для обновления UI таймера
