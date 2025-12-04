@@ -17,7 +17,7 @@ interface PortraitRow {
   portraits: Portrait[];
   row: number; // номер ряда (0, 1, 2, ...)
   direction: 'left' | 'right'; // направление движения
-  y: number; // позиция Y в процентах (0-100)
+  y: number; // позиция Y в пикселях (абсолютная)
   duration: number; // секунды
 }
 
@@ -81,10 +81,14 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
         const currentHeight = element?.clientHeight || containerHeight;
         
         // Вычисляем количество рядов, которые поместятся в контейнер
-        // Учитываем отступы сверху и снизу (по 50px)
-        const availableHeight = currentHeight - 100;
-        const numRows = Math.max(2, Math.floor(availableHeight / (rowHeight + rowGap)));
-        const portraitsPerRow = Math.max(6, Math.floor(containerWidth / (portraitSize + portraitGap)) + 2); // +2 для плавного движения
+        // Ряды должны заполнять всю высоту без перекрытий
+        const numRows = Math.max(2, Math.floor(currentHeight / (rowHeight + rowGap)));
+        
+        // Для бесконечного эффекта нужно достаточно портретов, чтобы заполнить экран + запас
+        // Рассчитываем минимальное количество портретов для одного прохода экрана
+        const portraitsForOneScreen = Math.ceil((containerWidth + 200) / (portraitSize + portraitGap));
+        // Умножаем на 2-3 для плавного бесконечного движения
+        const portraitsPerRow = Math.max(10, portraitsForOneScreen * 3);
         
         console.log('[AnimatedPortraitsBackground] Container dimensions:', { width: containerWidth, height: currentHeight });
         console.log('[AnimatedPortraitsBackground] Calculated rows:', numRows, 'portraits per row:', portraitsPerRow);
@@ -93,32 +97,25 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
         for (let rowIndex = 0; rowIndex < numRows; rowIndex++) {
           const direction = rowIndex % 2 === 0 ? 'left' : 'right'; // Четные ряды - влево, нечетные - вправо
           
-          // Распределяем портреты по высоте контейнера равномерно
-          // Учитываем высоту ряда и отступы
-          const yPosition = 50 + (rowIndex * (rowHeight + rowGap)) + (rowHeight / 2);
-          const yPercent = Math.min(95, Math.max(5, (yPosition / currentHeight) * 100)); // Ограничиваем 5-95%
+          // Распределяем ряды по высоте контейнера БЕЗ перекрытий
+          // Каждый ряд начинается с отступом сверху и имеет фиксированную позицию
+          const yPosition = (rowIndex * (rowHeight + rowGap)) + (rowHeight / 2);
           
-          console.log(`[AnimatedPortraitsBackground] Row ${rowIndex}: yPosition=${yPosition}, yPercent=${yPercent.toFixed(2)}%, height=${currentHeight}, direction=${direction}`);
+          console.log(`[AnimatedPortraitsBackground] Row ${rowIndex}: yPosition=${yPosition}px, height=${currentHeight}, direction=${direction}`);
           
-          // Берем портреты для этого ряда
+          // Создаем зацикленный набор портретов для этого ряда
+          // Берем первые 10-15 портретов и повторяем их для бесконечного эффекта
+          const basePortraitsCount = Math.min(10, urls.length);
+          const basePortraits = urls.slice(0, basePortraitsCount);
+          
           const rowPortraits: Portrait[] = [];
           for (let i = 0; i < portraitsPerRow; i++) {
-            const urlIndex = rowIndex * portraitsPerRow + i;
-            if (urlIndex < urls.length) {
-              rowPortraits.push({
-                id: `portrait-${rowIndex}-${i}-${Date.now()}`,
-                url: urls[urlIndex],
-                size: portraitSize,
-              });
-            } else {
-              // Если портретов не хватает, используем циклически
-              const cyclicIndex = urlIndex % urls.length;
-              rowPortraits.push({
-                id: `portrait-${rowIndex}-${i}-${Date.now()}`,
-                url: urls[cyclicIndex],
-                size: portraitSize,
-              });
-            }
+            const urlIndex = i % basePortraits.length;
+            rowPortraits.push({
+              id: `portrait-${rowIndex}-${i}-${Date.now()}`,
+              url: basePortraits[urlIndex],
+              size: portraitSize,
+            });
           }
           
           newRows.push({
@@ -126,7 +123,7 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
             portraits: rowPortraits,
             row: rowIndex,
             direction,
-            y: yPercent,
+            y: yPosition, // Используем абсолютную позицию в пикселях
             duration: 40 + Math.random() * 10, // 40-50 секунд для плавного движения
           });
         }
@@ -144,24 +141,8 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
   }, [containerHeight]);
 
 
-  // Показываем компонент даже если портреты еще загружаются или их нет
-  // (для отладки видно, что компонент рендерится)
-  if (isLoading) {
-    return (
-      <div
-        ref={containerRef}
-        className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`}
-        style={{ zIndex: 0 }}
-      >
-        {/* Показываем индикатор загрузки для отладки */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="absolute bottom-2 left-2 text-xs text-gray-400 opacity-50">
-            Загрузка портретов...
-          </div>
-        )}
-      </div>
-    );
-  }
+  // Показываем портреты сразу, даже если они еще загружаются
+  // (показываем пустой контейнер, чтобы не было белого экрана)
 
   if (rows.length === 0) {
     // Если портретов нет, все равно рендерим контейнер для отладки
@@ -207,7 +188,7 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
             className="absolute"
             initial={{
               x: startX,
-              y: `${row.y}%`,
+              y: row.y,
               opacity: 1,
             }}
             animate={{
