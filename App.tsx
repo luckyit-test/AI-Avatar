@@ -15,7 +15,7 @@ import ImageCard from './components/ImageCard';
 import { Icons } from './components/Icons';
 import { CustomSelect } from './components/CustomSelect';
 import { Onboarding, useOnboarding } from './components/Onboarding';
-import { cn } from './lib/utils';
+import { cn, devLog } from './lib/utils';
 
 const STYLES = ['Классический', 'Современный', 'Креативный', 'Технологичный', 'Дружелюбный', 'Уверенный'];
 type VariabilityLevel = 'low' | 'medium' | 'high';
@@ -372,7 +372,7 @@ function App() {
             // Если открыт HTTP, перенаправляем на HTTPS
             if (isHttp && !isHttps && currentUrl.includes('newava.pro')) {
                 const httpsUrl = currentUrl.replace('http://', 'https://');
-                console.warn('[App] Redirecting from HTTP to HTTPS:', { from: currentUrl, to: httpsUrl });
+                devLog.warn('[App] Redirecting from HTTP to HTTPS:', { from: currentUrl, to: httpsUrl });
                 window.location.replace(httpsUrl);
             }
         }
@@ -449,7 +449,7 @@ function App() {
                 setAdminMode('promos');
             }
         } catch (e) {
-            console.warn('[App] Failed to detect admin mode:', e);
+            devLog.warn('[App] Failed to detect admin mode:', e);
         }
     }, []);
 
@@ -492,7 +492,7 @@ function App() {
             }
 
             // Сразу показываем состояние загрузки, чтобы пользователь не видел пустую страницу
-            console.log('[App] Loading order info for invId:', invId);
+            devLog.log('[App] Loading order info for invId:', invId);
             
             // Сразу инициализируем состояние генерации (оптимистичный UI)
             // Это гарантирует, что пользователь увидит карточки генерации сразу
@@ -502,7 +502,7 @@ function App() {
             });
             setGeneratedImages(initialImages);
             setAppState('generating');
-            console.log('[App] Optimistically set generation state while loading order');
+            devLog.log('[App] Optimistically set generation state while loading order');
 
             // Загружаем информацию о заказе с бэкенда
             fetchOrder(invId)
@@ -518,14 +518,14 @@ function App() {
                             const raw = window.localStorage.getItem(PENDING_GENERATION_KEY);
                             if (raw) {
                                 const data = JSON.parse(raw);
-                                console.log('[App] Restoring from localStorage:', { hasImage: !!data?.uploadedImage, hasGender: !!data?.genderOverride });
+                                devLog.log('[App] Restoring from localStorage:', { hasImage: !!data?.uploadedImage, hasGender: !!data?.genderOverride });
                                 if (data?.uploadedImage) {
                                     setUploadedImage(data.uploadedImage);
-                                    console.log('[App] Restored uploadedImage from localStorage');
+                                    devLog.log('[App] Restored uploadedImage from localStorage');
                                 }
                                 if (data?.genderOverride === 'male' || data?.genderOverride === 'female') {
                                     setGenderOverride(data.genderOverride);
-                                    console.log('[App] Restored genderOverride from localStorage:', data.genderOverride);
+                                    devLog.log('[App] Restored genderOverride from localStorage:', data.genderOverride);
                                 }
                                 if (data?.selectedRole && (IT_ROLES as readonly string[]).includes(data.selectedRole)) {
                                     setSelectedRole(data.selectedRole as (typeof IT_ROLES)[number]);
@@ -534,7 +534,7 @@ function App() {
                                     setSelectedCompany(data.selectedCompany as (typeof COMPANY_TYPES)[number]);
                                 }
                             } else {
-                                console.warn('[App] No data in localStorage for PENDING_GENERATION_KEY');
+                                devLog.warn('[App] No data in localStorage for PENDING_GENERATION_KEY');
                             }
                             
                             // Если изображение всё ещё не восстановилось — пробуем взять последнее исходное из отдельного ключа
@@ -543,10 +543,10 @@ function App() {
                                     const lastSource = window.localStorage.getItem(LAST_SOURCE_IMAGE_KEY);
                                     if (lastSource) {
                                         setUploadedImage(lastSource);
-                                        console.log('[App] Restored uploadedImage from LAST_SOURCE_IMAGE_KEY');
+                                        devLog.log('[App] Restored uploadedImage from LAST_SOURCE_IMAGE_KEY');
                                     }
                                 } catch (e) {
-                                    console.warn('[App] Failed to restore last source image from storage:', e);
+                                    devLog.warn('[App] Failed to restore last source image from storage:', e);
                                 }
                             }
                             
@@ -554,7 +554,7 @@ function App() {
                             if (order.gender && (order.gender === 'male' || order.gender === 'female')) {
                                 if (!genderOverride) {
                                     setGenderOverride(order.gender as 'male' | 'female');
-                                    console.log('[App] Restored genderOverride from order:', order.gender);
+                                    devLog.log('[App] Restored genderOverride from order:', order.gender);
                                 }
                             }
                             if (order.role && (IT_ROLES as readonly string[]).includes(order.role)) {
@@ -579,7 +579,7 @@ function App() {
                             } else if (order.status === 'processing' || order.status === 'paid') {
                                 // Показываем состояние генерации сразу (даже если заказ еще в статусе paid)
                                 // Показываем генерацию даже если изображение не восстановилось - пользователь должен видеть прогресс
-                                console.log('[App] Setting generation state for order', { invId, status: order.status });
+                                devLog.log('[App] Setting generation state for order', { invId, status: order.status });
                                 
                                 // Инициализируем все 6 карточек со статусом processing
                                 const images: Record<string, GeneratedImage> = {};
@@ -587,15 +587,15 @@ function App() {
                                     images[style] = { status: 'processing' };
                                 });
                                 
-                                console.log('[App] Generated images state:', images, 'STYLES:', STYLES);
+                                devLog.log('[App] Generated images state:', images, 'STYLES:', STYLES);
                                 
                                 // Устанавливаем состояние синхронно, используя функциональное обновление
                                 setGeneratedImages(() => images);
                                 setAppState('generating');
                                 
-                                console.log('[App] App state set to generating, generatedImages keys:', Object.keys(images));
+                                devLog.log('[App] App state set to generating, generatedImages keys:', Object.keys(images));
                             } else if (order.status === 'failed') {
-                                console.log('[App] Order is in failed status after load, showing failed state');
+                                devLog.log('[App] Order is in failed status after load, showing failed state');
                                 setHasActivePayment(false);
                                 setGeneratedImages({});
                                 setUploadedImage(null);
@@ -603,12 +603,12 @@ function App() {
                                 setAppState('failed');
                             }
                         } catch (e) {
-                            console.warn('[App] Failed to restore order state:', e);
+                            devLog.warn('[App] Failed to restore order state:', e);
                         }
                     } else {
                         // Заказ не был оплачен (status = created / cancelled / и т.п.) —
                         // возвращаем пользователя на "чистую" главную страницу.
-                        console.log('[App] Order is not paid, resetting UI to idle state', { status: order.status });
+                        devLog.log('[App] Order is not paid, resetting UI to idle state', { status: order.status });
                         setHasActivePayment(false);
                         setCurrentInvId(null);
                         setCurrentOrder(null);
@@ -620,7 +620,7 @@ function App() {
                             window.localStorage.removeItem(CURRENT_ORDER_KEY);
                             window.localStorage.removeItem(PENDING_GENERATION_KEY);
                         } catch (storageErr) {
-                            console.warn('[App] Failed to clear localStorage after unpaid order:', storageErr);
+                            devLog.warn('[App] Failed to clear localStorage after unpaid order:', storageErr);
                         }
                     }
                 })
@@ -632,7 +632,7 @@ function App() {
                             window.localStorage.removeItem(CURRENT_ORDER_KEY);
                             window.localStorage.removeItem(PENDING_GENERATION_KEY);
                         } catch (storageErr) {
-                            console.warn('[App] Failed to clear localStorage after fetch error:', storageErr);
+                            devLog.warn('[App] Failed to clear localStorage after fetch error:', storageErr);
                         }
                     }
                     setHasActivePayment(false);
@@ -769,7 +769,7 @@ function App() {
                     window.localStorage.removeItem(CURRENT_ORDER_KEY);
                     window.localStorage.removeItem(PENDING_GENERATION_KEY);
                 } catch (e) {
-                    console.warn('[App] Failed to clear storage in beforeunload:', e);
+                    devLog.warn('[App] Failed to clear storage in beforeunload:', e);
                 }
 
                 event.preventDefault();
@@ -810,7 +810,7 @@ function App() {
 
     const handleImageUpload = async (file: File) => {
         // Детальное логирование для диагностики
-        console.log('[App] File selected:', {
+        devLog.log('[App] File selected:', {
             name: file.name,
             size: file.size,
             sizeMB: (file.size / (1024 * 1024)).toFixed(2),
@@ -824,7 +824,7 @@ function App() {
         const MAX_FILE_SIZE = 7 * 1024 * 1024; // 7MB (base64 будет ~9-10MB)
         if (file.size > MAX_FILE_SIZE) {
             const sizeInMB = (file.size / (1024 * 1024)).toFixed(1);
-            console.warn('[App] File too large:', { size: file.size, sizeMB: sizeInMB, maxSize: MAX_FILE_SIZE });
+            devLog.warn('[App] File too large:', { size: file.size, sizeMB: sizeInMB, maxSize: MAX_FILE_SIZE });
             setImageValidationError(
                 `Фото слишком большое (${sizeInMB} МБ). Максимальный размер — 7 МБ. ` +
                 `Пожалуйста, уменьшите изображение или сделайте скриншот и попробуйте снова.`
@@ -839,7 +839,7 @@ function App() {
         // Специальная проверка для HEIC (многие телефоны используют этот формат)
         if (fileTypeLower.includes('heic') || fileTypeLower.includes('heif') || 
             file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif')) {
-            console.warn('[App] HEIC format detected:', { fileName: file.name, fileType: file.type });
+            devLog.warn('[App] HEIC format detected:', { fileName: file.name, fileType: file.type });
             setImageValidationError(
                 'Формат HEIC не поддерживается. Пожалуйста, конвертируйте фото в JPG или PNG перед загрузкой. ' +
                 'На iPhone можно сделать скриншот фото или сохранить в другом формате.'
@@ -848,7 +848,7 @@ function App() {
         }
         
         if (!allowedTypes.includes(fileTypeLower)) {
-            console.warn('[App] Unsupported file type:', { fileType: file.type, fileName: file.name });
+            devLog.warn('[App] Unsupported file type:', { fileType: file.type, fileName: file.name });
             setImageValidationError(
                 `Формат изображения не поддерживается (${file.type || 'неизвестный'}). Загрузите фото в формате JPG, PNG или WEBP.`
             );
@@ -860,7 +860,7 @@ function App() {
         const isYandexMobile = isMobile && /YaBrowser|Yandex/i.test(navigator.userAgent);
         const needsCompression = shouldCompressImage(file, isMobile);
         
-        console.log('[App] Image processing options:', {
+        devLog.log('[App] Image processing options:', {
             isMobile,
             isYandexMobile,
             needsCompression,
@@ -870,11 +870,11 @@ function App() {
 
         // Для мобильных устройств (особенно Яндекс браузера) сжимаем изображение
         if (needsCompression) {
-            console.log('[App] Compressing image for mobile device...');
+            devLog.log('[App] Compressing image for mobile device...');
             try {
                 const compressedDataUrl = await compressImage(file, 1920, 1920, 0.85);
                 const compressedSize = (compressedDataUrl.length * 3) / 4;
-                console.log('[App] Image compressed:', {
+                devLog.log('[App] Image compressed:', {
                     originalSize: file.size,
                     originalSizeMB: (file.size / (1024 * 1024)).toFixed(2),
                     compressedSize,
@@ -918,7 +918,7 @@ function App() {
             return;
         }
         
-        console.log('[App] Processing image data:', {
+        devLog.log('[App] Processing image data:', {
             dataUrlLength: dataUrl.length,
             estimatedSizeMB: (base64Size / (1024 * 1024)).toFixed(2),
             originalFileSize: originalFile.size,
@@ -951,7 +951,7 @@ function App() {
                     // Не обновляем таймер из статуса - используем только обратный отсчет от 10
                 });
                 
-                console.log('Image evaluation result:', evaluation);
+                devLog.log('Image evaluation result:', evaluation);
                 
                 if (!evaluation.isValid) {
                     // Изображение не прошло валидацию - показываем ошибку
@@ -981,21 +981,21 @@ function App() {
                         window.localStorage.setItem(LAST_SOURCE_IMAGE_KEY, dataUrl);
                     }
                 } catch (e) {
-                    console.warn('[App] Failed to persist last source image:', e);
+                    devLog.warn('[App] Failed to persist last source image:', e);
                 }
                 
                 // Устанавливаем определенный пол
                 setDetectedGender(evaluation.gender);
-                console.log('Detected gender:', evaluation.gender, 'confidence:', evaluation.confidence);
+                devLog.log('Detected gender:', evaluation.gender, 'confidence:', evaluation.confidence);
                 
                 // Автоматически выбираем пол если уверенность >= 0.7
                 if ((evaluation.gender === 'male' || evaluation.gender === 'female') && evaluation.confidence >= 0.7) {
                     setGenderOverride(evaluation.gender);
-                    console.log('Auto-selected gender:', evaluation.gender, 'confidence:', evaluation.confidence);
+                    devLog.log('Auto-selected gender:', evaluation.gender, 'confidence:', evaluation.confidence);
                 } else {
                     // Если уверенность низкая или пол не определен - сбрасываем выбор
                     setGenderOverride(null);
-                    console.log('Gender not auto-selected, user must choose. Gender:', evaluation.gender, 'confidence:', evaluation.confidence);
+                    devLog.log('Gender not auto-selected, user must choose. Gender:', evaluation.gender, 'confidence:', evaluation.confidence);
                 }
                 } catch (error) {
                     const errorDetails = {
@@ -1037,20 +1037,20 @@ function App() {
         const effectiveGender = getEffectiveGender();
         if (!effectiveGender || (effectiveGender !== 'male' && effectiveGender !== 'female')) {
             // Логируем, но не показываем alert - пол должен быть выбран автоматически
-            console.warn('[App] Gender not selected, but should be auto-selected');
+            devLog.warn('[App] Gender not selected, but should be auto-selected');
             return;
         }
 
         // Если есть активный заказ в состоянии processing или completed - не запускаем генерацию заново
         if (currentOrder && (currentOrder.status === 'processing' || currentOrder.status === 'completed')) {
-            console.log('[App] Order already processing or completed, skipping generation');
+                            devLog.log('[App] Order already processing or completed, skipping generation');
             return;
         }
 
         // Если у заказа статус failed — запускаем повторную генерацию через backend без новой оплаты
         if (currentOrder && currentOrder.status === 'failed') {
             try {
-                console.log('[App] Retrying failed order via /order/:invId/retry');
+                devLog.log('[App] Retrying failed order via /order/:invId/retry');
                 setAppState('generating');
 
                 const images: Record<string, GeneratedImage> = {};
@@ -1061,7 +1061,7 @@ function App() {
 
                 const effectiveGenderRetry = getEffectiveGender();
                 if (!effectiveGenderRetry || (effectiveGenderRetry !== 'male' && effectiveGenderRetry !== 'female')) {
-                    console.warn('[App] Gender not selected on retry, aborting');
+                    devLog.warn('[App] Gender not selected on retry, aborting');
                     setAppState('failed');
                     return;
                 }
@@ -1100,7 +1100,7 @@ function App() {
         // Если оплаты ещё не было - инициируем платёж через Robokassa
         if (!hasActivePayment && !currentOrder) {
             try {
-                console.log('[App] No active payment found, creating Robokassa payment...');
+                devLog.log('[App] No active payment found, creating Robokassa payment...');
 
                 // Сохраняем текущие настройки перед редиректом на оплату
                 try {
@@ -1115,7 +1115,7 @@ function App() {
                         window.localStorage.setItem(PENDING_GENERATION_KEY, JSON.stringify(payload));
                     }
                 } catch (storageError) {
-                    console.warn('[App] Failed to persist pending generation before payment:', storageError);
+                    devLog.warn('[App] Failed to persist pending generation before payment:', storageError);
                 }
 
                 const effectiveGender = getEffectiveGender();
@@ -1148,7 +1148,7 @@ function App() {
                 window.localStorage.removeItem(PENDING_GENERATION_KEY);
             }
         } catch (e) {
-            console.warn('[App] Failed to clear pending generation from storage:', e);
+            devLog.warn('[App] Failed to clear pending generation from storage:', e);
         }
 
         setAppState('generating');
@@ -1167,23 +1167,23 @@ function App() {
             
             if (!intermediateImage) {
                 setIsGeneratingIntermediate(true);
-                console.log('[App] ========================================');
-                console.log('[App] STEP 1: Generating intermediate image');
-                console.log('[App] Original image size:', uploadedImage.length, 'chars');
-                console.log('[App] ========================================');
+                devLog.log('[App] ========================================');
+                devLog.log('[App] STEP 1: Generating intermediate image');
+                devLog.log('[App] Original image size:', uploadedImage.length, 'chars');
+                devLog.log('[App] ========================================');
                 
                 // Максимально простой промпт для промежуточного изображения
                 // Используем минимальный промпт, который должен работать даже с проблемными изображениями
                 const intermediatePrompt = 'Change background to gray. Keep person the same.';
-                console.log('[App] Intermediate prompt:', intermediatePrompt);
+                devLog.log('[App] Intermediate prompt:', intermediatePrompt);
                 
                 try {
                     const intermediateResult = await generateImage(uploadedImage, intermediatePrompt);
-                    console.log('[App] ========================================');
-                    console.log('[App] ✅ Intermediate image generated successfully!');
-                    console.log('[App] Intermediate image size:', intermediateResult.length, 'chars');
-                    console.log('[App] Intermediate image preview:', intermediateResult.substring(0, 100) + '...');
-                    console.log('[App] ========================================');
+                    devLog.log('[App] ========================================');
+                    devLog.log('[App] ✅ Intermediate image generated successfully!');
+                    devLog.log('[App] Intermediate image size:', intermediateResult.length, 'chars');
+                    devLog.log('[App] Intermediate image preview:', intermediateResult.substring(0, 100) + '...');
+                    devLog.log('[App] ========================================');
                     setIntermediateImage(intermediateResult);
                     imageToUse = intermediateResult;
                     isUsingIntermediate = true;
@@ -1205,37 +1205,37 @@ function App() {
                 // Используем кэшированное промежуточное изображение
                 imageToUse = intermediateImage;
                 isUsingIntermediate = true;
-                console.log('[App] Using cached intermediate image (size:', intermediateImage.length, 'chars)');
+                devLog.log('[App] Using cached intermediate image (size:', intermediateImage.length, 'chars)');
             }
             
-            console.log('[App] ========================================');
-            console.log('[App] STEP 2: Generating 6 final portraits');
-            console.log('[App] Using image size:', imageToUse.length, 'chars');
-            console.log('[App] Image source:', isUsingIntermediate ? 'INTERMEDIATE ✅' : 'ORIGINAL ⚠️');
+            devLog.log('[App] ========================================');
+            devLog.log('[App] STEP 2: Generating 6 final portraits');
+            devLog.log('[App] Using image size:', imageToUse.length, 'chars');
+            devLog.log('[App] Image source:', isUsingIntermediate ? 'INTERMEDIATE ✅' : 'ORIGINAL ⚠️');
             if (!isUsingIntermediate) {
-                console.warn('[App] ⚠️ WARNING: Using ORIGINAL image instead of intermediate! This may cause generation failures.');
+                devLog.warn('[App] ⚠️ WARNING: Using ORIGINAL image instead of intermediate! This may cause generation failures.');
             }
-            console.log('[App] ========================================');
+            devLog.log('[App] ========================================');
 
             // ШАГ 2: Генерируем все 6 стилей параллельно на основе промежуточного изображения
             const prompts = buildPromptsByContext(getEffectiveGender(), selectedRole, selectedCompany, variability, naturalLook);
 
             // Логируем информацию о промптах для проверки инструкций по бороде/усам
-            console.log('[App] ========================================');
-            console.log('[App] PROMPT VERIFICATION: Facial hair preservation instructions');
-            console.log('[App] ========================================');
+            devLog.log('[App] ========================================');
+            devLog.log('[App] PROMPT VERIFICATION: Facial hair preservation instructions');
+            devLog.log('[App] ========================================');
             const samplePrompt = prompts[Object.keys(prompts)[0]];
             const hasFacialHairInstructions = samplePrompt.includes('CRITICAL FACIAL HAIR') || 
                                              samplePrompt.includes('facial hair EXACTLY') ||
                                              samplePrompt.includes('Do NOT lengthen, thicken');
-            console.log(`[App] ✅ Facial hair preservation instructions found: ${hasFacialHairInstructions}`);
+            devLog.log(`[App] ✅ Facial hair preservation instructions found: ${hasFacialHairInstructions}`);
             if (hasFacialHairInstructions) {
                 const facialHairMatch = samplePrompt.match(/CRITICAL.*?facial hair.*?(?=\.|Attire|The style)/is);
                 if (facialHairMatch) {
-                    console.log(`[App] Facial hair instruction preview: ${facialHairMatch[0].substring(0, 200)}...`);
+                    devLog.log(`[App] Facial hair instruction preview: ${facialHairMatch[0].substring(0, 200)}...`);
                 }
             }
-            console.log('[App] ========================================');
+            devLog.log('[App] ========================================');
 
             // Ограничения на количество попыток (чтобы не убить квоту)
             const MAX_ATTEMPTS_PER_STYLE = 4;
@@ -1254,23 +1254,23 @@ function App() {
                     // Учитываем попытку для этого стиля
                     attempts[style] = (attempts[style] ?? 0) + 1;
                     if (attempts[style] > MAX_ATTEMPTS_PER_STYLE) {
-                        console.warn(`[App] Max attempts reached for style: ${style}. Skipping further generation attempts.`);
+                        devLog.warn(`[App] Max attempts reached for style: ${style}. Skipping further generation attempts.`);
                         return { style, success: false, error: 'Превышено максимальное количество попыток для этого стиля.' };
                     }
 
                     const prompt = prompts[style];
                     if (retryCount === 0) {
-                        console.log(`[App] Starting generation for style: ${style}`);
+                        devLog.log(`[App] Starting generation for style: ${style}`);
                     } else {
-                        console.log(`[App] Retrying generation for style: ${style} (attempt ${retryCount + 1})`);
+                        devLog.log(`[App] Retrying generation for style: ${style} (attempt ${retryCount + 1})`);
                     }
-                    console.log(`[App] Prompt length: ${prompt.length} chars`);
-                    console.log(`[App] Prompt preview: ${prompt.substring(0, 150)}...`);
+                    devLog.log(`[App] Prompt length: ${prompt.length} chars`);
+                    devLog.log(`[App] Prompt preview: ${prompt.substring(0, 150)}...`);
                     // Проверяем наличие инструкций по бороде/усам в каждом промпте
                     const hasFacialHairInPrompt = prompt.includes('CRITICAL FACIAL HAIR') || 
                                                  prompt.includes('facial hair EXACTLY') ||
                                                  prompt.includes('Do NOT lengthen, thicken');
-                    console.log(`[App] ✅ Facial hair preservation in prompt: ${hasFacialHairInPrompt}`);
+                    devLog.log(`[App] ✅ Facial hair preservation in prompt: ${hasFacialHairInPrompt}`);
                     
                     // Callback для обновления статуса в реальном времени
                     const onStatusUpdate = (status: QueueStatus) => {
@@ -1298,7 +1298,7 @@ function App() {
                         });
                     };
                     
-                    console.log(`[App] Using image for generation:`, {
+                    devLog.log(`[App] Using image for generation:`, {
                         style,
                         imageSource: isUsingIntermediate ? 'INTERMEDIATE ✅' : 'ORIGINAL ⚠️',
                         imageSize: imageToUse.length,
@@ -1306,8 +1306,8 @@ function App() {
                     });
                     
                     const resultUrl = await generateImage(imageToUse, prompt, onStatusUpdate);
-                    console.log(`[App] ✅ Successfully generated image for style: ${style}`);
-                    console.log(`[App] Result URL length: ${resultUrl.length} chars`);
+                    devLog.log(`[App] ✅ Successfully generated image for style: ${style}`);
+                    devLog.log(`[App] Result URL length: ${resultUrl.length} chars`);
                     setGeneratedImages(prev => ({
                         ...prev,
                         [style]: { status: 'done', url: resultUrl },
@@ -1319,7 +1319,7 @@ function App() {
                     
                     // Если это ошибка "Задача не найдена" и еще есть попытки - пробуем снова
                     if (isJobNotFoundError && retryCount < maxRetriesForJobNotFound) {
-                        console.warn(`[App] ⚠️ Job not found for style: ${style}. Retrying... (attempt ${retryCount + 1}/${maxRetriesForJobNotFound})`);
+                        devLog.warn(`[App] ⚠️ Job not found for style: ${style}. Retrying... (attempt ${retryCount + 1}/${maxRetriesForJobNotFound})`);
                         // Небольшая задержка перед повторной попыткой
                         await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
                         // Рекурсивно вызываем функцию с увеличенным счетчиком попыток
@@ -1348,9 +1348,9 @@ function App() {
             firstStageResults.push(...results);
             
             // ШАГ 3: Проверяем результаты и делаем повторную попытку для неудачных
-            console.log('[App] ========================================');
-            console.log('[App] STEP 3: Checking results and retrying failed portraits');
-            console.log('[App] ========================================');
+            devLog.log('[App] ========================================');
+            devLog.log('[App] STEP 3: Checking results and retrying failed portraits');
+            devLog.log('[App] ========================================');
             
             // Находим успешные портреты и неудачные стили из результатов промисов
             const successfulPortraits: Array<{ style: string; url: string }> = [];
@@ -1359,10 +1359,10 @@ function App() {
             results.forEach(result => {
                 if (result.success && result.url) {
                     successfulPortraits.push({ style: result.style, url: result.url });
-                    console.log(`[App] ✅ Successful portrait: ${result.style}`);
+                    devLog.log(`[App] ✅ Successful portrait: ${result.style}`);
                 } else {
                     failedStyles.push(result.style);
-                    console.log(`[App] ❌ Failed portrait: ${result.style}`);
+                    devLog.log(`[App] ❌ Failed portrait: ${result.style}`);
                 }
             });
 
@@ -1374,9 +1374,9 @@ function App() {
             
             // Если есть успешные портреты и неудачные - делаем расширенную повторную попытку
             if (successfulPortraits.length > 0 && failedStyles.length > 0) {
-                console.log('[App] ========================================');
-                console.log(`[App] Retrying ${failedStyles.length} failed portraits using successful portraits as sources (with limits)`);
-                console.log('[App] ========================================');
+                devLog.log('[App] ========================================');
+                devLog.log(`[App] Retrying ${failedStyles.length} failed portraits using successful portraits as sources (with limits)`);
+                devLog.log('[App] ========================================');
                 
                 // Функция для повторной попытки с использованием одного или нескольких успешных изображений
                 const retryFailedStyle = async (style: string): Promise<{ style: string; success: boolean; url?: string }> => {
@@ -1391,7 +1391,7 @@ function App() {
                         totalRetryRequests < MAX_TOTAL_RETRY_REQUESTS
                     ) {
                         const source = successfulPortraits[sourceIndex];
-                        console.log(`[App] Retrying generation for style: ${style} using source style: ${source.style} (attempt ${attempts[style] ?? 0 + 1})`);
+                        devLog.log(`[App] Retrying generation for style: ${style} using source style: ${source.style} (attempt ${attempts[style] ?? 0 + 1})`);
 
                         // Учитываем попытку и глобальный лимит
                         attempts[style] = (attempts[style] ?? 0) + 1;
