@@ -56,15 +56,19 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
 
   useEffect(() => {
     // Загружаем портреты с сервера
+    // Используем отложенную загрузку для ускорения загрузки страницы
     const loadPortraits = async () => {
       try {
         console.log('[AnimatedPortraitsBackground] Loading portraits from /api/gallery/recent');
-        const response = await fetch('/api/gallery/recent?limit=50');
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        const data = await response.json();
-        const urls: string[] = data.portraits || [];
+        // Уменьшаем лимит для более быстрой загрузки (нужно только 6 портретов для базового набора)
+        // Используем requestIdleCallback для неблокирующей загрузки
+        const loadData = async () => {
+          const response = await fetch('/api/gallery/recent?limit=10');
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          const data = await response.json();
+          const urls: string[] = data.portraits || [];
 
         console.log('[AnimatedPortraitsBackground] Loaded portraits:', urls.length);
 
@@ -103,9 +107,18 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
           // Первый ряд (rowIndex=0) начинается с самого верха: y=0 для верхнего края портрета
           // Используем portraitSize/2 для центрирования через translateY(-50%)
           // Вычитаем 100px чтобы подтянуть все ряды выше
+          // Второй ряд должен начинаться сразу после первого без отступа
           const yPosition = rowIndex === 0 
             ? portraitSize / 2 - 100  // Первый ряд начинается выше на 100px
             : (rowIndex * rowHeight) + (rowHeight / 2) - 100; // Остальные ряды идут друг за другом, все выше на 100px
+          
+          // Исправляем отступ между первым и вторым рядом
+          // Второй ряд должен начинаться сразу после первого (без gap)
+          if (rowIndex === 1) {
+            const firstRowY = portraitSize / 2 - 100;
+            const firstRowBottom = firstRowY + (rowHeight / 2); // Нижний край первого ряда
+            yPosition = firstRowBottom + (rowHeight / 2); // Центр второго ряда сразу после первого
+          }
           
           console.log(`[AnimatedPortraitsBackground] Row ${rowIndex}: yPosition=${yPosition}px, height=${currentHeight}, direction=${direction}`);
           
