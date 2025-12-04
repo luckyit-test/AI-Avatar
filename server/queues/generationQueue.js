@@ -244,3 +244,7 @@ export function getJobStatus(jobId) {
   return null;
 }
 
+export function setLastBatchSendTime(time) {
+  lastBatchSendTime = time;
+}
+

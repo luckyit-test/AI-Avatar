@@ -60,6 +60,7 @@ import {
   geminiRequestsPerSecond,
   lastBatchSendTime,
   userBatchGroups,
+  setLastBatchSendTime,
 } from './queues/generationQueue.js';
 import { 
   analysisQueue, 
@@ -691,7 +692,7 @@ async function processQueue() {
       if (batchJobs.length === 0) break;
 
       // Обновляем время последней отправки порции
-      lastBatchSendTime = Date.now();
+      setLastBatchSendTime(Date.now());
 
       // Регистрируем запросы в трекерах
       const currentSecond = Math.floor(Date.now() / 1000);
