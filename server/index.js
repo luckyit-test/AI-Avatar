@@ -1563,7 +1563,8 @@ app.post(`${API_PREFIX}/payment/create`, async (req, res) => {
       isTest: ROBOKASSA_IS_TEST,
       signatureString: `${ROBOKASSA_LOGIN}:${outSum}:${invId}:***`,
       signature,
-      url: redirectUrl.substring(0, 100) + '...',
+      fullUrl: redirectUrl,
+      description: ROBOKASSA_PAYMENT_DESC,
     });
 
     res.json({ redirectUrl, invId });
