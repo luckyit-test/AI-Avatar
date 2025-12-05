@@ -70,29 +70,30 @@ export function GalleryPage() {
             >
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between items-center py-5">
-                        <a href="/" className="flex items-center gap-4">
+                        <div className="flex items-center gap-4">
                             {/* Логотип */}
-                            <div 
-                                className="relative flex items-center justify-center logo-container cursor-pointer"
-                                style={{
-                                    width: '44px',
-                                    height: '44px',
-                                }}
+                            <a
+                                href="/"
+                                className="flex items-center justify-center logo-container cursor-pointer transition-opacity duration-200 hover:opacity-80"
                             >
-                                <div 
-                                    className="absolute inset-0 rounded-xl transition-all duration-300"
+                                <img 
+                                    src="/logo.png" 
+                                    alt="newava.pro logo"
+                                    className="w-auto object-contain"
                                     style={{
-                                        background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
-                                        boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)',
+                                        height: '55px',
                                     }}
                                 />
-                                <div className="relative z-10 p-2.5">
-                                    <Icons.career className="h-5 w-5 text-white transition-transform duration-300" strokeWidth={2} />
-                                </div>
-                            </div>
+                            </a>
                             
                             {/* Текстовая часть */}
-                            <div className="flex flex-col gap-0.5">
+                            <div 
+                                className="flex flex-col gap-0.5"
+                                style={{
+                                    marginLeft: '-5px',
+                                    marginTop: '-5px',
+                                }}
+                            >
                                 <h1 className="flex items-baseline gap-1.5">
                                     <span 
                                         className="text-2xl font-bold tracking-tight"
@@ -127,27 +128,30 @@ export function GalleryPage() {
                                     АІ-ПОРТРЕТЫ
                                 </p>
                             </div>
-                        </a>
+                        </div>
                         
                         {/* Кнопки справа */}
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 sm:gap-3">
+                            {/* Кнопка "Поддержка" - скрыта на мобильных */}
                             <a
                                 href="mailto:kuznetsov@i-integrator.com"
-                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 touch-manipulation active:scale-[0.98]"
+                                className="hidden md:inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 touch-manipulation active:scale-[0.98]"
                             >
                                 <Icons.helpCircle className="w-4 h-4" />
                                 Поддержка
                             </a>
+                            {/* Кнопка "Портреты" - адаптивный текст */}
                             <a
                                 href="/gallery"
-                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-all duration-200 touch-manipulation active:scale-[0.98]"
+                                className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium text-white transition-all duration-200 touch-manipulation active:scale-[0.98]"
                                 style={{
                                     background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
                                     boxShadow: '0 4px 6px -1px rgba(99, 102, 241, 0.3), 0 2px 4px -2px rgba(99, 102, 241, 0.3)',
                                 }}
                             >
                                 <Icons.sparkles className="w-4 h-4" />
-                                Смотреть портреты
+                                <span className="hidden sm:inline">Смотреть портреты</span>
+                                <span className="sm:hidden">Портреты</span>
                             </a>
                         </div>
                     </div>
