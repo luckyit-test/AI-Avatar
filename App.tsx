@@ -1704,24 +1704,27 @@ function App() {
                         </div>
                         
                         {/* Кнопки справа */}
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 sm:gap-3">
+                            {/* Кнопка "Поддержка" - скрыта на мобильных */}
                             <a
                                 href="mailto:kuznetsov@i-integrator.com"
-                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 touch-manipulation active:scale-[0.98]"
+                                className="hidden md:inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 touch-manipulation active:scale-[0.98]"
                             >
                                 <Icons.helpCircle className="w-4 h-4" />
                                 Поддержка
                             </a>
+                            {/* Кнопка "Портреты" - адаптивный текст */}
                             <a
                                 href="/gallery"
-                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-all duration-200 touch-manipulation active:scale-[0.98]"
+                                className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium text-white transition-all duration-200 touch-manipulation active:scale-[0.98]"
                                 style={{
                                     background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
                                     boxShadow: '0 4px 6px -1px rgba(99, 102, 241, 0.3), 0 2px 4px -2px rgba(99, 102, 241, 0.3)',
                                 }}
                             >
                                 <Icons.sparkles className="w-4 h-4" />
-                                Смотреть портреты
+                                <span className="hidden sm:inline">Смотреть портреты</span>
+                                <span className="sm:hidden">Портреты</span>
                             </a>
                         </div>
                     </div>
