@@ -161,7 +161,9 @@ export function GalleryPage() {
             {/* Main Content */}
             <main className="flex-1 w-full container mx-auto px-4 sm:px-6 lg:px-8 py-12">
                 {/* Заголовок */}
-                <h2 className="text-3xl sm:text-4xl font-bold text-center text-gray-900 mb-12">
+                <h2 
+                    className="text-2xl sm:text-3xl lg:text-4xl font-bold text-center mb-12 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
+                >
                     Наши портреты
                 </h2>
 
