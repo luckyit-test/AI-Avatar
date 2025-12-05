@@ -194,12 +194,17 @@ export function listOrders(filters = {}, pagination = {}) {
   };
 }
 
-let nextInvIdCounter = 1;
+let nextInvIdCounter = 0;
 
 export function createNextInvId() {
   const timestamp = Date.now();
   const counter = nextInvIdCounter++;
-  return `${timestamp}_${counter}`;
+  // Робокасса требует исключительно числовой ID в диапазоне 1-9223372036854775807
+  // Используем timestamp * 1000 + counter для уникальности в пределах миллисекунды
+  // Максимальный timestamp ~1700000000000, * 1000 = 1700000000000000, + counter до 999
+  // Итого максимум ~1700000000000999, что намного меньше максимума 9223372036854775807
+  const numericId = timestamp * 1000 + (counter % 1000);
+  return numericId;
 }
 
 // In-memory хранилище для исходных изображений
