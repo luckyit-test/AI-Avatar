@@ -1644,25 +1644,19 @@ function App() {
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between items-center py-5">
                         <div className="flex items-center gap-4">
-                           {/* Логотип с градиентом и улучшенным дизайном */}
+                           {/* Логотип */}
                            <a
                                href="/"
-                               className="relative flex items-center justify-center logo-container cursor-pointer"
-                               style={{
-                                   width: '44px',
-                                   height: '44px',
-                               }}
+                               className="flex items-center justify-center logo-container cursor-pointer transition-opacity duration-200 hover:opacity-80"
                            >
-                               <div 
-                                   className="absolute inset-0 rounded-xl transition-all duration-300"
+                               <img 
+                                   src="/logo.png" 
+                                   alt="newava.pro logo"
+                                   className="h-10 w-auto object-contain"
                                    style={{
-                                       background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
-                                       boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)',
+                                       maxHeight: '48px',
                                    }}
                                />
-                               <div className="relative z-10 p-2.5">
-                                   <Icons.career className="h-5 w-5 text-white transition-transform duration-300" strokeWidth={2} />
-                               </div>
                            </a>
                            
                            {/* Текстовая часть с улучшенной типографикой */}
