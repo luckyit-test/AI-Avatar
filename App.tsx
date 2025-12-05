@@ -1652,15 +1652,21 @@ function App() {
                                <img 
                                    src="/logo.png" 
                                    alt="newava.pro logo"
-                                   className="h-10 w-auto object-contain"
+                                   className="w-auto object-contain"
                                    style={{
-                                       maxHeight: '48px',
+                                       height: '55px',
                                    }}
                                />
                            </a>
                            
                            {/* Текстовая часть с улучшенной типографикой */}
-                           <div className="flex flex-col gap-0.5">
+                           <div 
+                               className="flex flex-col gap-0.5"
+                               style={{
+                                   marginLeft: '-5px',
+                                   marginTop: '-5px',
+                               }}
+                           >
                                 <h1 className="flex items-baseline gap-1.5">
                                     <span 
                                         className="text-2xl font-bold tracking-tight"
