@@ -184,7 +184,7 @@ async function processJob(job) {
       const textPart = { text: job.prompt };
       try {
         const requestConfig = {
-          model: 'gemini-2.5-flash-image',
+          model: 'gemini-3-pro-image-preview', // Тестируем новую модель
           contents: { parts: [imagePart, textPart] },
           config: {
             responseModalities: [Modality.IMAGE],
@@ -504,7 +504,7 @@ async function processJob(job) {
         });
         
         const response = await genAI.models.generateContent({
-          model: 'gemini-2.5-flash-image',
+          model: 'gemini-3-pro-image-preview', // Тестируем новую модель
           contents: { parts: [imagePart, textPart] },
           config: {
             responseModalities: [Modality.IMAGE],

@@ -29,10 +29,13 @@ async function checkModels() {
   
   // Список моделей для проверки (только те, что могут поддерживать генерацию изображений)
   const modelsToCheck = [
-    'gemini-2.5-flash-image',  // Текущая рабочая модель
-    'gemini-2.5-pro-image',     // Пробовали, не работает
-    'gemini-2.0-flash-exp',     // Возможная альтернатива
-    'imagen-3.0-generate-001',  // Imagen модели
+    'gemini-3-pro-image-preview', // Новая модель для проверки
+    'gemini-2.5-flash-image',      // Текущая рабочая модель
+    'gemini-2.5-pro-image',        // Пробовали, не работает
+    'gemini-3.0-pro-image',        // Возможная версия
+    'gemini-3-pro-image',          // Без preview суффикса
+    'gemini-2.0-flash-exp',        // Возможная альтернатива
+    'imagen-3.0-generate-001',     // Imagen модели
     'imagen-3',
   ];
   
