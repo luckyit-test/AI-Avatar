@@ -27,6 +27,16 @@ textarea {
 /* Touch manipulation для всех кнопок */
 button {
     touch-action: manipulation;
+    /* iOS Safari tap highlight */
+    -webkit-tap-highlight-color: rgba(99, 102, 241, 0.2);
+    /* Улучшенное активное состояние для touch */
+    -webkit-touch-callout: none;
+}
+
+/* Улучшенное активное состояние для touch кнопок */
+button:active {
+    transform: scale(0.97);
+    transition: transform 0.1s ease-out;
 }
 
 /* Предотвращение двойного тапа для зума на iOS */
