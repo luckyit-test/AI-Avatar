@@ -287,7 +287,7 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
               >
                 <img
                   src={portrait.url}
-                  alt="Business portrait"
+                  alt="New Year photoshoot"
                   className="w-full h-full object-cover"
                   style={{
                     borderRadius: '12px',
