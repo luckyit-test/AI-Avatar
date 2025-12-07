@@ -22,6 +22,9 @@ import { GenerationActions } from './components/GenerationActions';
 import { GenerationFlow } from './components/GenerationFlow';
 import { ResultsView } from './components/ResultsView';
 import { GalleryPage } from './components/GalleryPage';
+import { StyleSelector } from './components/StyleSelector';
+import { LocationSelector } from './components/LocationSelector';
+import { NEW_YEAR_STYLES, NEW_YEAR_LOCATIONS, type NewYearStyleId, type NewYearLocationId } from './lib/newYearConstants';
 import { cn, devLog } from './lib/utils';
 import { STYLES, IT_ROLES, COMPANY_TYPES, type VariabilityLevel } from './lib/constants';
 import { buildPromptsByContext } from './lib/promptUtils';
@@ -35,7 +38,7 @@ interface GeneratedImage {
     estimatedWaitTime?: number;
 }
 
-type AppState = 'idle' | 'image-uploaded' | 'generating' | 'results-shown' | 'failed';
+type AppState = 'idle' | 'image-uploaded' | 'style-selection' | 'location-selection' | 'generating' | 'results-shown' | 'failed';
 
 function App() {
     const onboarding = useOnboarding();
@@ -70,6 +73,10 @@ function App() {
     const [genderOverride, setGenderOverride] = useState<'male' | 'female' | null>(null);
     const [selectedRole, setSelectedRole] = useState<typeof IT_ROLES[number]>('Разработчик');
     const [selectedCompany, setSelectedCompany] = useState<typeof COMPANY_TYPES[number]>('Стартап');
+    // Новогодние фотосессии: выбор стиля и локации
+    const [selectedStyle, setSelectedStyle] = useState<NewYearStyleId | null>(null);
+    const [selectedLocation, setSelectedLocation] = useState<NewYearLocationId | null>(null);
+    const [imageAnalysisResult, setImageAnalysisResult] = useState<ImageEvaluationResult | null>(null);
     const [hasActivePayment, setHasActivePayment] = useState<boolean>(false);
     const autoGenerationStartedRef = useRef<boolean>(false);
     // Refs для polling (должны быть на верхнем уровне компонента)
@@ -703,9 +710,11 @@ function App() {
                     if (delay > 0) await new Promise(r => setTimeout(r, delay));
                 }
                 setUploadedImage(dataUrl);
-                setAppState('image-uploaded');
                 setIsValidatingImage(false);
                 setValidationStatusMessage('Анализируем изображение...');
+                
+                // Сохраняем результат анализа для использования в генерации
+                setImageAnalysisResult(evaluation);
                 
                 // Сохраняем исходное изображение отдельно, чтобы показать его после оплаты/перезагрузки
                 try {
@@ -716,11 +725,17 @@ function App() {
                     devLog.warn('[App] Failed to persist last source image:', e);
                 }
                 
-                // Устанавливаем определенный пол
+                // Устанавливаем определенный пол (для обратной совместимости)
                 setDetectedGender(evaluation.gender);
                 devLog.log('Detected gender:', evaluation.gender, 'confidence:', evaluation.confidence);
+                devLog.log('Image analysis result:', {
+                    peopleCount: evaluation.peopleCount,
+                    animalsCount: evaluation.animalsCount,
+                    people: evaluation.people,
+                    photoQuality: evaluation.photoQuality
+                });
                 
-                // Автоматически выбираем пол если уверенность >= 0.7
+                // Автоматически выбираем пол если уверенность >= 0.7 (для обратной совместимости)
                 if ((evaluation.gender === 'male' || evaluation.gender === 'female') && evaluation.confidence >= 0.7) {
                     setGenderOverride(evaluation.gender);
                     devLog.log('Auto-selected gender:', evaluation.gender, 'confidence:', evaluation.confidence);
@@ -729,6 +744,9 @@ function App() {
                     setGenderOverride(null);
                     devLog.log('Gender not auto-selected, user must choose. Gender:', evaluation.gender, 'confidence:', evaluation.confidence);
                 }
+                
+                // Переходим к выбору стиля для новогодних фотосессий
+                setAppState('style-selection');
                 } catch (error) {
                     const errorDetails = {
                         error: error instanceof Error ? error.message : String(error),
@@ -1795,7 +1813,75 @@ function App() {
                             </AnimatePresence>
                             
                             <div className="mt-6">
-                                {!isValidatingImage && !imageValidationError && uploadedImage && (appState === 'image-uploaded' || appState === 'generating' || appState === 'results-shown') && (
+                                {/* Выбор стиля новогодней фотосессии */}
+                                {!isValidatingImage && !imageValidationError && uploadedImage && appState === 'style-selection' && (
+                                    <div className="space-y-6">
+                                        <StyleSelector
+                                            selectedStyle={selectedStyle}
+                                            onStyleSelect={(styleId => {
+                                                setSelectedStyle(styleId);
+                                                setAppState('location-selection');
+                                            }}
+                                        />
+                                        <div className="flex justify-end">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setUploadedImage(null);
+                                                    setSelectedStyle(null);
+                                                    setSelectedLocation(null);
+                                                    setImageAnalysisResult(null);
+                                                    setAppState('idle');
+                                                }}
+                                                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                                            >
+                                                Начать заново
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {/* Выбор локации новогодней фотосессии */}
+                                {!isValidatingImage && !imageValidationError && uploadedImage && appState === 'location-selection' && (
+                                    <div className="space-y-6">
+                                        <LocationSelector
+                                            selectedLocation={selectedLocation}
+                                            onSelect={locationId => {
+                                                setSelectedLocation(locationId);
+                                                // После выбора локации переходим к генерации
+                                                setAppState('image-uploaded');
+                                            }}
+                                        />
+                                        <div className="flex justify-between">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedLocation(null);
+                                                    setAppState('style-selection');
+                                                }}
+                                                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                                            >
+                                                ← Назад к стилю
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setUploadedImage(null);
+                                                    setSelectedStyle(null);
+                                                    setSelectedLocation(null);
+                                                    setImageAnalysisResult(null);
+                                                    setAppState('idle');
+                                                }}
+                                                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                                            >
+                                                Начать заново
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {/* Старая конфигурация для IT-портретов (обратная совместимость) */}
+                                {!isValidatingImage && !imageValidationError && uploadedImage && (appState === 'image-uploaded' || appState === 'generating' || appState === 'results-shown') && !selectedStyle && (
                                     <ImageConfiguration
                                         genderOverride={genderOverride}
                                         selectedRole={selectedRole}
