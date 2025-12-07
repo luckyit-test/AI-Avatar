@@ -1061,6 +1061,12 @@ function App() {
             newYearPrompts.forEach((p, index) => {
                 prompts[`image_${index}`] = p.prompt;
             });
+            
+            // Логируем первый промпт для проверки
+            const firstPromptKey = Object.keys(prompts)[0];
+            const firstPrompt = prompts[firstPromptKey];
+            devLog.log('[App] First prompt preview:', firstPrompt?.substring(0, 200));
+            devLog.log('[App] Is New Year prompt?', firstPrompt?.includes('новогодн') || firstPrompt?.includes('New Year') || firstPrompt?.includes('фотосессия'));
 
             // Инициализируем статусы для всех промптов
             const promptKeys = Object.keys(prompts);
@@ -1164,6 +1170,13 @@ function App() {
                     }
 
                     const prompt = prompts[style];
+                    if (!prompt) {
+                        devLog.error(`[App] Prompt not found for style: ${style}`, {
+                            availableKeys: Object.keys(prompts),
+                            promptsCount: Object.keys(prompts).length
+                        });
+                        return { style, success: false, error: `Промпт не найден для ${style}` };
+                    }
                     if (retryCount === 0) {
                         devLog.log(`[App] Starting generation for style: ${style}`);
                     } else {
@@ -1171,6 +1184,17 @@ function App() {
                     }
                     devLog.log(`[App] Prompt length: ${prompt.length} chars`);
                     devLog.log(`[App] Prompt preview: ${prompt.substring(0, 150)}...`);
+                    // Проверяем, что это новогодний промпт, а не старый IT-промпт
+                    const isNewYearPrompt = prompt.includes('новогодн') || prompt.includes('New Year') || prompt.includes('фотосессия') || prompt.includes('New Year') || prompt.includes('Christmas') || prompt.includes('Рождество');
+                    if (!isNewYearPrompt) {
+                        devLog.error(`[App] ⚠️ WARNING: Using non-New Year prompt!`, {
+                            style,
+                            promptStart: prompt.substring(0, 200),
+                            isBusinessPortrait: prompt.includes('business portrait') || prompt.includes('LinkedIn')
+                        });
+                    } else {
+                        devLog.log(`[App] ✅ Confirmed: Using New Year prompt for style: ${style}`);
+                    }
                     // Проверяем наличие инструкций по бороде/усам в каждом промпте
                     const hasFacialHairInPrompt = prompt.includes('CRITICAL FACIAL HAIR') || 
                                                  prompt.includes('facial hair EXACTLY') ||
