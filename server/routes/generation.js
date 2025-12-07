@@ -62,6 +62,7 @@ router.post(`${API_PREFIX}/generate-image`, async (req, res) => {
     }
 
     // Валидация входных данных
+    safeLog('BEFORE validation', { clientIp, hasImageData: !!imageData, hasPrompt: !!prompt });
     if (!imageData || !prompt) {
       safeLog('Validation failed: missing parameters', { clientIp });
       return res.status(400).json({ 
@@ -69,13 +70,17 @@ router.post(`${API_PREFIX}/generate-image`, async (req, res) => {
       });
     }
 
+    safeLog('BEFORE imageValidation', { clientIp });
     const imageValidation = validateImageData(imageData);
+    safeLog('AFTER imageValidation', { clientIp, valid: imageValidation.valid, error: imageValidation.error });
     if (!imageValidation.valid) {
       safeLog('Validation failed: invalid image', { clientIp, error: imageValidation.error });
       return res.status(400).json({ error: imageValidation.error });
     }
 
+    safeLog('BEFORE promptValidation', { clientIp });
     const promptValidation = validatePrompt(prompt);
+    safeLog('AFTER promptValidation', { clientIp, valid: promptValidation.valid, error: promptValidation.error });
     if (!promptValidation.valid) {
       safeLog('Validation failed: invalid prompt', { clientIp, error: promptValidation.error });
       return res.status(400).json({ error: promptValidation.error });
