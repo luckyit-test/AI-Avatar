@@ -147,8 +147,16 @@ echo echo "  nano %APP_DIR%/.env"
 ) > "%TEMP_SCRIPT%"
 
 if not exist "%TEMP_SCRIPT%" (
+    echo.
+    echo =========================================
     echo ERROR: Failed to create temporary script file!
+    echo =========================================
     echo Path: %TEMP_SCRIPT%
+    echo.
+    echo Please check:
+    echo   1. Temp directory exists: %TEMP%
+    echo   2. You have write permissions
+    echo.
     pause
     exit /b 1
 )
