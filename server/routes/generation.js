@@ -82,6 +82,7 @@ router.post(`${API_PREFIX}/generate-image`, async (req, res) => {
     }
 
     // Добавляем задачу в очередь (используем addToQueueLocal который вызывает processQueue)
+    safeLog('BEFORE addToQueueLocal check', { clientIp, hasAddToQueueLocal: !!addToQueueLocal });
     if (!addToQueueLocal) {
       safeLog('ERROR: addToQueueLocal not initialized!', { clientIp });
       return res.status(500).json({ 
@@ -89,7 +90,9 @@ router.post(`${API_PREFIX}/generate-image`, async (req, res) => {
       });
     }
     
+    safeLog('CALLING addToQueueLocal', { clientIp, imageDataLength: imageData?.length || 0, promptLength: prompt?.length || 0 });
     const queueResult = addToQueueLocal(imageData, prompt);
+    safeLog('AFTER addToQueueLocal', { clientIp, jobId: queueResult?.jobId });
     const estimatedStartTime = Date.now() + queueResult.estimatedWaitTime;
     
     res.json({
