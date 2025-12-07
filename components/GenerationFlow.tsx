@@ -54,7 +54,7 @@ export function GenerationFlow({
                                 estimatedWaitTime={imageState?.estimatedWaitTime}
                                 imageUrl={imageState?.url}
                                 error={imageState?.error}
-                                gender={effectiveGender}
+                                gender={null}
                                 onRegenerate={() => onRegenerate(style)}
                                 onDownload={() => onDownload(style)}
                                 onOpen={(url) => onOpen(url)}
