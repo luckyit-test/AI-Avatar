@@ -82,8 +82,8 @@ import { requireAdminAuth, getAdminSessionFromRequest, createAdminSession, delet
 // Import services
 import { validateImageData, validatePrompt } from './services/validation.js';
 import { replaceBackgroundWithGray, processIntermediateImageAggressively } from './services/imageProcessing.js';
-import { generatePortraitsForOrder } from './services/portraitGeneration.js';
-import { buildPortraitPrompts } from './services/promptBuilder.js';
+// УДАЛЕНО: generatePortraitsForOrder и buildPortraitPrompts - используются только для бизнес-портретов
+// Для ветки new-year используем только новогодние фотосессии через фронтенд
 import { buildNewYearPrompts } from './services/newYearPromptBuilder.js';
 
 // Import utilities
@@ -1159,8 +1159,8 @@ app.post(`${API_PREFIX}/evaluate-image`, rateLimit);
 // Payment routes are now handled by server/routes/payment.js
 // All payment-related endpoints are registered via app.use(paymentRoutes) below
 
-// All prompt building functions are imported from services/promptBuilder.js
-// buildPortraitPrompts is imported at the top of the file (line 82)
+// УДАЛЕНО: Все функции для бизнес-портретов удалены. Используем только новогодние фотосессии.
+// УДАЛЕНО: buildPortraitPrompts - используется только для бизнес-портретов
 
 // Old duplicate functions removed - using imported versions from modules
 
@@ -1412,16 +1412,13 @@ app.post(`${API_PREFIX}/order/:invId/retry`, express.json({ limit: '11mb' }), as
     // Сохраняем изображение в оперативной памяти для генерации
     orderImages.set(String(invId), imageData);
 
-    // Запускаем генерацию асинхронно
-    generatePortraitsForOrder(invId, MAX_QUEUE_SIZE).catch(err => {
-      console.error('[Retry] Error in portrait generation:', err);
-      const failedOrder = loadOrder(invId);
-      if (failedOrder) {
-        failedOrder.status = 'failed';
-        failedOrder.failureReason = err instanceof Error ? err.message : String(err);
-        saveOrder(failedOrder);
-      }
-    });
+    // УДАЛЕНО: generatePortraitsForOrder - используется только для бизнес-портретов
+    // Для ветки new-year ретраи не поддерживают автоматическую генерацию
+    // Генерация должна происходить через фронтенд с выбором стиля и локации
+    console.error('[Retry] Retry generation is not supported for New Year photoshoots. Generation must be done through frontend with style and location selection.');
+    order.status = 'failed';
+    order.failureReason = 'Повторная генерация не поддерживается для новогодних фотосессий. Используйте обычную генерацию через фронтенд.';
+    saveOrder(order);
 
     return res.json({ ok: true, invId: String(invId), retries: order.retries });
   } catch (error) {
@@ -1756,16 +1753,13 @@ app.post(`${API_PREFIX}/promo/use`, express.json({ limit: '11mb' }), async (req,
       remaining: Math.max(0, updatedPromo.maxUses - updatedPromo.usedCount),
     });
 
-    // Запускаем генерацию асинхронно
-    generatePortraitsForOrder(invId, MAX_QUEUE_SIZE).catch(err => {
-      console.error('[Promo] Error in portrait generation with promo:', err);
-      const failedOrder = loadOrder(invId);
-      if (failedOrder) {
-        failedOrder.status = 'failed';
-        failedOrder.failureReason = err instanceof Error ? err.message : String(err);
-        saveOrder(failedOrder);
-      }
-    });
+    // УДАЛЕНО: generatePortraitsForOrder - используется только для бизнес-портретов
+    // Для ветки new-year промокоды не поддерживают автоматическую генерацию
+    // Генерация должна происходить через фронтенд с выбором стиля и локации
+    console.error('[Promo] Promo codes are not supported for New Year photoshoots. Generation must be done through frontend with style and location selection.');
+    order.status = 'failed';
+    order.failureReason = 'Промокоды не поддерживаются для новогодних фотосессий. Используйте обычную генерацию через фронтенд.';
+    saveOrder(order);
 
     res.json({
       ok: true,
@@ -1809,16 +1803,15 @@ initializeAnalysisRoutes({
   addToAnalysisQueueLocal,
 });
 
-// Передаем addToQueueLocal в generatePortraitsForOrder для запуска обработки очереди
-import { setAddToQueueFunction } from './services/portraitGeneration.js';
-setAddToQueueFunction(addToQueueLocal);
+// УДАЛЕНО: setAddToQueueFunction и generatePortraitsForOrder - используются только для бизнес-портретов
+// Для ветки new-year генерация происходит через фронтенд
 
 initializePaymentRoutes({
   createNextInvId,
   saveOrder,
   loadOrder,
   orderImages,
-  generatePortraitsForOrder,
+  generatePortraitsForOrder: null, // Не используется для новогодних фотосессий
   MAX_QUEUE_SIZE,
 });
 

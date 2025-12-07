@@ -203,10 +203,9 @@ function handleRobokassaResult(req, res) {
       order.status = 'paid';
       saveOrder(order);
       
-      // Запускаем генерацию портретов
-      generatePortraitsForOrder(invId, MAX_QUEUE_SIZE).catch(err => {
-        console.error('[Robokassa] Failed to generate portraits:', err);
-      });
+      // УДАЛЕНО: generatePortraitsForOrder - используется только для бизнес-портретов
+      // Для ветки new-year генерация происходит через фронтенд с выбором стиля и локации
+      console.log('[Robokassa] Payment confirmed. Generation must be done through frontend with style and location selection.');
     }
 
     res.status(200).send(`OK${invId}`);

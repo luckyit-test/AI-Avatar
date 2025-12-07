@@ -155,7 +155,7 @@ export function buildFallbackPrompt(originalPrompt, level = 1) {
       let result = prompt;
       result = result.replace(/Preserve facial hair exactly[^\.]*\./gi, 'Respect the person\'s facial hair while allowing natural interpretation.');
       if (!/Follow all content policies/gi.test(result)) {
-        result += ' Follow all content policies and avoid recreating public figures exactly. Create a respectful business portrait inspired by the reference image.';
+        result += ' Follow all content policies and avoid recreating public figures exactly.';
       }
       return result;
     }

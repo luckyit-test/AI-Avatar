@@ -1,0 +1,80 @@
+=== [1/5] Проверка переменных окружения CORS ===
+ALLOWED_ORIGINS=https://newava.pro,http://newava.pro,https://43.245.226.24,http://43.245.226.24
+
+=== [2/5] Логи backend (последние 50 строк) ===
+newava_backend  | [2025-12-07T17:56:55.221Z] GET /images/orders/1764835736702/uverenniy.jpg {
+newava_backend  |   url: '/images/orders/1764835736702/uverenniy.jpg',
+newava_backend  |   originalUrl: '/images/orders/1764835736702/uverenniy.jpg',
+newava_backend  |   baseUrl: '',
+newava_backend  |   headers: {
+newava_backend  |     host: 'newava.pro',
+newava_backend  |     'x-forwarded-for': '37.235.130.95',
+newava_backend  |     'x-real-ip': '37.235.130.95'
+newava_backend  |   }
+newava_backend  | }
+newava_backend  | [2025-12-07T17:56:55.279Z] GET /images/orders/1764850816075/klassicheskiy.jpg {
+newava_backend  |   url: '/images/orders/1764850816075/klassicheskiy.jpg',
+newava_backend  |   originalUrl: '/images/orders/1764850816075/klassicheskiy.jpg',
+newava_backend  |   baseUrl: '',
+newava_backend  |   headers: {
+newava_backend  |     host: 'newava.pro',
+newava_backend  |     'x-forwarded-for': '37.235.130.95',
+newava_backend  |     'x-real-ip': '37.235.130.95'
+newava_backend  |   }
+newava_backend  | }
+newava_backend  | [2025-12-07T17:56:55.334Z] GET /images/orders/1764832621320/druzhelyubnyy.jpg {
+newava_backend  |   url: '/images/orders/1764832621320/druzhelyubnyy.jpg',
+newava_backend  |   originalUrl: '/images/orders/1764832621320/druzhelyubnyy.jpg',
+newava_backend  |   baseUrl: '',
+newava_backend  |   headers: {
+newava_backend  |     host: 'newava.pro',
+newava_backend  |     'x-forwarded-for': '37.235.130.95',
+newava_backend  |     'x-real-ip': '37.235.130.95'
+newava_backend  |   }
+newava_backend  | }
+newava_backend  | [2025-12-07T17:57:00.152Z] GET /images/orders/1764962594402003/druzhelyubnyy.jpg {
+newava_backend  |   url: '/images/orders/1764962594402003/druzhelyubnyy.jpg',
+newava_backend  |   originalUrl: '/images/orders/1764962594402003/druzhelyubnyy.jpg',
+newava_backend  |   baseUrl: '',
+newava_backend  |   headers: {
+newava_backend  |     host: 'newava.pro',
+newava_backend  |     'x-forwarded-for': '37.235.130.95',
+newava_backend  |     'x-real-ip': '37.235.130.95'
+newava_backend  |   }
+newava_backend  | }
+newava_backend  | [2025-12-07T17:57:00.319Z] GET /images/orders/1764834576216/uverenniy.jpg {
+newava_backend  |   url: '/images/orders/1764834576216/uverenniy.jpg',
+newava_backend  |   originalUrl: '/images/orders/1764834576216/uverenniy.jpg',
+newava_backend  |   baseUrl: '',
+newava_backend  |   headers: {
+newava_backend  |     host: 'newava.pro',
+newava_backend  |     'x-forwarded-for': '37.235.130.95',
+newava_backend  |     'x-real-ip': '37.235.130.95'
+newava_backend  |   }
+newava_backend  | }
+
+=== [3/5] Логи nginx для POST запросов (последние 30 строк) ===
+newava_nginx  | 37.235.130.95 - - [07/Dec/2025:17:56:52 +0000] "POST /api/evaluate-image HTTP/1.1" 200 97 "https://newava.pro/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 YaBrowser/25.10.0.0 Safari/537.36" "-"
+
+=== [4/5] Проверка доступности API ===
+time="2025-12-07T18:57:17+01:00" level=warning msg="/opt/newava/docker-compose.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+[eval]:1
+const http = require('http'); http.get('http://localhost:3001/api/health', (r) = let d = ''; r.on('data', c = += c); r.on('end', () =; });
+                                                                                 ^^^
+
+SyntaxError: missing ) after argument list
+    at makeContextifyScript (node:internal/vm:185:14)
+    at node:internal/process/execution:107:22
+    at [eval]-wrapper:6:24
+    at runScript (node:internal/process/execution:101:62)
+    at evalScript (node:internal/process/execution:133:3)
+    at node:internal/main/eval_string:51:3
+
+Node.js v20.19.6
+Health check не выполнен
+
+=== [5/5] Статус контейнеров ===
+NAME             IMAGE                   COMMAND                  SERVICE   CREATED          STATUS          PORTS
+newava_app       newava:latest           "/docker-entrypoint.…"   app       28 minutes ago   Up 28 minutes   80/tcp
+newava_backend   newava-backend:latest   "docker-entrypoint.s…"   backend   28 minutes ago   Up 28 minutes   3001/tcp
+newava_nginx     nginx:1.27-alpine       "/docker-entrypoint.…"   nginx     28 minutes ago   Up 56 seconds   0.0.0.0:80->80/tcp, [::]:80->80/tcp, 0.0.0.0:443->443/tcp, [::]:443->443/tcp
