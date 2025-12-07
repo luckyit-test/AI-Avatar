@@ -651,7 +651,6 @@ function App() {
         setUploadedImage(null);
         setAppState('idle');
         setGeneratedImages({}); // Clear previous results
-        setGenderOverride(null);
         setDetectedGender('unknown');
         setImageValidationError(null);
         
@@ -1622,7 +1621,6 @@ function App() {
         setIsValidatingImage(false);
         setGeneratedImages({});
         setAppState('idle');
-        setGenderOverride(null);
         setDetectedGender('unknown');
         setIntermediateImage(null);
         setIsGeneratingIntermediate(false);
@@ -2108,8 +2106,6 @@ function App() {
                         {appState === 'generating' && (
                             <GenerationFlow
                                 generatedImages={generatedImages}
-                                genderOverride={null}
-                                currentOrderGender={null}
                                 onRegenerate={handleRegenerateStyle}
                                 onDownload={handleDownloadIndividualImage}
                                 onOpen={setLightboxUrl}
@@ -2119,8 +2115,6 @@ function App() {
                         {appState === 'results-shown' && (
                             <ResultsView
                                 generatedImages={generatedImages}
-                                genderOverride={null}
-                                currentOrderGender={null}
                                 isDownloading={isDownloading}
                                 onRegenerate={handleRegenerateStyle}
                                 onDownload={handleDownloadIndividualImage}

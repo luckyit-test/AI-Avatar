@@ -18,8 +18,6 @@ export interface GeneratedImage {
 
 export interface GenerationFlowProps {
     generatedImages: Record<string, GeneratedImage>;
-    genderOverride: 'male' | 'female' | null;
-    currentOrderGender: 'male' | 'female' | null;
     onRegenerate: (style: string) => void;
     onDownload: (style: string) => void;
     onOpen: (url: string) => void;
@@ -27,13 +25,10 @@ export interface GenerationFlowProps {
 
 export function GenerationFlow({
     generatedImages,
-    genderOverride,
-    currentOrderGender,
     onRegenerate,
     onDownload,
     onOpen,
 }: GenerationFlowProps) {
-    const effectiveGender = genderOverride || currentOrderGender;
 
     // Для новогодних фотосессий используем динамические ключи image_0, image_1, ..., image_5
     const imageKeys = Array.from({ length: 6 }, (_, i) => `image_${i}`);

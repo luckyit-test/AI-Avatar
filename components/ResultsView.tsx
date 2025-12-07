@@ -9,8 +9,6 @@ import { GenerationFlow, type GeneratedImage } from './GenerationFlow';
 
 export interface ResultsViewProps {
     generatedImages: Record<string, GeneratedImage>;
-    genderOverride: 'male' | 'female' | null;
-    currentOrderGender: 'male' | 'female' | null;
     isDownloading: boolean;
     onRegenerate: (style: string) => void;
     onDownload: (style: string) => void;
@@ -21,8 +19,6 @@ export interface ResultsViewProps {
 
 export function ResultsView({
     generatedImages,
-    genderOverride,
-    currentOrderGender,
     isDownloading,
     onRegenerate,
     onDownload,
@@ -34,8 +30,6 @@ export function ResultsView({
         <>
             <GenerationFlow
                 generatedImages={generatedImages}
-                genderOverride={genderOverride}
-                currentOrderGender={currentOrderGender}
                 onRegenerate={onRegenerate}
                 onDownload={onDownload}
                 onOpen={onOpen}
