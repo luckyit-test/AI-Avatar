@@ -1031,6 +1031,13 @@ function App() {
 
         try {
             // ШАГ 0: Генерируем новогодние промпты через API (делаем это до генерации промежуточного изображения)
+            devLog.log('[App] ========================================');
+            devLog.log('[App] CHECKING: New Year generation conditions');
+            devLog.log('[App] hasImageAnalysisResult:', !!imageAnalysisResult);
+            devLog.log('[App] selectedStyle:', selectedStyle);
+            devLog.log('[App] selectedLocation:', selectedLocation);
+            devLog.log('[App] ========================================');
+            
             if (!imageAnalysisResult || !selectedStyle || !selectedLocation) {
                 devLog.error('[App] Missing required data for prompt generation:', {
                     hasAnalysisResult: !!imageAnalysisResult,
