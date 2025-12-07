@@ -17,11 +17,7 @@ API ключи были случайно закоммичены в git репо�
 Старые ключи скомпрометированы и заблокированы Google. Нужно создать новые:
 
 1. Откройте: https://console.cloud.google.com/apis/credentials
-2. **Удалите** старые ключи:
-   - `AIzaSyAJbZrYV58Z5HqrljjjmH3rX3rRDoxySQU` (hnyear gen)
-   - `AIzaSyDvB7OMOxuOBu-s4FG5aijzr_R_2ec-cp8` (hnyear analysis)
-   - `AIzaSyCnfC8NVdq1Tf-bgWR0zqRwKd-DVIOm95A` (newava gen)
-   - `AIzaSyB5UipaYsdRqrxs0d0AMygfKJA7KnucGjQ` (newava analysis)
+2. **Удалите** старые скомпрометированные ключи (те, что были в git)
 3. Создайте **новые** API ключи для каждого проекта
 4. Запишите новые ключи в безопасном месте (НЕ в git!)
 
