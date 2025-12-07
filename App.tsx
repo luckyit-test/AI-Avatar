@@ -864,12 +864,23 @@ function App() {
     const handleGenerateClick = async () => {
         if (!uploadedImage) return;
         
-        // Проверяем, что пол выбран
-        const effectiveGender = getEffectiveGender();
-        if (!effectiveGender || (effectiveGender !== 'male' && effectiveGender !== 'female')) {
-            // Логируем, но не показываем alert - пол должен быть выбран автоматически
-            devLog.warn('[App] Gender not selected, but should be auto-selected');
-            return;
+        // Для новогодних фотосессий проверяем, что выбраны стиль и локация
+        if (selectedStyle && selectedLocation) {
+            if (!imageAnalysisResult) {
+                devLog.error('[App] Missing imageAnalysisResult for New Year generation');
+                setImageValidationError('Не удалось проанализировать изображение. Попробуйте загрузить фото снова.');
+                setAppState('failed');
+                return;
+            }
+            // Продолжаем генерацию новогодних промптов (проверка пола не требуется для новогодних фотосессий)
+        } else {
+            // Для старых IT-портретов проверяем, что пол выбран
+            const effectiveGender = getEffectiveGender();
+            if (!effectiveGender || (effectiveGender !== 'male' && effectiveGender !== 'female')) {
+                // Логируем, но не показываем alert - пол должен быть выбран автоматически
+                devLog.warn('[App] Gender not selected, but should be auto-selected');
+                return;
+            }
         }
 
         // Если есть активный заказ в состоянии processing или completed - не запускаем генерацию заново
@@ -1020,11 +1031,11 @@ function App() {
 
         try {
             // ШАГ 0: Генерируем новогодние промпты через API (делаем это до генерации промежуточного изображения)
-            if (!imageAnalysisResult || !selectedNewYearStyle || !selectedNewYearLocation) {
+            if (!imageAnalysisResult || !selectedStyle || !selectedLocation) {
                 devLog.error('[App] Missing required data for prompt generation:', {
                     hasAnalysisResult: !!imageAnalysisResult,
-                    hasStyle: !!selectedNewYearStyle,
-                    hasLocation: !!selectedNewYearLocation,
+                    hasStyle: !!selectedStyle,
+                    hasLocation: !!selectedLocation,
                 });
                 setImageValidationError('Не выбраны стиль или локация для фотосессии');
                 setAppState('failed');
@@ -1033,14 +1044,14 @@ function App() {
 
             devLog.log('[App] ========================================');
             devLog.log('[App] Generating New Year prompts via API');
-            devLog.log('[App] Style:', selectedNewYearStyle);
-            devLog.log('[App] Location:', selectedNewYearLocation);
+            devLog.log('[App] Style:', selectedStyle);
+            devLog.log('[App] Location:', selectedLocation);
             devLog.log('[App] ========================================');
 
             const newYearPrompts = await generateNewYearPrompts(
                 imageAnalysisResult,
-                selectedNewYearStyle,
-                selectedNewYearLocation
+                selectedStyle,
+                selectedLocation
             );
 
             devLog.log('[App] Generated', newYearPrompts.length, 'prompts');
@@ -1426,7 +1437,7 @@ function App() {
                     });
 
                     // Обновляем финальную карту результатов на основе агрессивного ретрая
-                    STYLES.forEach(style => {
+                    promptKeys.forEach(style => {
                         const match = retryResults.find(r => r.style === style);
                         if (match) {
                             finalResultsMap[style] = { success: match.success, url: match.url };
@@ -1446,7 +1457,7 @@ function App() {
                 });
 
                 // Если ретраев не было, финальная карта совпадает с исходными результатами
-                STYLES.forEach(style => {
+                promptKeys.forEach(style => {
                     if (!finalResultsMap[style]) {
                         const match = results.find(r => r.style === style);
                         if (match) {
@@ -1460,7 +1471,7 @@ function App() {
             const finalSuccessfulStyles: Array<{ style: string; url: string }> = [];
             const finalFailedStyles: string[] = [];
 
-            STYLES.forEach(style => {
+            promptKeys.forEach(style => {
                 const entry = finalResultsMap[style];
                 if (entry && entry.success && entry.url) {
                     finalSuccessfulStyles.push({ style, url: entry.url });
@@ -1888,35 +1899,59 @@ function App() {
                                             selectedLocation={selectedLocation}
                                             onSelect={locationId => {
                                                 setSelectedLocation(locationId);
-                                                // После выбора локации переходим к генерации
+                                                // После выбора локации переходим к состоянию готовности к генерации
                                                 setAppState('image-uploaded');
                                             }}
                                         />
-                                        <div className="flex justify-between">
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setSelectedLocation(null);
-                                                    setAppState('style-selection');
-                                                }}
-                                                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                                            >
-                                                ← Назад к стилю
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setUploadedImage(null);
-                                                    setSelectedStyle(null);
-                                                    setSelectedLocation(null);
-                                                    setImageAnalysisResult(null);
-                                                    setAppState('idle');
-                                                }}
-                                                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                                            >
-                                                Начать заново
-                                            </button>
+                                        <div className="flex flex-col gap-3">
+                                            {selectedStyle && selectedLocation && (
+                                                <button
+                                                    type="button"
+                                                    onClick={handleGenerateClick}
+                                                    className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold text-lg hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    Сгенерировать новогодние фото
+                                                </button>
+                                            )}
+                                            <div className="flex justify-between">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedLocation(null);
+                                                        setAppState('style-selection');
+                                                    }}
+                                                    className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                                                >
+                                                    ← Назад к стилю
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setUploadedImage(null);
+                                                        setSelectedStyle(null);
+                                                        setSelectedLocation(null);
+                                                        setImageAnalysisResult(null);
+                                                        setAppState('idle');
+                                                    }}
+                                                    className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                                                >
+                                                    Начать заново
+                                                </button>
+                                            </div>
                                         </div>
+                                    </div>
+                                )}
+                                
+                                {/* Кнопка генерации после выбора стиля и локации */}
+                                {!isValidatingImage && !imageValidationError && uploadedImage && appState === 'image-uploaded' && selectedStyle && selectedLocation && (
+                                    <div className="mt-6">
+                                        <button
+                                            type="button"
+                                            onClick={handleGenerateClick}
+                                            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold text-lg hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Сгенерировать новогодние фото
+                                        </button>
                                     </div>
                                 )}
                                 
