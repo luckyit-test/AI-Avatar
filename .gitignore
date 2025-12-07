@@ -47,3 +47,20 @@ update-*.sh
 compare-*.sh
 deploy-prod.sh
 final-security-check.sh
+
+# Безопасность: защита от попадания API ключей в git
+# Скрипты с ключами (старые версии)
+update-api-keys.bat
+*-with-keys.bat
+*-secrets.bat
+
+# Файлы с ключами
+*keys*.txt
+*secrets*.txt
+*api-keys*.txt
+*credentials*.txt
+
+# Паттерны для защиты от случайного коммита ключей
+**/AIzaSy*
+**/*API_KEY*
+**/*SECRET*
