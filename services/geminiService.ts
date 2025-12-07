@@ -1108,6 +1108,44 @@ export async function checkGenerationStatus(jobId: string): Promise<QueueStatus>
 }
 
 /**
+ * Генерирует новогодние промпты через API
+ */
+export async function generateNewYearPrompts(
+  analysisResult: ImageEvaluationResult,
+  styleId: string,
+  locationId: string
+): Promise<Array<{ prompt: string; orientation: 'vertical' | 'horizontal' }>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/new-year/prompts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        analysisResult,
+        styleId,
+        locationId,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Неизвестная ошибка' }));
+      throw new Error(errorData.error || 'Не удалось сгенерировать промпты');
+    }
+
+    const data = await response.json();
+    if (!data.ok || !data.prompts) {
+      throw new Error('Неверный формат ответа от сервера');
+    }
+
+    return data.prompts;
+  } catch (error) {
+    console.error('[generateNewYearPrompts] Error:', error);
+    throw error;
+  }
+}
+
+/**
  * Генерирует изображение через очередь с polling статуса
  */
 export async function generateImage(

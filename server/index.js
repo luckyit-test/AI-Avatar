@@ -84,6 +84,7 @@ import { validateImageData, validatePrompt } from './services/validation.js';
 import { replaceBackgroundWithGray, processIntermediateImageAggressively } from './services/imageProcessing.js';
 import { generatePortraitsForOrder } from './services/portraitGeneration.js';
 import { buildPortraitPrompts } from './services/promptBuilder.js';
+import { buildNewYearPrompts } from './services/newYearPromptBuilder.js';
 
 // Import utilities
 import { safeLog, getLogBuffer } from './lib/utils.js';
@@ -2188,6 +2189,47 @@ app.post(`${API_PREFIX}/evaluate-image`, async (req, res) => {
     res.status(500).json({ 
       error: 'Ошибка при обработке запроса' 
     });
+  }
+});
+
+// Эндпоинт для генерации новогодних промптов
+app.post(`${API_PREFIX}/new-year/prompts`, express.json({ limit: '11mb' }), async (req, res) => {
+  const clientIp = req.ip || req.connection.remoteAddress;
+  
+  try {
+    const { analysisResult, styleId, locationId } = req.body;
+    
+    if (!analysisResult) {
+      return res.status(400).json({ error: 'Отсутствует analysisResult' });
+    }
+    if (!styleId) {
+      return res.status(400).json({ error: 'Отсутствует styleId' });
+    }
+    if (!locationId) {
+      return res.status(400).json({ error: 'Отсутствует locationId' });
+    }
+    
+    safeLog('POST /new-year/prompts received', {
+      clientIp,
+      styleId,
+      locationId,
+      peopleCount: analysisResult.peopleCount || 0,
+      animalsCount: analysisResult.animalsCount || 0,
+    });
+    
+    const prompts = buildNewYearPrompts(analysisResult, styleId, locationId);
+    
+    return res.json({
+      ok: true,
+      prompts: prompts.map(p => ({
+        prompt: p.prompt,
+        orientation: p.orientation,
+      })),
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    safeLog('Failed to generate new year prompts', { clientIp, error: errorMessage });
+    return res.status(500).json({ error: errorMessage });
   }
 });
 

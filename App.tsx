@@ -4,7 +4,7 @@
 */
 import React, { useState, ChangeEvent, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { generateImage, evaluateImage, addGenerationToQueue, createPayment, checkPaymentStatus, fetchOrder, retryOrder, usePromoCode, adminCheckSession, adminLogin, adminLogout, type DetectedGender, type QueueStatus, type ImageEvaluationResult, type OrderInfo } from './services/geminiService';
+import { generateImage, evaluateImage, addGenerationToQueue, createPayment, checkPaymentStatus, fetchOrder, retryOrder, usePromoCode, adminCheckSession, adminLogin, adminLogout, generateNewYearPrompts, type DetectedGender, type QueueStatus, type ImageEvaluationResult, type OrderInfo } from './services/geminiService';
 import { createAlbumPage } from './lib/albumUtils';
 import { compressImage, shouldCompressImage } from './lib/imageCompression';
 import { errorLogger } from './lib/errorLogger';
@@ -1014,14 +1014,67 @@ function App() {
 
         setAppState('generating');
         
-        // Инициализируем статусы для 6 финальных портретов
+        // Инициализируем статусы для 6 финальных портретов (будет обновлено после генерации промптов)
         const initialImages: Record<string, GeneratedImage> = {};
-        STYLES.forEach(style => {
-            initialImages[style] = { status: 'pending' };
-        });
         setGeneratedImages(initialImages);
 
         try {
+            // ШАГ 0: Генерируем новогодние промпты через API (делаем это до генерации промежуточного изображения)
+            if (!imageAnalysisResult || !selectedNewYearStyle || !selectedNewYearLocation) {
+                devLog.error('[App] Missing required data for prompt generation:', {
+                    hasAnalysisResult: !!imageAnalysisResult,
+                    hasStyle: !!selectedNewYearStyle,
+                    hasLocation: !!selectedNewYearLocation,
+                });
+                setImageValidationError('Не выбраны стиль или локация для фотосессии');
+                setAppState('failed');
+                return;
+            }
+
+            devLog.log('[App] ========================================');
+            devLog.log('[App] Generating New Year prompts via API');
+            devLog.log('[App] Style:', selectedNewYearStyle);
+            devLog.log('[App] Location:', selectedNewYearLocation);
+            devLog.log('[App] ========================================');
+
+            const newYearPrompts = await generateNewYearPrompts(
+                imageAnalysisResult,
+                selectedNewYearStyle,
+                selectedNewYearLocation
+            );
+
+            devLog.log('[App] Generated', newYearPrompts.length, 'prompts');
+            
+            // Преобразуем массив промптов в объект с индексами как ключами
+            const prompts: Record<string, string> = {};
+            newYearPrompts.forEach((p, index) => {
+                prompts[`image_${index}`] = p.prompt;
+            });
+
+            // Инициализируем статусы для всех промптов
+            const promptKeys = Object.keys(prompts);
+            promptKeys.forEach(key => {
+                initialImages[key] = { status: 'pending' };
+            });
+            setGeneratedImages({ ...initialImages });
+
+            // Логируем информацию о промптах
+            devLog.log('[App] ========================================');
+            devLog.log('[App] PROMPT VERIFICATION: New Year prompts');
+            devLog.log('[App] ========================================');
+            const samplePrompt = newYearPrompts[0]?.prompt || '';
+            const hasFacialHairInstructions = samplePrompt.includes('CRITICAL FACIAL HAIR') || 
+                                             samplePrompt.includes('facial hair EXACTLY') ||
+                                             samplePrompt.includes('Do NOT lengthen, thicken');
+            devLog.log(`[App] ✅ Facial hair preservation instructions found: ${hasFacialHairInstructions}`);
+            if (hasFacialHairInstructions && samplePrompt) {
+                const facialHairMatch = samplePrompt.match(/CRITICAL.*?facial hair.*?(?=\.|Attire|The style)/is);
+                if (facialHairMatch) {
+                    devLog.log(`[App] Facial hair instruction preview: ${facialHairMatch[0].substring(0, 200)}...`);
+                }
+            }
+            devLog.log('[App] ========================================');
+
             // ШАГ 1: Генерируем промежуточное изображение (если еще не кэшировано)
             let imageToUse = uploadedImage;
             let isUsingIntermediate = false;
@@ -1075,26 +1128,6 @@ function App() {
             devLog.log('[App] Image source:', isUsingIntermediate ? 'INTERMEDIATE ✅' : 'ORIGINAL ⚠️');
             if (!isUsingIntermediate) {
                 devLog.warn('[App] ⚠️ WARNING: Using ORIGINAL image instead of intermediate! This may cause generation failures.');
-            }
-            devLog.log('[App] ========================================');
-
-            // ШАГ 2: Генерируем все 6 стилей параллельно на основе промежуточного изображения
-            const prompts = buildPromptsByContext(getEffectiveGender(), selectedRole, selectedCompany, variability, naturalLook);
-
-            // Логируем информацию о промптах для проверки инструкций по бороде/усам
-            devLog.log('[App] ========================================');
-            devLog.log('[App] PROMPT VERIFICATION: Facial hair preservation instructions');
-            devLog.log('[App] ========================================');
-            const samplePrompt = prompts[Object.keys(prompts)[0]];
-            const hasFacialHairInstructions = samplePrompt.includes('CRITICAL FACIAL HAIR') || 
-                                             samplePrompt.includes('facial hair EXACTLY') ||
-                                             samplePrompt.includes('Do NOT lengthen, thicken');
-            devLog.log(`[App] ✅ Facial hair preservation instructions found: ${hasFacialHairInstructions}`);
-            if (hasFacialHairInstructions) {
-                const facialHairMatch = samplePrompt.match(/CRITICAL.*?facial hair.*?(?=\.|Attire|The style)/is);
-                if (facialHairMatch) {
-                    devLog.log(`[App] Facial hair instruction preview: ${facialHairMatch[0].substring(0, 200)}...`);
-                }
             }
             devLog.log('[App] ========================================');
 
@@ -1205,7 +1238,8 @@ function App() {
             };
 
             // ШАГ 2: Запускаем все 6 генераций одновременно и собираем результаты
-            const results = await Promise.all(STYLES.map(style => processStyle(style)));
+            const promptKeys = Object.keys(prompts);
+            const results = await Promise.all(promptKeys.map(style => processStyle(style)));
             firstStageResults.push(...results);
             
             // ШАГ 3: Проверяем результаты и делаем повторную попытку для неудачных
@@ -1376,7 +1410,7 @@ function App() {
                     console.log('[App] STEP 5: Retrying all 6 portraits with aggressively processed intermediate image');
                     console.log('[App] ========================================');
                     
-                    const retryResults = await Promise.all(STYLES.map(style => processStyle(style)));
+                    const retryResults = await Promise.all(promptKeys.map(style => processStyle(style)));
                     
                     // Обновляем результаты
                     retryResults.forEach(result => {
