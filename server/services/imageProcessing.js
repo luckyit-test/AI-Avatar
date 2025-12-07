@@ -20,21 +20,27 @@ export async function replaceBackgroundWithGray(imageDataUrl) {
     const imageBuffer = Buffer.from(base64Data, 'base64');
     
     // Используем sharp для обработки изображения
-    // Простая замена фона на серый через композицию
+    // Получаем размеры исходного изображения
+    const image = sharp(imageBuffer);
+    const metadata = await image.metadata();
+    const width = metadata.width || 1024;
+    const height = metadata.height || 1024;
+    
+    // Создаем серый фон того же размера
     const grayBackground = sharp({
       create: {
-        width: 1024,
-        height: 1024,
+        width: width,
+        height: height,
         channels: 3,
         background: { r: 128, g: 128, b: 128 }
       }
     });
     
-    const processedImage = await sharp(imageBuffer)
-      .resize(1024, 1024, { fit: 'inside', withoutEnlargement: true })
+    // Композиция: сначала серый фон, затем исходное изображение поверх
+    const processedImage = await grayBackground
       .composite([{
-        input: await grayBackground.png().toBuffer(),
-        blend: 'dest-over'
+        input: imageBuffer,
+        blend: 'over'
       }])
       .jpeg({ quality: 80 })
       .toBuffer();
