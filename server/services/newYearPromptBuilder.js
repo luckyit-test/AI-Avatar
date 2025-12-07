@@ -2678,8 +2678,9 @@ const NEW_YEAR_ATTIRE = {
 
 /**
  * Генерирует описание новогодней одежды для промпта
+ * Добавляет головные уборы случайным образом на 0, 1 или 2 изображения из 6
  */
-function generateNewYearAttire(analysisResult, styleId, variationIndex) {
+function generateNewYearAttire(analysisResult, styleId, variationIndex, shouldAddHeadwear = false) {
   const { people } = analysisResult;
   
   if (!people || people.length === 0) {
@@ -2688,10 +2689,6 @@ function generateNewYearAttire(analysisResult, styleId, variationIndex) {
   
   const attireDescriptions = [];
   const headwearDescriptions = [];
-  
-  // Определяем, нужно ли добавлять головные уборы (на 1-2 изображениях из 6)
-  // Используем variationIndex для распределения: первые 2 вариации получают головные уборы
-  const shouldAddHeadwear = variationIndex < 2;
   
   for (let i = 0; i < people.length; i++) {
     const person = people[i];
@@ -2940,15 +2937,26 @@ export function buildNewYearPrompts(analysisResult, styleId, locationId) {
     ? generateAnimalDescription(analysisResult, analysisResult.animalsCount > 1)
     : '';
   
-  // 5. Генерируем 6 промптов с разными вариациями
+  // 5. Случайно определяем, на каких изображениях будут головные уборы (0, 1 или 2 изображения)
+  const headwearCount = randomChoice([0, 1, 2]); // Случайное количество: 0, 1 или 2
+  const headwearIndices = [];
+  if (headwearCount > 0) {
+    // Создаем массив индексов от 0 до 5 и перемешиваем
+    const allIndices = [0, 1, 2, 3, 4, 5];
+    const shuffledIndices = shuffleArray([...allIndices]);
+    // Выбираем первые headwearCount индексов
+    headwearIndices.push(...shuffledIndices.slice(0, headwearCount));
+  }
+  
+  // 6. Генерируем 6 промптов с разными вариациями
   const prompts = [];
   
   for (let i = 0; i < 6; i++) {
     // Выбираем вариации для этого промпта
     const variations = selectVariations(categoryId, styleId, locationId, i, analysisResult);
     
-    // Генерируем описание одежды для этого промпта
-    const attireDescription = generateNewYearAttire(analysisResult, styleId, i);
+    // Генерируем описание одежды для этого промпта (передаем информацию о головных уборах)
+    const attireDescription = generateNewYearAttire(analysisResult, styleId, i, headwearIndices.includes(i));
     
     // Собираем промпт
     let prompt = categoryTemplate.template;
