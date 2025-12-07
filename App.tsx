@@ -1818,7 +1818,7 @@ function App() {
                                     <div className="space-y-6">
                                         <StyleSelector
                                             selectedStyle={selectedStyle}
-                                            onStyleSelect={(styleId => {
+                                            onSelect={(styleId) => {
                                                 setSelectedStyle(styleId);
                                                 setAppState('location-selection');
                                             }}
