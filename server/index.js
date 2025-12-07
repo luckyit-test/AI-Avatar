@@ -104,7 +104,15 @@ initializeDatabase();
 // These functions are needed because processQueue/processAnalysisQueue are server-specific
 function addToQueueLocal(imageData, prompt) {
   const result = addToQueue(imageData, prompt, MAX_QUEUE_SIZE);
-  processQueue();
+  // Вызываем processQueue асинхронно, не блокируя ответ
+  processQueue().catch(err => {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    safeLog('Error in processQueue after addToQueue', { 
+      jobId: result.jobId, 
+      error: errorMessage,
+      queueSize: generationQueue.length
+    });
+  });
   return result;
 }
 
@@ -662,10 +670,16 @@ let isProcessingQueue = false; // Флаг для предотвращения �
 async function processQueue() {
   // Если уже обрабатывается - выходим
   if (isProcessingQueue) {
+    safeLog('processQueue already running, skipping', { queueSize: generationQueue.length });
     return;
   }
 
   isProcessingQueue = true;
+  
+  safeLog('processQueue started', { 
+    queueSize: generationQueue.length, 
+    activeJobs: activeJobs.size 
+  });
 
   try {
     while (generationQueue.length > 0) {
