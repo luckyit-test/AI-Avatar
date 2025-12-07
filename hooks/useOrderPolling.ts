@@ -4,7 +4,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { fetchOrder, type OrderInfo } from '../services/geminiService';
 import { devLog } from '../lib/utils';
-import { STYLES } from '../lib/constants';
+// УДАЛЕНО: STYLES - используется только для бизнес-портретов
+// Для новогодних фотосессий используем динамические ключи image_0, image_1, ..., image_5
 
 type ImageStatus = 'pending' | 'queued' | 'processing' | 'done' | 'error';
 export interface GeneratedImage {
@@ -97,13 +98,15 @@ export function useOrderPolling({
                     // Если заказ завершен - обновляем UI и останавливаем polling
                     if (order.status === 'completed' && order.generatedImages) {
                         const images: Record<string, GeneratedImage> = {};
-                        STYLES.forEach(style => {
-                            if (order.generatedImages && order.generatedImages[style]) {
-                                images[style] = { status: 'done', url: order.generatedImages[style] };
+                        // Для новогодних фотосессий используем динамические ключи image_0, image_1, ..., image_5
+                        for (let i = 0; i < 6; i++) {
+                            const key = `image_${i}`;
+                            if (order.generatedImages && order.generatedImages[key]) {
+                                images[key] = { status: 'done', url: order.generatedImages[key] };
                             } else {
-                                images[style] = { status: 'error', error: 'Не сгенерировано' };
+                                images[key] = { status: 'error', error: 'Не сгенерировано' };
                             }
-                        });
+                        }
                         onCompleted(order, images);
                         isPolling = false;
                         return;

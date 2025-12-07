@@ -5,7 +5,8 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ImageCard from './ImageCard';
-import { STYLES } from '../lib/constants';
+// УДАЛЕНО: STYLES - используется только для бизнес-портретов
+// Для новогодних фотосессий используем динамические ключи image_0, image_1, ..., image_5
 
 export interface GeneratedImage {
     status: 'pending' | 'queued' | 'processing' | 'done' | 'error';
@@ -34,10 +35,13 @@ export function GenerationFlow({
 }: GenerationFlowProps) {
     const effectiveGender = genderOverride || currentOrderGender;
 
+    // Для новогодних фотосессий используем динамические ключи image_0, image_1, ..., image_5
+    const imageKeys = Array.from({ length: 6 }, (_, i) => `image_${i}`);
+
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
             <AnimatePresence>
-                {STYLES.map((style, index) => {
+                {imageKeys.map((style, index) => {
                     const imageState = generatedImages[style];
                     const status = imageState?.status || 'processing';
                     
