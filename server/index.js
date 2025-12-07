@@ -103,16 +103,33 @@ initializeDatabase();
 // Local wrapper functions that call processQueue/processAnalysisQueue
 // These functions are needed because processQueue/processAnalysisQueue are server-specific
 function addToQueueLocal(imageData, prompt) {
+  safeLog('addToQueueLocal called', { 
+    imageDataLength: imageData?.length || 0,
+    promptLength: prompt?.length || 0,
+    currentQueueSize: generationQueue.length
+  });
+  
   const result = addToQueue(imageData, prompt, MAX_QUEUE_SIZE);
+  
+  safeLog('addToQueueLocal: job added to queue', { 
+    jobId: result.jobId,
+    position: result.position,
+    queueSize: generationQueue.length,
+    activeJobs: activeJobs.size
+  });
+  
   // Вызываем processQueue асинхронно, не блокируя ответ
   processQueue().catch(err => {
     const errorMessage = err instanceof Error ? err.message : String(err);
+    const errorStack = err instanceof Error ? err.stack : undefined;
     safeLog('Error in processQueue after addToQueue', { 
       jobId: result.jobId, 
       error: errorMessage,
+      errorStack: errorStack?.substring(0, 500),
       queueSize: generationQueue.length
     });
   });
+  
   return result;
 }
 
