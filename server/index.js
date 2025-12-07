@@ -1872,6 +1872,7 @@ app.post(`${API_PREFIX}/generate-image`, async (req, res) => {
         const errorMessage = error instanceof Error ? error.message : String(error);
         safeLog('Intermediate image processing failed', { clientIp, error: errorMessage });
         // Если обработка не удалась - продолжаем обычным способом через API
+        // НЕ возвращаемся здесь - продолжаем выполнение ниже
       }
     }
 
