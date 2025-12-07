@@ -1038,16 +1038,23 @@ function App() {
             devLog.log('[App] selectedLocation:', selectedLocation);
             devLog.log('[App] ========================================');
             
-            if (!imageAnalysisResult || !selectedStyle || !selectedLocation) {
-                devLog.error('[App] Missing required data for prompt generation:', {
-                    hasAnalysisResult: !!imageAnalysisResult,
-                    hasStyle: !!selectedStyle,
-                    hasLocation: !!selectedLocation,
-                });
-                setImageValidationError('Не выбраны стиль или локация для фотосессии');
+            // ВСЕГДА используем новогодние промпты для hnyear.com
+            // Если стиль и локация не выбраны - используем значения по умолчанию
+            const finalStyle = selectedStyle || 'family';
+            const finalLocation = selectedLocation || 'living-room';
+            
+            if (!imageAnalysisResult) {
+                devLog.error('[App] Missing imageAnalysisResult for prompt generation');
+                setImageValidationError('Не удалось проанализировать изображение. Попробуйте загрузить фото снова.');
                 setAppState('failed');
                 return;
             }
+            
+            devLog.log('[App] Using New Year prompts with:', {
+                style: finalStyle,
+                location: finalLocation,
+                hasAnalysisResult: !!imageAnalysisResult
+            });
 
             devLog.log('[App] ========================================');
             devLog.log('[App] Generating New Year prompts via API');
@@ -1057,8 +1064,8 @@ function App() {
 
             const newYearPrompts = await generateNewYearPrompts(
                 imageAnalysisResult,
-                selectedStyle,
-                selectedLocation
+                finalStyle,
+                finalLocation
             );
 
             devLog.log('[App] Generated', newYearPrompts.length, 'prompts');
