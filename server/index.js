@@ -1796,6 +1796,7 @@ initializeGenerationRoutes({
   replaceBackgroundWithGray,
   processIntermediateImageAggressively,
   safeLog,
+  addToQueueLocal, // Передаем функцию для добавления в очередь с автоматическим запуском processQueue
 });
 
 initializeAnalysisRoutes({

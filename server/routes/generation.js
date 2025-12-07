@@ -8,10 +8,10 @@ import { addToQueue, getJobStatus, generationQueue, activeJobs } from '../queues
 const router = express.Router();
 
 // Dependencies that need to be injected
-let validateImageData, validatePrompt, replaceBackgroundWithGray, processIntermediateImageAggressively, safeLog;
+let validateImageData, validatePrompt, replaceBackgroundWithGray, processIntermediateImageAggressively, safeLog, addToQueueLocal;
 
 export function initializeGenerationRoutes(dependencies) {
-  ({ validateImageData, validatePrompt, replaceBackgroundWithGray, processIntermediateImageAggressively, safeLog } = dependencies);
+  ({ validateImageData, validatePrompt, replaceBackgroundWithGray, processIntermediateImageAggressively, safeLog, addToQueueLocal } = dependencies);
 }
 
 // Generate image
@@ -81,8 +81,15 @@ router.post(`${API_PREFIX}/generate-image`, async (req, res) => {
       return res.status(400).json({ error: promptValidation.error });
     }
 
-    // Добавляем задачу в очередь
-    const queueResult = addToQueue(imageData, prompt, MAX_QUEUE_SIZE);
+    // Добавляем задачу в очередь (используем addToQueueLocal который вызывает processQueue)
+    if (!addToQueueLocal) {
+      safeLog('ERROR: addToQueueLocal not initialized!', { clientIp });
+      return res.status(500).json({ 
+        error: 'Ошибка конфигурации сервера. Попробуйте позже.' 
+      });
+    }
+    
+    const queueResult = addToQueueLocal(imageData, prompt);
     const estimatedStartTime = Date.now() + queueResult.estimatedWaitTime;
     
     res.json({
