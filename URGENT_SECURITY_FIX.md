@@ -1,0 +1,86 @@
+# 🚨 СРОЧНО: Проблема безопасности с API ключами
+
+## ❌ Проблема
+
+API ключи были случайно закоммичены в git репозиторий в коммите `445430b`. Google автоматически блокирует ключи, которые попадают в публичные репозитории.
+
+## ✅ Что уже сделано
+
+1. ✅ Удалены ключи из файлов `update-api-keys.bat` и `FIX_PAID_PLAN_QUOTA.md`
+2. ✅ Создан файл `SECURITY_WARNING.md` с инструкциями
+3. ✅ Изменения закоммичены и отправлены в git
+
+## ⚠️ ЧТО НУЖНО СДЕЛАТЬ СРОЧНО
+
+### 1. Создать НОВЫЕ API ключи в Google Cloud Console
+
+Старые ключи скомпрометированы и заблокированы Google. Нужно создать новые:
+
+1. Откройте: https://console.cloud.google.com/apis/credentials
+2. **Удалите** старые ключи:
+   - `AIzaSyAJbZrYV58Z5HqrljjjmH3rX3rRDoxySQU` (hnyear gen)
+   - `AIzaSyDvB7OMOxuOBu-s4FG5aijzr_R_2ec-cp8` (hnyear analysis)
+   - `AIzaSyCnfC8NVdq1Tf-bgWR0zqRwKd-DVIOm95A` (newava gen)
+   - `AIzaSyB5UipaYsdRqrxs0d0AMygfKJA7KnucGjQ` (newava analysis)
+3. Создайте **новые** API ключи для каждого проекта
+4. Запишите новые ключи в безопасном месте (НЕ в git!)
+
+### 2. Обновить ключи на сервере через SSH
+
+```bash
+# Подключитесь к серверу
+ssh root@43.245.226.24
+# Пароль: Yd2Vc_Wejus0DlNB
+
+# Обновите ключи для hnyear.com
+cd /opt/hnyear
+nano .env
+# Замените:
+# GEMINI_API_KEY=НОВЫЙ_КЛЮЧ_ДЛЯ_ГЕНЕРАЦИИ
+# GEMINI_API_KEY_ANALYSIS=НОВЫЙ_КЛЮЧ_ДЛЯ_АНАЛИЗА
+
+# Обновите ключи для newava.pro
+cd /opt/newava
+nano .env
+# Замените:
+# GEMINI_API_KEY=НОВЫЙ_КЛЮЧ_ДЛЯ_ГЕНЕРАЦИИ
+# GEMINI_API_KEY_ANALYSIS=НОВЫЙ_КЛЮЧ_ДЛЯ_АНАЛИЗА
+
+# Перезапустите контейнеры
+cd /opt/hnyear && docker compose restart backend
+cd /opt/newava && docker compose restart backend
+```
+
+### 3. Удалить ключи из истории git (опционально, но рекомендуется)
+
+Если репозиторий приватный, можно удалить ключи из истории:
+
+```bash
+# ВНИМАНИЕ: Это перепишет историю git!
+git filter-branch --force --index-filter \
+  "git rm --cached --ignore-unmatch update-api-keys.bat" \
+  --prune-empty --tag-name-filter cat -- --all
+
+# Принудительно отправьте изменения
+git push origin --force --all
+```
+
+**⚠️ ВНИМАНИЕ**: Используйте `--force` только если вы уверены, что никто другой не работает с репозиторием!
+
+## 📋 Чеклист
+
+- [ ] Созданы новые API ключи в Google Cloud Console
+- [ ] Удалены старые скомпрометированные ключи
+- [ ] Обновлены ключи на сервере через SSH
+- [ ] Перезапущены backend контейнеры
+- [ ] Проверена работа сайтов
+- [ ] (Опционально) Удалены ключи из истории git
+
+## 🔒 Правила безопасности на будущее
+
+1. ❌ **НИКОГДА** не коммитьте API ключи в git
+2. ✅ Используйте `.env` файлы (они в `.gitignore`)
+3. ✅ Используйте переменные окружения на сервере
+4. ✅ Используйте секреты в CI/CD системах
+5. ✅ Регулярно ротируйте API ключи
+
