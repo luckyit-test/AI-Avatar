@@ -2679,8 +2679,9 @@ const NEW_YEAR_ATTIRE = {
 /**
  * Генерирует описание новогодней одежды для промпта
  * Добавляет головные уборы случайным образом на 0, 1 или 2 изображения из 6
+ * Добавляет узоры на одежду случайным образом на 0, 1 или 2 изображения из 6
  */
-function generateNewYearAttire(analysisResult, styleId, variationIndex, shouldAddHeadwear = false) {
+function generateNewYearAttire(analysisResult, styleId, variationIndex, shouldAddHeadwear = false, shouldAddPatterns = false) {
   const { people } = analysisResult;
   
   if (!people || people.length === 0) {
@@ -2738,7 +2739,42 @@ function generateNewYearAttire(analysisResult, styleId, variationIndex, shouldAd
     // Выбираем уникальную одежду для каждого человека (учитываем variationIndex для уникальности)
     const uniqueAttire = getUniqueItems(attirePool, 6);
     const selectedAttireIndex = (variationIndex * people.length + i) % uniqueAttire.length;
-    const selectedAttire = uniqueAttire[selectedAttireIndex];
+    let selectedAttire = uniqueAttire[selectedAttireIndex];
+    
+    // Убираем упоминания узоров из описания одежды по умолчанию
+    selectedAttire = selectedAttire.replace(/с новогодними узорами/gi, '');
+    selectedAttire = selectedAttire.replace(/новогодними узорами/gi, 'новогодними элементами');
+    selectedAttire = selectedAttire.replace(/новогодние узоры/gi, 'новогодние элементы');
+    selectedAttire = selectedAttire.replace(/  +/g, ' ').trim(); // Убираем двойные пробелы
+    
+    // Добавляем узоры только если shouldAddPatterns = true
+    if (shouldAddPatterns) {
+      // Добавляем описание узоров в зависимости от стиля
+      const patternDescriptions = [
+        'с вышитыми новогодними узорами (елочки, снежинки, звезды)',
+        'с декоративными новогодними узорами (снежинки, елочные ветки)',
+        'с праздничными новогодними узорами (звезды, снежинки)',
+        'с элегантными новогодними узорами (елочки, снежинки)',
+        'с стильными новогодними узорами (звезды, елочные ветки)',
+        'с роскошными новогодними узорами (снежинки, елочки)'
+      ];
+      const patternIndex = (variationIndex * people.length + i) % patternDescriptions.length;
+      const patternText = patternDescriptions[patternIndex];
+      
+      // Добавляем узоры в описание одежды
+      if (selectedAttire.includes('платье')) {
+        selectedAttire = selectedAttire.replace(/платье/, `платье ${patternText}`);
+      } else if (selectedAttire.includes('костюм')) {
+        selectedAttire = selectedAttire.replace(/костюм/, `костюм ${patternText}`);
+      } else if (selectedAttire.includes('свитер')) {
+        selectedAttire = selectedAttire.replace(/свитер/, `свитер ${patternText}`);
+      } else if (selectedAttire.includes('наряд')) {
+        selectedAttire = selectedAttire.replace(/наряд/, `наряд ${patternText}`);
+      } else {
+        selectedAttire = `${selectedAttire}, ${patternText}`;
+      }
+    }
+    
     attireDescriptions.push(selectedAttire);
     
     // Добавляем головные уборы на 1-2 изображениях из 6
@@ -2948,6 +2984,17 @@ export function buildNewYearPrompts(analysisResult, styleId, locationId) {
     headwearIndices.push(...shuffledIndices.slice(0, headwearCount));
   }
   
+  // 5.1. Случайно определяем, на каких изображениях будут узоры на одежде (0, 1 или 2 изображения)
+  const patternsCount = randomChoice([0, 1, 2]); // Случайное количество: 0, 1 или 2
+  const patternsIndices = [];
+  if (patternsCount > 0) {
+    // Создаем массив индексов от 0 до 5 и перемешиваем
+    const allIndices = [0, 1, 2, 3, 4, 5];
+    const shuffledIndices = shuffleArray([...allIndices]);
+    // Выбираем первые patternsCount индексов
+    patternsIndices.push(...shuffledIndices.slice(0, patternsCount));
+  }
+  
   // 6. Генерируем 6 промптов с разными вариациями
   const prompts = [];
   
@@ -2955,8 +3002,8 @@ export function buildNewYearPrompts(analysisResult, styleId, locationId) {
     // Выбираем вариации для этого промпта
     const variations = selectVariations(categoryId, styleId, locationId, i, analysisResult);
     
-    // Генерируем описание одежды для этого промпта (передаем информацию о головных уборах)
-    const attireDescription = generateNewYearAttire(analysisResult, styleId, i, headwearIndices.includes(i));
+    // Генерируем описание одежды для этого промпта (передаем информацию о головных уборах и узорах)
+    const attireDescription = generateNewYearAttire(analysisResult, styleId, i, headwearIndices.includes(i), patternsIndices.includes(i));
     
     // Собираем промпт
     let prompt = categoryTemplate.template;
@@ -2976,6 +3023,9 @@ export function buildNewYearPrompts(analysisResult, styleId, locationId) {
     prompt = prompt.replace(/\[COMPOSITION_VARIATION\]/g, variations.composition);
     prompt = prompt.replace(/\[LIGHTING_VARIATION\]/g, variations.lighting);
     prompt = prompt.replace(/\[CAMERA_SPECS\]/g, variations.cameraSpecs.specs);
+    
+    // Добавляем инструкцию о запрете других людей и животных
+    prompt += ` КРИТИЧЕСКИ ВАЖНО: На фото должны быть ТОЛЬКО люди и животные из исходного изображения. НЕ добавлять других людей, НЕ добавлять других животных, НЕ добавлять посторонних персонажей. Только те, кто присутствует в исходном фото.`;
     
     // Добавляем ориентацию и технические характеристики в конец промпта
     prompt += ` Ориентация: ${variations.orientation === 'vertical' ? 'вертикальная (portrait)' : 'горизонтальная (landscape)'}. Технические характеристики: ${variations.cameraSpecs.specs}.`;
