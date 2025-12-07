@@ -1286,8 +1286,8 @@ function App() {
             };
 
             // ШАГ 2: Запускаем все 6 генераций одновременно и собираем результаты
-            const promptKeys = Object.keys(prompts);
-            const results = await Promise.all(promptKeys.map(style => processStyle(style)));
+            const allPromptKeys = Object.keys(prompts);
+            const results = await Promise.all(allPromptKeys.map(style => processStyle(style)));
             firstStageResults.push(...results);
             
             // ШАГ 3: Проверяем результаты и делаем повторную попытку для неудачных
