@@ -1,0 +1,16 @@
+Команды для выполнения вручную через SSH:
+
+ssh root@43.245.226.24
+Пароль: Yd2Vc_Wejus0DlNB
+
+Затем выполните:
+
+docker network connect newava_network newava_nginx
+cd /opt/newava
+docker compose restart nginx
+sleep 5
+docker exec newava_nginx getent hosts hnyear_backend
+docker exec newava_nginx getent hosts hnyear_app
+
+После этого проверьте сайт: https://hnyear.com/
+
