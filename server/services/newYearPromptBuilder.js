@@ -364,6 +364,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -378,6 +379,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -392,6 +394,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -406,6 +409,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -420,6 +424,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -434,6 +439,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -448,6 +454,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -463,6 +470,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -477,6 +485,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -491,6 +500,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -505,6 +515,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -519,6 +530,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -533,6 +545,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -547,6 +560,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -561,6 +575,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -575,6 +590,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -589,6 +605,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -603,6 +620,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -617,6 +635,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -631,6 +650,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -645,6 +665,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -659,6 +680,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -674,6 +696,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -689,6 +712,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -704,6 +728,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -719,6 +744,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -733,6 +759,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -748,6 +775,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -762,6 +790,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -776,6 +805,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -790,6 +820,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -804,6 +835,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -818,6 +850,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -832,6 +865,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -846,6 +880,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -860,6 +895,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -874,6 +910,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -888,6 +925,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -902,6 +940,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -916,6 +955,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -930,6 +970,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -945,6 +986,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -960,6 +1002,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -975,6 +1018,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -989,6 +1033,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -1004,6 +1049,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -1018,6 +1064,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -1032,6 +1079,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -1046,6 +1094,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -1060,6 +1109,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -1074,6 +1124,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -1088,6 +1139,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -1102,6 +1154,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -1116,6 +1169,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -1130,6 +1184,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -1144,6 +1199,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -1158,6 +1214,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -1172,6 +1229,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -1186,6 +1244,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -1201,6 +1260,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -1216,6 +1276,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -1231,6 +1292,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -1245,6 +1307,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -1259,6 +1322,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   },
   
@@ -1273,6 +1337,7 @@ const CATEGORY_TEMPLATES = {
 [EMOTION_VARIATION]
 [COMPOSITION_VARIATION]
 [LIGHTING_VARIATION]
+[CAMERA_SPECS]
 Фотографическое качество, естественное освещение, профессиональная съемка.`
   }
 };
@@ -1734,23 +1799,95 @@ const LIGHTING_VARIATIONS = [
 ];
 
 /**
+ * Технические характеристики камер для новогодних фотосессий
+ */
+const CAMERA_SPECS = [
+  'Canon EOS R5',
+  'Sony A7R IV',
+  'Nikon Z9'
+];
+
+/**
+ * Вариации объективов для новогодних фотосессий
+ */
+const LENS_VARIATIONS = {
+  portrait: [
+    '85mm f/1.8',
+    '85mm f/1.4',
+    '85mm f/2.0'
+  ],
+  general: [
+    '50mm f/1.4',
+    '50mm f/1.8',
+    '50mm f/2.0'
+  ]
+};
+
+/**
+ * Вариации ISO для новогодних фотосессий
+ */
+const ISO_VARIATIONS = [
+  'ISO 100',
+  'ISO 200',
+  'ISO 400'
+];
+
+/**
+ * Генерирует технические характеристики камеры
+ */
+function generateCameraSpecs(orientation, variationIndex) {
+  const camera = randomChoice(CAMERA_SPECS);
+  
+  // Выбираем объектив в зависимости от ориентации и композиции
+  const isPortrait = orientation === 'vertical';
+  const lensPool = isPortrait ? LENS_VARIATIONS.portrait : LENS_VARIATIONS.general;
+  const lens = getUniqueItems(lensPool, 6)[variationIndex % lensPool.length];
+  
+  // Выбираем ISO
+  const iso = getUniqueItems(ISO_VARIATIONS, 6)[variationIndex % ISO_VARIATIONS.length];
+  
+  // Определяем диафрагму в зависимости от объектива
+  const aperture = lens.includes('f/1.4') ? 'f/1.4' : lens.includes('f/1.8') ? 'f/1.8' : 'f/2.0';
+  
+  return {
+    camera,
+    lens,
+    iso,
+    aperture,
+    specs: `${camera}, объектив ${lens}, ${iso}, диафрагма ${aperture}, профессиональная фотография высокого качества`
+  };
+}
+
+/**
  * Генерирует инструкцию по сохранению лиц из исходного фото
  */
 function generateFacePreservation(analysisResult, isMultiple = false) {
   const { people } = analysisResult;
   
+  // Базовая инструкция по сохранению бороды и усов для всех мужчин
+  const facialHairInstruction = `КРИТИЧЕСКИ ВАЖНО: Сохранить усы и бороду в ТОЧНОМ исходном состоянии. 
+Если в исходном фото у человека есть борода - сохранить её ТОЧНО такой же (длина, густота, форма, стиль). 
+Если в исходном фото у человека есть усы - сохранить их ТОЧНО такими же (длина, форма, стиль). 
+Если в исходном фото человек без бороды и усов - НЕ добавлять бороду и усы. 
+Если в исходном фото человек с бородой - НЕ удалять бороду. 
+Если в исходном фото человек с усами - НЕ удалять усы. 
+Усы и борода должны выглядеть ИДЕНТИЧНО исходному фото во всех деталях.`;
+  
   if (!people || people.length === 0) {
-    return 'Сохранить точные черты лица, форму лица, цвет глаз, прическу, все уникальные особенности из исходного фото.';
+    return `Сохранить точные черты лица, форму лица, цвет глаз, прическу, все уникальные особенности из исходного фото. ${facialHairInstruction}`;
   }
   
   if (isMultiple && people.length > 1) {
-    return `Сохранить точные черты лиц всех ${people.length} человек из исходного фото: форму лиц, цвет глаз, прически, все уникальные особенности каждого человека. Каждый человек должен быть узнаваем как в исходном фото.`;
+    const hasMen = people.some(p => p.gender === 'male');
+    const facialHairText = hasMen ? ` ${facialHairInstruction}` : '';
+    return `Сохранить точные черты лиц всех ${people.length} человек из исходного фото: форму лиц, цвет глаз, прически, все уникальные особенности каждого человека. Каждый человек должен быть узнаваем как в исходном фото.${facialHairText}`;
   }
   
   const person = people[0];
   const gender = person.gender === 'male' ? 'мужчина' : person.gender === 'female' ? 'женщина' : 'человек';
+  const facialHairText = person.gender === 'male' ? ` ${facialHairInstruction}` : '';
   
-  return `Сохранить точные черты лица ${gender} из исходного фото: форму лица, цвет глаз, прическу, все уникальные особенности. Человек должен быть узнаваем как в исходном фото.`;
+  return `Сохранить точные черты лица ${gender} из исходного фото: форму лица, цвет глаз, прическу, все уникальные особенности. Человек должен быть узнаваем как в исходном фото.${facialHairText}`;
 }
 
 /**
@@ -1819,7 +1956,7 @@ function determineOrientation(categoryId, styleId, locationId, peopleCount) {
 /**
  * Выбирает вариации для конкретного промпта
  */
-function selectVariations(categoryId, styleId, variationIndex, analysisResult) {
+function selectVariations(categoryId, styleId, locationId, variationIndex, analysisResult) {
   const { peopleCount } = analysisResult;
   const isSingle = peopleCount === 1;
   const isCouple = peopleCount === 2;
@@ -1851,7 +1988,7 @@ function selectVariations(categoryId, styleId, variationIndex, analysisResult) {
   }
   
   // Определяем ориентацию
-  const orientation = determineOrientation(categoryId, styleId, 'living-room', peopleCount);
+  const orientation = determineOrientation(categoryId, styleId, locationId, peopleCount);
   const compositions = orientation === 'vertical' 
     ? COMPOSITION_VARIATIONS.vertical 
     : COMPOSITION_VARIATIONS.horizontal;
@@ -1863,13 +2000,17 @@ function selectVariations(categoryId, styleId, variationIndex, analysisResult) {
   const composition = getUniqueItems(compositions, 6)[variationIndex % compositions.length];
   const lighting = getUniqueItems(LIGHTING_VARIATIONS, 6)[variationIndex % LIGHTING_VARIATIONS.length];
   
+  // Генерируем технические характеристики камеры
+  const cameraSpecs = generateCameraSpecs(orientation, variationIndex);
+  
   return {
     action,
     pose,
     emotion,
     composition,
     lighting,
-    orientation
+    orientation,
+    cameraSpecs
   };
 }
 
@@ -1918,7 +2059,7 @@ export function buildNewYearPrompts(analysisResult, styleId, locationId) {
   
   for (let i = 0; i < 6; i++) {
     // Выбираем вариации для этого промпта
-    const variations = selectVariations(categoryId, styleId, i, analysisResult);
+    const variations = selectVariations(categoryId, styleId, locationId, i, analysisResult);
     
     // Собираем промпт
     let prompt = categoryTemplate.template;
@@ -1935,14 +2076,16 @@ export function buildNewYearPrompts(analysisResult, styleId, locationId) {
     prompt = prompt.replace(/\[EMOTION_VARIATION\]/g, variations.emotion);
     prompt = prompt.replace(/\[COMPOSITION_VARIATION\]/g, variations.composition);
     prompt = prompt.replace(/\[LIGHTING_VARIATION\]/g, variations.lighting);
+    prompt = prompt.replace(/\[CAMERA_SPECS\]/g, variations.cameraSpecs.specs);
     
-    // Добавляем ориентацию в конец промпта
-    prompt += ` Ориентация: ${variations.orientation === 'vertical' ? 'вертикальная (portrait)' : 'горизонтальная (landscape)'}.`;
+    // Добавляем ориентацию и технические характеристики в конец промпта
+    prompt += ` Ориентация: ${variations.orientation === 'vertical' ? 'вертикальная (portrait)' : 'горизонтальная (landscape)'}. Технические характеристики: ${variations.cameraSpecs.specs}.`;
     
     prompts.push({
       prompt,
       orientation: variations.orientation,
-      variationIndex: i
+      variationIndex: i,
+      cameraSpecs: variations.cameraSpecs
     });
   }
   
