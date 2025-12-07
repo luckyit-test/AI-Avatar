@@ -210,31 +210,7 @@ export function addToQueue(imageData, prompt, MAX_QUEUE_SIZE) {
 }
 
 export function getJobStatus(jobId) {
-  // Проверяем активные задачи
-  const activeJob = Array.from(activeJobs).find(id => id === jobId);
-  if (activeJob) {
-    const job = generationQueue.find(j => j.id === jobId) || 
-                Array.from(completedJobs.values()).find(j => j.id === jobId);
-    if (job) {
-      return {
-        status: 'processing',
-        position: 0,
-        estimatedWaitTime: 0,
-      };
-    }
-  }
-  
-  // Проверяем очередь
-  const queuedJob = generationQueue.find(j => j.id === jobId);
-  if (queuedJob) {
-    return {
-      status: 'queued',
-      position: queuedJob.getPosition(),
-      estimatedWaitTime: queuedJob.getEstimatedWaitTime(),
-    };
-  }
-  
-  // Проверяем завершенные задачи
+  // Сначала проверяем завершенные задачи (самый быстрый путь)
   const completedJob = completedJobs.get(jobId);
   if (completedJob) {
     if (completedJob.error) {
@@ -249,6 +225,26 @@ export function getJobStatus(jobId) {
         result: completedJob.result,
       };
     }
+  }
+  
+  // Проверяем активные задачи
+  // Если джоб в activeJobs, значит он обрабатывается (даже если объект еще не в completedJobs)
+  if (activeJobs.has(jobId)) {
+    return {
+      status: 'processing',
+      position: 0,
+      estimatedWaitTime: 0,
+    };
+  }
+  
+  // Проверяем очередь
+  const queuedJob = generationQueue.find(j => j.id === jobId);
+  if (queuedJob) {
+    return {
+      status: 'queued',
+      position: queuedJob.getPosition(),
+      estimatedWaitTime: queuedJob.getEstimatedWaitTime(),
+    };
   }
   
   return null;
