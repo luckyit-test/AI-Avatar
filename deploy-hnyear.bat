@@ -28,6 +28,7 @@ if not exist "%TEMP%" (
     exit /b 1
 )
 
+REM Создаем bash скрипт построчно
 (
 echo set -e
 echo.
@@ -45,7 +46,7 @@ echo.
 echo # Fetch and checkout new-year branch
 echo echo "Fetching and checking out new-year branch..."
 echo git fetch origin
-echo git checkout %BRANCH% 2^>/dev/null ^|^| git checkout -b %BRANCH% origin/%BRANCH%
+echo git checkout %BRANCH% 2^>^/dev^/null ^|^| git checkout -b %BRANCH% origin/%BRANCH%
 echo git pull origin %BRANCH%
 echo.
 echo echo ""
@@ -57,16 +58,14 @@ echo.
 echo # Create .env file if it doesn't exist
 echo if [ ! -f .env ]; then
 echo     echo "Creating .env file..."
-echo     cat ^> .env ^<< 'ENVEOF'
-echo GEMINI_API_KEY=your_key_here
-echo GEMINI_API_KEY_ANALYSIS=your_key_here
-echo ALLOWED_ORIGINS=https://hnyear.com,https://www.hnyear.com
-echo ROBOKASSA_LOGIN=hnyear.com
-echo ROBOKASSA_PASSWORD1=LUaP7t8lK2Wx1SUc1Oax
-echo ROBOKASSA_PASSWORD2=XZ5g281nZGqZdvNPlV8E
-echo ROBOKASSA_IS_TEST=0
-echo ROBOKASSA_PAYMENT_AMOUNT=100.00
-echo ENVEOF
+echo     echo "GEMINI_API_KEY=your_key_here" ^> .env
+echo     echo "GEMINI_API_KEY_ANALYSIS=your_key_here" ^>^> .env
+echo     echo "ALLOWED_ORIGINS=https://hnyear.com,https://www.hnyear.com" ^>^> .env
+echo     echo "ROBOKASSA_LOGIN=hnyear.com" ^>^> .env
+echo     echo "ROBOKASSA_PASSWORD1=LUaP7t8lK2Wx1SUc1Oax" ^>^> .env
+echo     echo "ROBOKASSA_PASSWORD2=XZ5g281nZGqZdvNPlV8E" ^>^> .env
+echo     echo "ROBOKASSA_IS_TEST=0" ^>^> .env
+echo     echo "ROBOKASSA_PAYMENT_AMOUNT=100.00" ^>^> .env
 echo     echo ".env file created. Please update GEMINI_API_KEY!"
 echo fi
 echo.
@@ -81,9 +80,7 @@ echo     echo "Using docker-compose.hnyear.yml"
 echo     cp docker-compose.hnyear.yml docker-compose.yml
 echo else
 echo     echo "Updating docker-compose.yml..."
-echo     # Backup
-echo     cp docker-compose.yml docker-compose.yml.bak 2^>/dev/null ^|^| true
-echo     # Update container names
+echo     cp docker-compose.yml docker-compose.yml.bak 2^>^/dev^/null ^|^| true
 echo     sed -i 's/newava_backend/hnyear_backend/g' docker-compose.yml
 echo     sed -i 's/newava_app/hnyear_app/g' docker-compose.yml
 echo     sed -i 's/newava_nginx/hnyear_nginx/g' docker-compose.yml
@@ -96,8 +93,8 @@ echo.
 echo # Ensure newava_network exists
 echo echo "Ensuring network exists..."
 echo cd %NEWAVA_DIR%
-echo docker compose up -d 2^>/dev/null ^|^| true
-echo docker network create newava_network 2^>/dev/null ^|^| true
+echo docker compose up -d 2^>^/dev^/null ^|^| true
+echo docker network create newava_network 2^>^/dev^/null ^|^| true
 echo.
 echo # Copy nginx config to newava project
 echo echo "Copying nginx configuration..."
@@ -107,7 +104,7 @@ echo     cp deploy/nginx/conf.d/hnyear.conf %NEWAVA_DIR%/deploy/nginx/conf.d/hny
 echo     echo "Nginx config copied to newava project"
 echo fi
 echo.
-echo # Build and start containers (without nginx)
+echo # Build and start containers
 echo echo ""
 echo echo "Building and starting containers..."
 echo cd %APP_DIR%
@@ -117,16 +114,11 @@ echo # Wait for containers
 echo echo "Waiting for containers to start..."
 echo sleep 5
 echo.
-echo # Issue SSL certificate (using newava nginx)
+echo # Issue SSL certificate
 echo echo ""
 echo echo "Issuing SSL certificate..."
 echo cd %NEWAVA_DIR%
-echo docker run --rm \
-echo   -v %NEWAVA_DIR%/deploy/certbot/conf:/etc/letsencrypt \
-echo   -v %NEWAVA_DIR%/deploy/certbot/www:/var/www/certbot \
-echo   certbot/certbot:latest certonly --webroot \
-echo   -w /var/www/certbot -d %DOMAIN% -d www.%DOMAIN% \
-echo   -m %EMAIL% --agree-tos --no-eff-email --non-interactive ^|^| echo "Certificate issue failed, will retry later"
+echo docker run --rm -v %NEWAVA_DIR%/deploy/certbot/conf:/etc/letsencrypt -v %NEWAVA_DIR%/deploy/certbot/www:/var/www/certbot certbot/certbot:latest certonly --webroot -w /var/www/certbot -d %DOMAIN% -d www.%DOMAIN% -m %EMAIL% --agree-tos --no-eff-email --non-interactive ^|^| echo "Certificate issue failed, will retry later"
 echo.
 echo # Reload nginx
 echo echo ""
@@ -141,9 +133,6 @@ echo echo ""
 echo echo "Check status:"
 echo cd %APP_DIR%
 echo docker compose ps
-echo echo ""
-echo echo "Check logs:"
-echo echo "  cd %APP_DIR% ^&^& docker compose logs"
 echo echo ""
 echo echo "IMPORTANT: Update GEMINI_API_KEY in .env file!"
 echo echo "  nano %APP_DIR%/.env"
