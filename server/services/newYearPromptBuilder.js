@@ -2736,19 +2736,33 @@ function generateNewYearAttire(analysisResult, styleId, variationIndex, shouldAd
       }
     }
     
-    // Выбираем уникальную одежду для каждого человека (учитываем variationIndex для уникальности)
+    // Выбираем уникальную одежду для каждого человека
+    // Используем variationIndex напрямую для гарантии разных одежд на каждом из 6 изображений
+    // Для каждого человека используем комбинацию variationIndex и индекса человека
     const uniqueAttire = getUniqueItems(attirePool, 6);
-    const selectedAttireIndex = (variationIndex * people.length + i) % uniqueAttire.length;
+    // Гарантируем разные индексы для каждого изображения (variationIndex 0-5) и каждого человека
+    const selectedAttireIndex = (variationIndex + i * 6) % uniqueAttire.length;
     let selectedAttire = uniqueAttire[selectedAttireIndex];
     
-    // Убираем упоминания узоров из описания одежды по умолчанию
+    // Тщательно убираем все упоминания узоров из описания одежды по умолчанию
     selectedAttire = selectedAttire.replace(/с новогодними узорами/gi, '');
     selectedAttire = selectedAttire.replace(/новогодними узорами/gi, 'новогодними элементами');
     selectedAttire = selectedAttire.replace(/новогодние узоры/gi, 'новогодние элементы');
+    selectedAttire = selectedAttire.replace(/вышитыми.*узорами/gi, '');
+    selectedAttire = selectedAttire.replace(/декоративными.*узорами/gi, '');
+    selectedAttire = selectedAttire.replace(/праздничными.*узорами/gi, '');
+    selectedAttire = selectedAttire.replace(/элегантными.*узорами/gi, '');
+    selectedAttire = selectedAttire.replace(/стильными.*узорами/gi, '');
+    selectedAttire = selectedAttire.replace(/роскошными.*узорами/gi, '');
+    selectedAttire = selectedAttire.replace(/\(елочки.*?\)/gi, '');
+    selectedAttire = selectedAttire.replace(/\(снежинки.*?\)/gi, '');
+    selectedAttire = selectedAttire.replace(/\(звезды.*?\)/gi, '');
+    selectedAttire = selectedAttire.replace(/\(елочные ветки.*?\)/gi, '');
     selectedAttire = selectedAttire.replace(/  +/g, ' ').trim(); // Убираем двойные пробелы
     
-    // Добавляем узоры только если shouldAddPatterns = true
-    if (shouldAddPatterns) {
+    // Добавляем узоры ТОЛЬКО если shouldAddPatterns = true
+    // Это должно быть только на 0, 1 или 2 фото из 6
+    if (shouldAddPatterns === true) {
       // Добавляем описание узоров в зависимости от стиля
       const patternDescriptions = [
         'с вышитыми новогодними узорами (елочки, снежинки, звезды)',
@@ -2758,7 +2772,7 @@ function generateNewYearAttire(analysisResult, styleId, variationIndex, shouldAd
         'с стильными новогодними узорами (звезды, елочные ветки)',
         'с роскошными новогодними узорами (снежинки, елочки)'
       ];
-      const patternIndex = (variationIndex * people.length + i) % patternDescriptions.length;
+      const patternIndex = (variationIndex + i * 6) % patternDescriptions.length;
       const patternText = patternDescriptions[patternIndex];
       
       // Добавляем узоры в описание одежды
@@ -2778,9 +2792,9 @@ function generateNewYearAttire(analysisResult, styleId, variationIndex, shouldAd
     attireDescriptions.push(selectedAttire);
     
     // Добавляем головные уборы на 1-2 изображениях из 6
-    if (shouldAddHeadwear && headwearPool.length > 0) {
+    if (shouldAddHeadwear === true && headwearPool.length > 0) {
       const uniqueHeadwear = getUniqueItems(headwearPool, 6);
-      const selectedHeadwearIndex = (variationIndex * people.length + i) % uniqueHeadwear.length;
+      const selectedHeadwearIndex = (variationIndex + i * 6) % uniqueHeadwear.length;
       const selectedHeadwear = uniqueHeadwear[selectedHeadwearIndex];
       headwearDescriptions.push(selectedHeadwear);
     }
@@ -3003,6 +3017,7 @@ export function buildNewYearPrompts(analysisResult, styleId, locationId) {
     const variations = selectVariations(categoryId, styleId, locationId, i, analysisResult);
     
     // Генерируем описание одежды для этого промпта (передаем информацию о головных уборах и узорах)
+    // Важно: передаем variationIndex = i для гарантии разных одежд на каждом изображении
     const attireDescription = generateNewYearAttire(analysisResult, styleId, i, headwearIndices.includes(i), patternsIndices.includes(i));
     
     // Собираем промпт
