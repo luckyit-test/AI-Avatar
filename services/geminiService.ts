@@ -11,15 +11,33 @@ const API_BASE_URL = typeof window !== 'undefined'
   : 'http://localhost:3001';        // Для SSR (не используется)
 
 export type DetectedGender = 'male' | 'female' | 'unknown';
+export type DetectedAge = 'child' | 'adult' | 'elderly';
+export type PhotoQuality = 'excellent' | 'good' | 'fair' | 'poor';
+export type AnimalType = 'dog' | 'cat' | 'other';
+
 export interface GenderDetectionResult { gender: DetectedGender; confidence: number }
 
 export type ValidationErrorType =
   | 'none'
   | 'prohibited_content'
   | 'not_single_person'
+  | 'not_photograph'
   | 'license_violation'
   | 'public_figure'
   | 'technical_error';
+
+export interface PersonInfo {
+  age: DetectedAge;
+  gender: DetectedGender;
+  ageConfidence: number;
+  genderConfidence: number;
+}
+
+export interface AnimalInfo {
+  type: AnimalType;
+  typeConfidence: number;
+}
+
 export interface ImageValidationResult {
   isValid: boolean;
   errorType: ValidationErrorType;
@@ -40,16 +58,29 @@ export interface ImageEvaluationResult {
   isValid: boolean;
   errorType: ValidationErrorType;
   errorMessage: string;
+  // Новые поля для новогодних фотосессий
+  peopleCount: number;
+  animalsCount: number;
+  totalSubjects: number;
+  people: PersonInfo[];
+  animals: AnimalInfo[];
+  photoQuality: PhotoQuality;
+  qualityScore: number;
+  qualityIssues: string[];
+  // Обратная совместимость (для старого кода)
   gender: DetectedGender;
   confidence: number;
   publicFigure?: boolean;
   publicFigureReason?: string | null;
   details?: {
-    hasSinglePerson?: boolean;
+    isPhotographOfRealPerson?: boolean;
     hasProhibitedContent?: boolean;
     hasAnimals?: boolean;
     hasLandscape?: boolean;
     hasMultiplePeople?: boolean;
+    isFaceVisible?: boolean;
+    isBlurry?: boolean;
+    isDark?: boolean;
     isPublicFigure?: boolean;
     publicFigureReason?: string | null;
   };
@@ -64,6 +95,16 @@ export interface AnalysisStatus {
   isValid?: boolean;
   errorType?: ValidationErrorType;
   errorMessage?: string;
+  // Новые поля для новогодних фотосессий
+  peopleCount?: number;
+  animalsCount?: number;
+  totalSubjects?: number;
+  people?: PersonInfo[];
+  animals?: AnimalInfo[];
+  photoQuality?: PhotoQuality;
+  qualityScore?: number;
+  qualityIssues?: string[];
+  // Обратная совместимость
   gender?: DetectedGender;
   confidence?: number;
   publicFigure?: boolean;
@@ -495,20 +536,32 @@ export async function evaluateImage(imageDataUrl: string, onStatusUpdate?: (stat
         console.log(`[evaluateImage] Analysis completed`, {
           attempt: pollAttempt,
           isValid: status.isValid,
-          gender: status.gender
+          gender: status.gender,
+          peopleCount: status.peopleCount,
+          animalsCount: status.animalsCount
         });
-        // Возвращаем результат в формате ImageEvaluationResult
+        // Возвращаем результат в формате ImageEvaluationResult (новогодние фотосессии)
         const publicFigureFlag = status.publicFigure ?? status.details?.isPublicFigure ?? false;
         const publicFigureReason = status.publicFigureReason ?? status.details?.publicFigureReason ?? null;
         const resolvedErrorType: ValidationErrorType = (status.errorType as ValidationErrorType) 
-          || (publicFigureFlag ? 'public_figure' : (status.isValid ? 'none' : 'not_single_person'));
+          || (publicFigureFlag ? 'public_figure' : (status.isValid ? 'none' : 'not_photograph'));
 
         return {
           isValid: status.isValid ?? false,
           errorType: resolvedErrorType,
           errorMessage: status.errorMessage || '',
-          gender: status.gender || 'unknown',
-          confidence: Math.max(0, Math.min(1, status.confidence || 0)),
+          // Новые поля для новогодних фотосессий
+          peopleCount: status.peopleCount ?? 0,
+          animalsCount: status.animalsCount ?? 0,
+          totalSubjects: status.totalSubjects ?? (status.peopleCount ?? 0) + (status.animalsCount ?? 0),
+          people: status.people || [],
+          animals: status.animals || [],
+          photoQuality: (status.photoQuality as PhotoQuality) || 'fair',
+          qualityScore: Math.max(0, Math.min(1, status.qualityScore ?? 0.5)),
+          qualityIssues: status.qualityIssues || [],
+          // Обратная совместимость
+          gender: status.gender || (status.people && status.people.length > 0 ? status.people[0].gender : 'unknown') || 'unknown',
+          confidence: Math.max(0, Math.min(1, status.confidence ?? (status.people && status.people.length > 0 ? status.people[0].genderConfidence : 0.5) ?? 0.5)),
           publicFigure: publicFigureFlag,
           publicFigureReason,
           details: status.details || {}

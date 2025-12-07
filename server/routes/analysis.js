@@ -121,7 +121,7 @@ router.get(`${API_PREFIX}/analysis/:jobId`, (req, res) => {
       });
     }
     
-    // Если задача завершена, возвращаем результат в формате для evaluate-image
+    // Если задача завершена, возвращаем результат в формате для evaluate-image (новогодние фотосессии)
     if (status.status === 'completed') {
       const parsed = status.result;
       const d = parsed.details || {};
@@ -132,8 +132,8 @@ router.get(`${API_PREFIX}/analysis/:jobId`, (req, res) => {
       if (!postIsValid) {
         if (postErrorType === 'prohibited_content') {
           errorMessage = 'Изображение содержит запрещенный контент';
-        } else if (postErrorType === 'not_single_person') {
-          errorMessage = 'На фото должно быть одно лицо';
+        } else if (postErrorType === 'not_photograph') {
+          errorMessage = 'Загрузите фотографию реальных людей или животных (не рисунок, не 3D-рендер)';
         } else if (postErrorType === 'license_violation') {
           errorMessage = 'Изображение нарушает авторские права';
         } else {
@@ -141,19 +141,40 @@ router.get(`${API_PREFIX}/analysis/:jobId`, (req, res) => {
         }
       }
 
+      // Для обратной совместимости определяем основной пол (первый человек или most common)
+      let primaryGender = 'unknown';
+      let primaryConfidence = 0.5;
+      if (parsed.people && parsed.people.length > 0) {
+        // Берем пол первого человека
+        primaryGender = parsed.people[0].gender || 'unknown';
+        primaryConfidence = parsed.people[0].genderConfidence || 0.5;
+      }
+
       return res.json({
-        status: 'completed', // Добавляем поле status для клиента
+        status: 'completed',
         isValid: postIsValid,
         errorType: postErrorType,
         errorMessage: errorMessage || null,
-        gender: parsed.gender || 'unknown',
-        confidence: parsed.confidence || 0.5,
+        // Новые поля для новогодних фотосессий
+        peopleCount: parsed.peopleCount || 0,
+        animalsCount: parsed.animalsCount || 0,
+        totalSubjects: parsed.totalSubjects || 0,
+        people: parsed.people || [],
+        animals: parsed.animals || [],
+        photoQuality: parsed.photoQuality || 'fair',
+        qualityScore: parsed.qualityScore || 0.5,
+        qualityIssues: parsed.qualityIssues || [],
+        // Обратная совместимость (для старого кода)
+        gender: primaryGender,
+        confidence: primaryConfidence,
         details: {
-          hasSinglePerson: d.hasSinglePerson ?? d.isSelfieOnePerson ?? true,
+          isPhotographOfRealPerson: d.isPhotographOfRealPerson ?? true,
           hasProhibitedContent: d.hasProhibitedContent ?? false,
-          hasAnimals: d.hasAnimals ?? false,
-          hasLandscape: d.hasLandscape ?? false,
-          hasMultiplePeople: d.hasMultiplePeople ?? false,
+          hasAnimals: d.hasAnimals ?? (parsed.animalsCount > 0),
+          hasMultiplePeople: d.hasMultiplePeople ?? (parsed.peopleCount > 1),
+          isFaceVisible: d.isFaceVisible ?? true,
+          isBlurry: d.isBlurry ?? false,
+          isDark: d.isDark ?? false,
         }
       });
     }
