@@ -957,6 +957,13 @@ function App() {
 
         try {
             // ШАГ 0: Генерируем новогодние промпты через API (делаем это до генерации промежуточного изображения)
+            console.log('[App] ========================================');
+            console.log('[App] ENTERING NEW YEAR PROMPT GENERATION BLOCK');
+            console.log('[App] CHECKING: New Year generation conditions');
+            console.log('[App] hasImageAnalysisResult:', !!imageAnalysisResult);
+            console.log('[App] selectedStyle:', selectedStyle);
+            console.log('[App] selectedLocation:', selectedLocation);
+            console.log('[App] ========================================');
             devLog.log('[App] ========================================');
             devLog.log('[App] CHECKING: New Year generation conditions');
             devLog.log('[App] hasImageAnalysisResult:', !!imageAnalysisResult);
@@ -966,6 +973,7 @@ function App() {
             
             // Стиль и локация обязательны для новогодних фотосессий
             if (!imageAnalysisResult || !selectedStyle || !selectedLocation) {
+                console.error('[App] ❌ MISSING DATA - aborting generation');
                 devLog.error('[App] Missing required data for New Year prompt generation:', {
                     hasAnalysisResult: !!imageAnalysisResult,
                     hasStyle: !!selectedStyle,
@@ -975,6 +983,8 @@ function App() {
                 setAppState('failed');
                 return;
             }
+            
+            console.log('[App] ✅ All conditions met, proceeding to generate New Year prompts');
 
             devLog.log('[App] ========================================');
             devLog.log('[App] Generating New Year prompts via API');
