@@ -289,13 +289,16 @@ async function processJob(job) {
           job.setResult({ imageDataUrl });
           
           // Сохраняем завершенную задачу
+          safeLog('BEFORE saving to completedJobs', { jobId: job.id, completedJobsSize: completedJobs.size, hasResult: !!job.result });
           completedJobs.set(job.id, job);
+          safeLog('AFTER saving to completedJobs', { jobId: job.id, completedJobsSize: completedJobs.size, jobInMap: completedJobs.has(job.id) });
           if (completedJobs.size > MAX_COMPLETED_JOBS) {
             const firstKey = completedJobs.keys().next().value;
             completedJobs.delete(firstKey);
+            safeLog('Removed oldest job from completedJobs', { removedJobId: firstKey, completedJobsSize: completedJobs.size });
           }
           
-          safeLog('Image generated successfully (queued)', { jobId: job.id, duration, queueSize: generationQueue.length, activeJobs: activeJobs.size });
+          safeLog('Image generated successfully (queued)', { jobId: job.id, duration, queueSize: generationQueue.length, activeJobs: activeJobs.size, completedJobsSize: completedJobs.size });
           
           // Задача завершена успешно
           activeJobs.delete(job.id);
