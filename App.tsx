@@ -980,14 +980,39 @@ function App() {
             devLog.log('[App] Generating New Year prompts via API');
             devLog.log('[App] Style:', selectedStyle);
             devLog.log('[App] Location:', selectedLocation);
+            devLog.log('[App] Analysis result:', {
+                peopleCount: imageAnalysisResult.peopleCount,
+                animalsCount: imageAnalysisResult.animalsCount,
+                people: imageAnalysisResult.people
+            });
             devLog.log('[App] ========================================');
 
-            const newYearPrompts = await generateNewYearPrompts(
-                imageAnalysisResult,
-                selectedStyle,
-                selectedLocation
-            );
+            let newYearPrompts;
+            try {
+                console.log('[App] CALLING generateNewYearPrompts API...');
+                newYearPrompts = await generateNewYearPrompts(
+                    imageAnalysisResult,
+                    selectedStyle,
+                    selectedLocation
+                );
+                console.log('[App] ✅ generateNewYearPrompts API SUCCESS, received', newYearPrompts?.length, 'prompts');
+            } catch (error) {
+                console.error('[App] ❌ generateNewYearPrompts API FAILED:', error);
+                devLog.error('[App] Failed to generate New Year prompts:', error);
+                setImageValidationError('Не удалось сгенерировать промпты для фотосессии. Попробуйте позже.');
+                setAppState('failed');
+                return;
+            }
 
+            if (!newYearPrompts || newYearPrompts.length === 0) {
+                console.error('[App] ❌ No prompts received from API');
+                devLog.error('[App] No prompts received from generateNewYearPrompts');
+                setImageValidationError('Не удалось получить промпты для фотосессии. Попробуйте позже.');
+                setAppState('failed');
+                return;
+            }
+            
+            console.log('[App] ✅ Received', newYearPrompts.length, 'prompts from API');
             devLog.log('[App] Generated', newYearPrompts.length, 'prompts');
             
             // Преобразуем массив промптов в объект с индексами как ключами
@@ -999,8 +1024,19 @@ function App() {
             // Логируем первый промпт для проверки
             const firstPromptKey = Object.keys(prompts)[0];
             const firstPrompt = prompts[firstPromptKey];
+            console.log('[App] ========================================');
+            console.log('[App] FIRST PROMPT PREVIEW (first 500 chars):');
+            console.log(firstPrompt?.substring(0, 500));
+            console.log('[App] ========================================');
             devLog.log('[App] First prompt preview:', firstPrompt?.substring(0, 200));
-            devLog.log('[App] Is New Year prompt?', firstPrompt?.includes('новогодн') || firstPrompt?.includes('New Year') || firstPrompt?.includes('фотосессия'));
+            const isNewYearPrompt = firstPrompt?.includes('новогодн') || firstPrompt?.includes('New Year') || firstPrompt?.includes('фотосессия') || firstPrompt?.includes('Christmas') || firstPrompt?.includes('Рождество');
+            console.log('[App] Is New Year prompt?', isNewYearPrompt);
+            devLog.log('[App] Is New Year prompt?', isNewYearPrompt);
+            
+            if (!isNewYearPrompt) {
+                console.error('[App] ⚠️ WARNING: First prompt does NOT look like a New Year prompt!');
+                console.error('[App] Prompt starts with:', firstPrompt?.substring(0, 100));
+            }
 
             // Инициализируем статусы для всех промптов
             const promptKeys = Object.keys(prompts);
