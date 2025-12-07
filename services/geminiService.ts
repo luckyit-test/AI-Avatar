@@ -6,7 +6,7 @@
 // Используем серверный прокси для всех запросов к Gemini API
 // Это позволяет избежать проблем с географическими ограничениями
 
-const API_BASE_URL = typeof window !== 'undefined' 
+export const API_BASE_URL = typeof window !== 'undefined' 
   ? window.location.origin + '/api'  // В продакшене проксируется через Nginx, в dev через Vite proxy
   : 'http://localhost:3001';        // Для SSR (не используется)
 
