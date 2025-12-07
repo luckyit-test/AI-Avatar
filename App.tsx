@@ -4,7 +4,7 @@
 */
 import React, { useState, ChangeEvent, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { generateImage, evaluateImage, addGenerationToQueue, createPayment, checkPaymentStatus, fetchOrder, retryOrder, usePromoCode, adminCheckSession, adminLogin, adminLogout, generateNewYearPrompts, type DetectedGender, type QueueStatus, type ImageEvaluationResult, type OrderInfo } from './services/geminiService';
+import { generateImage, evaluateImage, addGenerationToQueue, createPayment, checkPaymentStatus, fetchOrder, usePromoCode, adminCheckSession, adminLogin, adminLogout, generateNewYearPrompts, type DetectedGender, type QueueStatus, type ImageEvaluationResult, type OrderInfo } from './services/geminiService';
 import { createAlbumPage } from './lib/albumUtils';
 import { compressImage, shouldCompressImage } from './lib/imageCompression';
 import { errorLogger } from './lib/errorLogger';
@@ -17,7 +17,6 @@ import { Icons } from './components/Icons';
 import { CustomSelect } from './components/CustomSelect';
 import { Onboarding, useOnboarding } from './components/Onboarding';
 import { ImageUploadFlow } from './components/ImageUploadFlow';
-import { ImageConfiguration } from './components/ImageConfiguration';
 import { GenerationActions } from './components/GenerationActions';
 import { GenerationFlow } from './components/GenerationFlow';
 import { ResultsView } from './components/ResultsView';
@@ -26,8 +25,6 @@ import { StyleSelector } from './components/StyleSelector';
 import { LocationSelector } from './components/LocationSelector';
 import { NEW_YEAR_STYLES, NEW_YEAR_LOCATIONS, type NewYearStyleId, type NewYearLocationId } from './lib/newYearConstants';
 import { cn, devLog } from './lib/utils';
-import { STYLES, IT_ROLES, COMPANY_TYPES, type VariabilityLevel } from './lib/constants';
-import { buildPromptsByContext } from './lib/promptUtils';
 
 type ImageStatus = 'pending' | 'queued' | 'processing' | 'done' | 'error';
 interface GeneratedImage {
@@ -70,10 +67,7 @@ function App() {
     const [appState, setAppState] = useState<AppState>('idle');
     const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
     const [detectedGender, setDetectedGender] = useState<DetectedGender>('unknown');
-    const [genderOverride, setGenderOverride] = useState<'male' | 'female' | null>(null);
-    const [selectedRole, setSelectedRole] = useState<typeof IT_ROLES[number]>('Разработчик');
-    const [selectedCompany, setSelectedCompany] = useState<typeof COMPANY_TYPES[number]>('Стартап');
-    // Новогодние фотосессии: выбор стиля и локации
+    // Новогодние фотосессии: выбор стиля и локации (обязательны)
     const [selectedStyle, setSelectedStyle] = useState<NewYearStyleId | null>(null);
     const [selectedLocation, setSelectedLocation] = useState<NewYearLocationId | null>(null);
     const [imageAnalysisResult, setImageAnalysisResult] = useState<ImageEvaluationResult | null>(null);
@@ -95,9 +89,6 @@ function App() {
     // Промежуточное изображение для стабильной генерации
     const [intermediateImage, setIntermediateImage] = useState<string | null>(null);
     const [isGeneratingIntermediate, setIsGeneratingIntermediate] = useState<boolean>(false);
-    // Fixed settings per request: always High variability and maximum naturalness
-    const variability: VariabilityLevel = 'high';
-    const naturalLook: boolean = true;
 
     const [isAdminView, setIsAdminView] = useState<boolean>(false);
     const [adminMode, setAdminMode] = useState<'orders' | 'promos'>('orders');
@@ -108,11 +99,6 @@ function App() {
     const [adminAuthLoading, setAdminAuthLoading] = useState<boolean>(false);
     const [isRulesOpen, setIsRulesOpen] = useState(false);
 
-    const getEffectiveGender = (): DetectedGender | null => {
-        // Возвращаем выбранный пол (автоматически или вручную)
-        // Если null - пол не выбран, генерация недоступна
-        return genderOverride;
-    };
 
     // Определяем режим админки и галереи по pathname
     const [isGalleryView, setIsGalleryView] = useState(false);
@@ -199,9 +185,10 @@ function App() {
             // Сразу инициализируем состояние генерации (оптимистичный UI)
             // Это гарантирует, что пользователь увидит карточки генерации сразу
             const initialImages: Record<string, GeneratedImage> = {};
-            STYLES.forEach(style => {
-                initialImages[style] = { status: 'processing' };
-            });
+            // Для новогодних фотосессий всегда 6 изображений
+            for (let i = 0; i < 6; i++) {
+                initialImages[`image_${i}`] = { status: 'processing' };
+            }
             setGeneratedImages(initialImages);
             setAppState('generating');
             devLog.log('[App] Optimistically set generation state while loading order');
@@ -220,20 +207,20 @@ function App() {
                             const raw = window.localStorage.getItem(PENDING_GENERATION_KEY);
                             if (raw) {
                                 const data = JSON.parse(raw);
-                                devLog.log('[App] Restoring from localStorage:', { hasImage: !!data?.uploadedImage, hasGender: !!data?.genderOverride });
+                                devLog.log('[App] Restoring from localStorage:', { hasImage: !!data?.uploadedImage });
                                 if (data?.uploadedImage) {
                                     setUploadedImage(data.uploadedImage);
                                     devLog.log('[App] Restored uploadedImage from localStorage');
                                 }
-                                if (data?.genderOverride === 'male' || data?.genderOverride === 'female') {
-                                    setGenderOverride(data.genderOverride);
-                                    devLog.log('[App] Restored genderOverride from localStorage:', data.genderOverride);
+                                // Восстанавливаем стиль и локацию для новогодних фотосессий
+                                if (data?.selectedStyle) {
+                                    setSelectedStyle(data.selectedStyle);
                                 }
-                                if (data?.selectedRole && (IT_ROLES as readonly string[]).includes(data.selectedRole)) {
-                                    setSelectedRole(data.selectedRole as (typeof IT_ROLES)[number]);
+                                if (data?.selectedLocation) {
+                                    setSelectedLocation(data.selectedLocation);
                                 }
-                                if (data?.selectedCompany && (COMPANY_TYPES as readonly string[]).includes(data.selectedCompany)) {
-                                    setSelectedCompany(data.selectedCompany as (typeof COMPANY_TYPES)[number]);
+                                if (data?.imageAnalysisResult) {
+                                    setImageAnalysisResult(data.imageAnalysisResult);
                                 }
                             } else {
                                 devLog.warn('[App] No data in localStorage for PENDING_GENERATION_KEY');
@@ -252,30 +239,21 @@ function App() {
                                 }
                             }
                             
-                            // Восстанавливаем настройки из заказа (если не восстановились из localStorage)
-                            if (order.gender && (order.gender === 'male' || order.gender === 'female')) {
-                                if (!genderOverride) {
-                                    setGenderOverride(order.gender as 'male' | 'female');
-                                    devLog.log('[App] Restored genderOverride from order:', order.gender);
-                                }
-                            }
-                            if (order.role && (IT_ROLES as readonly string[]).includes(order.role)) {
-                                setSelectedRole(order.role as (typeof IT_ROLES)[number]);
-                            }
-                            if (order.company && (COMPANY_TYPES as readonly string[]).includes(order.company)) {
-                                setSelectedCompany(order.company as (typeof COMPANY_TYPES)[number]);
-                            }
+                            // Восстанавливаем настройки из заказа для новогодних фотосессий
+                            // (заказы могут содержать старые поля, но мы их игнорируем)
                             
                         // Если заказ завершен - показываем результаты
                             if (order.status === 'completed' && order.generatedImages) {
                                 const images: Record<string, GeneratedImage> = {};
-                                STYLES.forEach(style => {
-                                    if (order.generatedImages && order.generatedImages[style]) {
-                                        images[style] = { status: 'done', url: order.generatedImages[style] };
+                                // Для новогодних фотосессий всегда 6 изображений
+                                for (let i = 0; i < 6; i++) {
+                                    const key = `image_${i}`;
+                                    if (order.generatedImages && order.generatedImages[key]) {
+                                        images[key] = { status: 'done', url: order.generatedImages[key] };
                                     } else {
-                                        images[style] = { status: 'error', error: 'Не сгенерировано' };
+                                        images[key] = { status: 'error', error: 'Не сгенерировано' };
                                     }
-                                });
+                                }
                                 setGeneratedImages(images);
                                 setAppState('results-shown');
                             } else if (order.status === 'processing' || order.status === 'paid') {
@@ -285,11 +263,11 @@ function App() {
                                 
                                 // Инициализируем все 6 карточек со статусом processing
                                 const images: Record<string, GeneratedImage> = {};
-                                STYLES.forEach(style => {
-                                    images[style] = { status: 'processing' };
-                                });
+                                for (let i = 0; i < 6; i++) {
+                                    images[`image_${i}`] = { status: 'processing' };
+                                }
                                 
-                                devLog.log('[App] Generated images state:', images, 'STYLES:', STYLES);
+                                devLog.log('[App] Generated images state:', images);
                                 
                                 // Устанавливаем состояние синхронно, используя функциональное обновление
                                 setGeneratedImages(() => images);
@@ -316,7 +294,8 @@ function App() {
                         setCurrentOrder(null);
                         setGeneratedImages({});
                         setUploadedImage(null);
-                        setGenderOverride(null);
+                        setSelectedStyle(null);
+                        setSelectedLocation(null);
                         setAppState('idle');
                         try {
                             window.localStorage.removeItem(CURRENT_ORDER_KEY);
@@ -342,7 +321,8 @@ function App() {
                     setCurrentOrder(null);
                     setGeneratedImages({});
                     setUploadedImage(null);
-                    setGenderOverride(null);
+                    setSelectedStyle(null);
+                    setSelectedLocation(null);
                     setAppState('idle');
                 });
 
@@ -403,9 +383,10 @@ function App() {
                     // Если заказ перешел в processing - обновляем UI
                     if (order.status === 'processing' && appState !== 'generating') {
                         const images: Record<string, GeneratedImage> = {};
-                        STYLES.forEach(style => {
-                            images[style] = { status: 'processing' };
-                        });
+                        // Для новогодних фотосессий всегда 6 изображений
+                        for (let i = 0; i < 6; i++) {
+                            images[`image_${i}`] = { status: 'processing' };
+                        }
                         setGeneratedImages(images);
                         setAppState('generating');
                         // Сбрасываем задержку при изменении статуса
@@ -416,13 +397,15 @@ function App() {
                     // Если заказ завершен - обновляем UI и останавливаем polling
                     if (order.status === 'completed' && order.generatedImages) {
                         const images: Record<string, GeneratedImage> = {};
-                        STYLES.forEach(style => {
-                            if (order.generatedImages && order.generatedImages[style]) {
-                                images[style] = { status: 'done', url: order.generatedImages[style] };
+                        // Для новогодних фотосессий всегда 6 изображений
+                        for (let i = 0; i < 6; i++) {
+                            const key = `image_${i}`;
+                            if (order.generatedImages && order.generatedImages[key]) {
+                                images[key] = { status: 'done', url: order.generatedImages[key] };
                             } else {
-                                images[style] = { status: 'error', error: 'Не сгенерировано' };
+                                images[key] = { status: 'error', error: 'Не сгенерировано' };
                             }
-                        });
+                        }
                         setGeneratedImages(images);
                         setAppState('results-shown');
                         isPolling = false;
@@ -725,7 +708,7 @@ function App() {
                     devLog.warn('[App] Failed to persist last source image:', e);
                 }
                 
-                // Устанавливаем определенный пол (для обратной совместимости)
+                // Сохраняем информацию о поле для анализа (не используется для генерации новогодних фото)
                 setDetectedGender(evaluation.gender);
                 devLog.log('Detected gender:', evaluation.gender, 'confidence:', evaluation.confidence);
                 devLog.log('Image analysis result:', {
@@ -734,16 +717,6 @@ function App() {
                     people: evaluation.people,
                     photoQuality: evaluation.photoQuality
                 });
-                
-                // Автоматически выбираем пол если уверенность >= 0.7 (для обратной совместимости)
-                if ((evaluation.gender === 'male' || evaluation.gender === 'female') && evaluation.confidence >= 0.7) {
-                    setGenderOverride(evaluation.gender);
-                    devLog.log('Auto-selected gender:', evaluation.gender, 'confidence:', evaluation.confidence);
-                } else {
-                    // Если уверенность низкая или пол не определен - сбрасываем выбор
-                    setGenderOverride(null);
-                    devLog.log('Gender not auto-selected, user must choose. Gender:', evaluation.gender, 'confidence:', evaluation.confidence);
-                }
                 
                 // Переходим к выбору стиля для новогодних фотосессий
                 setAppState('style-selection');
@@ -784,8 +757,12 @@ function App() {
         setPromoMessage(null);
         setPromoError(null);
         if (!uploadedImage) return;
-        const effectiveGender = getEffectiveGender();
-        if (!effectiveGender || (effectiveGender !== 'male' && effectiveGender !== 'female')) return;
+        
+        // Для новогодних фотосессий стиль и локация обязательны
+        if (!selectedStyle || !selectedLocation) {
+            setPromoError('Пожалуйста, выберите стиль и локацию для фотосессии перед применением промокода.');
+            return;
+        }
 
         // Ограничение на количество попыток промокода на клиенте
         const ATTEMPTS_KEY = 'newava_promo_attempts';
@@ -802,12 +779,14 @@ function App() {
 
         try {
             setPromoLoading(true);
+            // Для новогодних фотосессий используем упрощенный вызов промокода
+            // TODO: Обновить API промокода для поддержки новогодних фотосессий
             const response = await usePromoCode(
                 promoCodeInput,
                 uploadedImage,
-                effectiveGender,
-                selectedRole || '',
-                selectedCompany || ''
+                detectedGender || 'unknown',
+                '',
+                ''
             );
 
             if (!response.ok || !response.invId) {
@@ -843,9 +822,10 @@ function App() {
 
             // Инициализируем состояние генерации с красивыми превью
             const initialImages: Record<string, GeneratedImage> = {};
-            STYLES.forEach(style => {
-                initialImages[style] = { status: 'processing' };
-            });
+            // Для новогодних фотосессий всегда 6 изображений
+            for (let i = 0; i < 6; i++) {
+                initialImages[`image_${i}`] = { status: 'processing' };
+            }
             setGeneratedImages(initialImages);
             setAppState('generating');
 
@@ -864,23 +844,19 @@ function App() {
     const handleGenerateClick = async () => {
         if (!uploadedImage) return;
         
-        // Для новогодних фотосессий проверяем, что выбраны стиль и локация
-        if (selectedStyle && selectedLocation) {
-            if (!imageAnalysisResult) {
-                devLog.error('[App] Missing imageAnalysisResult for New Year generation');
-                setImageValidationError('Не удалось проанализировать изображение. Попробуйте загрузить фото снова.');
-                setAppState('failed');
-                return;
-            }
-            // Продолжаем генерацию новогодних промптов (проверка пола не требуется для новогодних фотосессий)
-        } else {
-            // Для старых IT-портретов проверяем, что пол выбран
-            const effectiveGender = getEffectiveGender();
-            if (!effectiveGender || (effectiveGender !== 'male' && effectiveGender !== 'female')) {
-                // Логируем, но не показываем alert - пол должен быть выбран автоматически
-                devLog.warn('[App] Gender not selected, but should be auto-selected');
-                return;
-            }
+        // Для новогодних фотосессий стиль и локация обязательны
+        if (!selectedStyle || !selectedLocation) {
+            devLog.error('[App] Style or location not selected for New Year generation');
+            setImageValidationError('Пожалуйста, выберите стиль и локацию для фотосессии перед генерацией.');
+            setAppState('style-selection');
+            return;
+        }
+        
+        if (!imageAnalysisResult) {
+            devLog.error('[App] Missing imageAnalysisResult for New Year generation');
+            setImageValidationError('Не удалось проанализировать изображение. Попробуйте загрузить фото снова.');
+            setAppState('failed');
+            return;
         }
 
         // Если есть активный заказ в состоянии processing или completed - не запускаем генерацию заново
@@ -889,62 +865,11 @@ function App() {
             return;
         }
 
-        // Если у заказа статус failed — запускаем повторную генерацию через backend без новой оплаты
+        // Если у заказа статус failed — пользователь должен начать заново
         if (currentOrder && currentOrder.status === 'failed') {
-            // Проверяем наличие изображения перед retry
-            if (!uploadedImage) {
-                devLog.warn('[App] Cannot retry: no image uploaded');
-                // Показываем понятное сообщение пользователю
-                setImageValidationError('Для повторной генерации необходимо загрузить новое фото. Пожалуйста, выберите изображение выше.');
-                setAppState('failed');
-                return;
-            }
-
-            try {
-                devLog.log('[App] Retrying failed order via /order/:invId/retry');
-                setAppState('generating');
-
-                const images: Record<string, GeneratedImage> = {};
-                STYLES.forEach(style => {
-                    images[style] = { status: 'processing' };
-                });
-                setGeneratedImages(images);
-
-                const effectiveGenderRetry = getEffectiveGender();
-                if (!effectiveGenderRetry || (effectiveGenderRetry !== 'male' && effectiveGenderRetry !== 'female')) {
-                    devLog.warn('[App] Gender not selected on retry, aborting');
-                    setAppState('failed');
-                    return;
-                }
-
-                const retryResult = await retryOrder(
-                    currentOrder.invId,
-                    uploadedImage,
-                    effectiveGenderRetry,
-                    selectedRole || '',
-                    selectedCompany || ''
-                );
-
-                if (!retryResult.ok) {
-                    devLog.error('[App] Retry order failed:', retryResult.error);
-                    setAppState('failed');
-                    return;
-                }
-
-                // Обновляем счётчик ретраев и статус, чтобы запустить polling
-                setCurrentOrder(prev => {
-                    if (!prev) return prev;
-                    return {
-                        ...prev,
-                        status: 'processing',
-                        retries: retryResult.retries ?? prev.retries,
-                    };
-                });
-                setHasActivePayment(true);
-            } catch (err) {
-                devLog.error('[App] Failed to retry order:', err);
-                setAppState('failed');
-            }
+            devLog.log('[App] Order failed, user should start fresh');
+            setImageValidationError('Предыдущая генерация не удалась. Пожалуйста, загрузите новое фото и выберите стиль с локацией.');
+            setAppState('failed');
             return;
         }
 
@@ -959,9 +884,9 @@ function App() {
                 try {
                     const payload = {
                         uploadedImage,
-                        genderOverride,
-                        selectedRole,
-                        selectedCompany,
+                        selectedStyle,
+                        selectedLocation,
+                        imageAnalysisResult,
                         timestamp: Date.now(),
                     };
                     if (typeof window !== 'undefined') {
@@ -971,12 +896,13 @@ function App() {
                     devLog.warn('[App] Failed to persist pending generation before payment:', storageError);
                 }
 
-                const effectiveGender = getEffectiveGender();
+                // Для новогодних фотосессий используем упрощенный вызов платежа
+                // TODO: Обновить API платежа для поддержки новогодних фотосессий
                 const payment = await createPayment(
                     uploadedImage,
-                    effectiveGender || 'unknown',
-                    selectedRole || '',
-                    selectedCompany || ''
+                    detectedGender || 'unknown',
+                    '',
+                    ''
                 );
                 if (payment?.redirectUrl) {
                     // Сохраняем invId в localStorage для восстановления после возврата
@@ -1038,23 +964,17 @@ function App() {
             devLog.log('[App] selectedLocation:', selectedLocation);
             devLog.log('[App] ========================================');
             
-            // ВСЕГДА используем новогодние промпты для hnyear.com
-            // Если стиль и локация не выбраны - используем значения по умолчанию
-            const finalStyle = selectedStyle || 'family';
-            const finalLocation = selectedLocation || 'living-room';
-            
-            if (!imageAnalysisResult) {
-                devLog.error('[App] Missing imageAnalysisResult for prompt generation');
-                setImageValidationError('Не удалось проанализировать изображение. Попробуйте загрузить фото снова.');
+            // Стиль и локация обязательны для новогодних фотосессий
+            if (!imageAnalysisResult || !selectedStyle || !selectedLocation) {
+                devLog.error('[App] Missing required data for New Year prompt generation:', {
+                    hasAnalysisResult: !!imageAnalysisResult,
+                    hasStyle: !!selectedStyle,
+                    hasLocation: !!selectedLocation,
+                });
+                setImageValidationError('Не выбраны стиль или локация для фотосессии. Пожалуйста, выберите стиль и локацию перед генерацией.');
                 setAppState('failed');
                 return;
             }
-            
-            devLog.log('[App] Using New Year prompts with:', {
-                style: finalStyle,
-                location: finalLocation,
-                hasAnalysisResult: !!imageAnalysisResult
-            });
 
             devLog.log('[App] ========================================');
             devLog.log('[App] Generating New Year prompts via API');
@@ -1064,8 +984,8 @@ function App() {
 
             const newYearPrompts = await generateNewYearPrompts(
                 imageAnalysisResult,
-                finalStyle,
-                finalLocation
+                selectedStyle,
+                selectedLocation
             );
 
             devLog.log('[App] Generated', newYearPrompts.length, 'prompts');
@@ -1553,6 +1473,12 @@ function App() {
     };
 
     const handleRegenerateStyle = async (style: string) => {
+        // Регенерация отдельного изображения из новогодней фотосессии
+        if (!imageAnalysisResult || !selectedStyle || !selectedLocation) {
+            devLog.error('[App] Cannot regenerate: missing style or location');
+            return;
+        }
+        
         // Используем промежуточное изображение если есть, иначе оригинал
         const imageToUse = intermediateImage || uploadedImage;
         
@@ -1561,8 +1487,20 @@ function App() {
         setGeneratedImages(prev => ({ ...prev, [style]: { status: 'pending' } }));
 
         try {
-            const prompts = buildPromptsByContext(getEffectiveGender(), selectedRole, selectedCompany, variability, naturalLook);
-            const prompt = prompts[style];
+            // Генерируем новогодние промпты заново
+            const newYearPrompts = await generateNewYearPrompts(
+                imageAnalysisResult,
+                selectedStyle,
+                selectedLocation
+            );
+            
+            // Находим промпт для этого стиля (style это image_0, image_1 и т.д.)
+            const promptIndex = parseInt(style.replace('image_', ''));
+            const prompt = newYearPrompts[promptIndex]?.prompt;
+            
+            if (!prompt) {
+                throw new Error(`Промпт не найден для ${style}`);
+            }
             
             // Callback для обновления статуса в реальном времени
             const onStatusUpdate = (status: QueueStatus) => {
@@ -1993,20 +1931,6 @@ function App() {
                                     </div>
                                 )}
                                 
-                                {/* Старая конфигурация для IT-портретов (обратная совместимость) */}
-                                {!isValidatingImage && !imageValidationError && uploadedImage && (appState === 'image-uploaded' || appState === 'generating' || appState === 'results-shown') && !selectedStyle && (
-                                    <ImageConfiguration
-                                        genderOverride={genderOverride}
-                                        selectedRole={selectedRole}
-                                        selectedCompany={selectedCompany}
-                                        appState={appState}
-                                        onGenderChange={setGenderOverride}
-                                        onRoleChange={setSelectedRole}
-                                        onCompanyChange={setSelectedCompany}
-                                        getEffectiveGender={getEffectiveGender}
-                                    />
-                                )}
-                                
                                 <GenerationActions
                                     promoCodeInput={promoCodeInput}
                                     promoMessage={promoMessage}
@@ -2025,7 +1949,7 @@ function App() {
                                     onPromoCodeApply={handlePromoCodeApply}
                                     onGenerateClick={handleGenerateClick}
                                     onReset={handleReset}
-                                    getEffectiveGender={getEffectiveGender}
+                                    getEffectiveGender={() => detectedGender}
                                 />
                             </div>
                         </div>
@@ -2105,8 +2029,8 @@ function App() {
                         {appState === 'generating' && (
                             <GenerationFlow
                                 generatedImages={generatedImages}
-                                genderOverride={genderOverride}
-                                currentOrderGender={currentOrder?.gender === 'male' ? 'male' : currentOrder?.gender === 'female' ? 'female' : null}
+                                genderOverride={null}
+                                currentOrderGender={null}
                                 onRegenerate={handleRegenerateStyle}
                                 onDownload={handleDownloadIndividualImage}
                                 onOpen={setLightboxUrl}
@@ -2116,8 +2040,8 @@ function App() {
                         {appState === 'results-shown' && (
                             <ResultsView
                                 generatedImages={generatedImages}
-                                genderOverride={genderOverride}
-                                currentOrderGender={currentOrder?.gender === 'male' ? 'male' : currentOrder?.gender === 'female' ? 'female' : null}
+                                genderOverride={null}
+                                currentOrderGender={null}
                                 isDownloading={isDownloading}
                                 onRegenerate={handleRegenerateStyle}
                                 onDownload={handleDownloadIndividualImage}
