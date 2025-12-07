@@ -937,7 +937,9 @@ function App() {
             return;
         }
 
-        // Если оплаты ещё не было - инициируем платёж через Robokassa
+        // ВРЕМЕННО ОТКЛЮЧЕНО ДЛЯ ТЕСТИРОВАНИЯ: Если оплаты ещё не было - инициируем платёж через Robokassa
+        // TODO: Включить обратно после тестирования
+        /*
         if (!hasActivePayment && !currentOrder) {
             try {
                 devLog.log('[App] No active payment found, creating Robokassa payment...');
@@ -994,6 +996,10 @@ function App() {
             // Если платёж не удалось создать - не запускаем генерацию
             return;
         }
+        */
+        
+        // ДЛЯ ТЕСТИРОВАНИЯ: Пропускаем проверку оплаты и сразу запускаем генерацию
+        devLog.log('[App] TEST MODE: Skipping payment check, starting generation directly');
 
         // Оплата подтверждена — "съедаем" платёж и очищаем сохранённое состояние
         setHasActivePayment(false);
