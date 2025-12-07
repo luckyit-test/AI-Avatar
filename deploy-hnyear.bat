@@ -3,6 +3,7 @@ REM Быстрый деплой ветки new-year на домен hnyear.com
 REM Использует общий nginx контейнер из проекта newava
 
 setlocal enabledelayedexpansion
+set "ERROR_OCCURRED=0"
 
 set SERVER=root@43.245.226.24
 set PASSWORD=Yd2Vc_Wejus0DlNB
@@ -19,6 +20,13 @@ echo.
 
 REM Создаем временный файл со скриптом деплоя
 set TEMP_SCRIPT=%TEMP%\deploy-hnyear-%RANDOM%.sh
+
+REM Проверяем, что можем создать временный файл
+if not exist "%TEMP%" (
+    echo ERROR: Cannot access temp directory: %TEMP%
+    pause
+    exit /b 1
+)
 
 (
 echo set -e
@@ -141,6 +149,13 @@ echo echo "IMPORTANT: Update GEMINI_API_KEY in .env file!"
 echo echo "  nano %APP_DIR%/.env"
 ) > "%TEMP_SCRIPT%"
 
+if not exist "%TEMP_SCRIPT%" (
+    echo ERROR: Failed to create temporary script file!
+    echo Path: %TEMP_SCRIPT%
+    pause
+    exit /b 1
+)
+
 echo SSH script created: %TEMP_SCRIPT%
 echo.
 
@@ -217,6 +232,13 @@ if defined PLINK_PATH (
 
 REM Удаляем временный файл
 del "%TEMP_SCRIPT%" >nul 2>&1
+
+echo.
+echo =========================================
+echo Script finished.
+echo =========================================
+echo.
+pause
 
 endlocal
 
