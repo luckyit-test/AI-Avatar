@@ -3,7 +3,7 @@
  */
 import express from 'express';
 import { API_PREFIX, MAX_QUEUE_SIZE } from '../config/index.js';
-import { addToQueue, getJobStatus, generationQueue, activeJobs } from '../queues/generationQueue.js';
+import { addToQueue, getJobStatus, generationQueue, activeJobs, completedJobs } from '../queues/generationQueue.js';
 
 const router = express.Router();
 
@@ -134,14 +134,34 @@ router.post(`${API_PREFIX}/generate-image`, async (req, res) => {
 router.get(`${API_PREFIX}/generate-image/:jobId`, async (req, res) => {
   try {
     const { jobId } = req.params;
+    
+    safeLog('GET /generate-image/:jobId', { 
+      jobId,
+      queueSize: generationQueue.length,
+      activeJobsCount: activeJobs.size,
+      completedJobsCount: completedJobs.size,
+      jobInQueue: generationQueue.find(j => j.id === jobId) ? 'yes' : 'no',
+      jobInActive: activeJobs.has(jobId) ? 'yes' : 'no',
+      jobInCompleted: completedJobs.has(jobId) ? 'yes' : 'no'
+    });
+    
     const status = getJobStatus(jobId);
     
     if (!status) {
+      safeLog('Job not found in getJobStatus', { 
+        jobId,
+        queueJobIds: generationQueue.map(j => j.id).slice(0, 5),
+        activeJobIds: Array.from(activeJobs).slice(0, 5),
+        completedJobIds: Array.from(completedJobs.keys()).slice(0, 5)
+      });
       return res.status(404).json({ error: 'Задача генерации не найдена' });
     }
     
+    safeLog('Job status found', { jobId, status: status.status });
     res.json(status);
   } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    safeLog('Error in GET /generate-image/:jobId', { jobId: req.params.jobId, error: errorMessage });
     res.status(500).json({ error: 'Ошибка при получении статуса задачи' });
   }
 });
