@@ -32,8 +32,10 @@ router.post(`${API_PREFIX}/generate-image`, async (req, res) => {
       isIntermediatePrompt,
     });
     
+    safeLog('STEP 1: After POST log', { clientIp });
+    
     // Для промежуточных изображений - обрабатываем программно
-    safeLog('CHECKING intermediate prompt', { clientIp, isIntermediatePrompt });
+    safeLog('STEP 2: CHECKING intermediate prompt', { clientIp, isIntermediatePrompt });
     if (isIntermediatePrompt) {
       try {
         const aggressiveLevel = req.body.aggressiveLevel || 1;
