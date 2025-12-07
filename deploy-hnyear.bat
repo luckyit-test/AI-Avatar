@@ -144,16 +144,33 @@ echo echo "  nano %APP_DIR%/.env"
 echo SSH script created: %TEMP_SCRIPT%
 echo.
 
-REM Проверяем наличие plink
+REM Проверяем наличие plink в разных местах
+set PLINK_PATH=
 where plink >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
-    echo Found plink.exe, attempting automatic deployment...
+    for /f "delims=" %%i in ('where plink') do set PLINK_PATH=%%i
+) else (
+    REM Проверяем стандартные пути установки PuTTY
+    if exist "C:\Program Files\PuTTY\plink.exe" (
+        set PLINK_PATH=C:\Program Files\PuTTY\plink.exe
+    ) else if exist "C:\Program Files (x86)\PuTTY\plink.exe" (
+        set PLINK_PATH=C:\Program Files (x86)\PuTTY\plink.exe
+    ) else if exist "%ProgramFiles%\PuTTY\plink.exe" (
+        set PLINK_PATH=%ProgramFiles%\PuTTY\plink.exe
+    ) else if exist "%ProgramFiles(x86)%\PuTTY\plink.exe" (
+        set PLINK_PATH=%ProgramFiles(x86)%\PuTTY\plink.exe
+    )
+)
+
+if defined PLINK_PATH (
+    echo Found plink.exe at: %PLINK_PATH%
+    echo Attempting automatic deployment...
     echo.
     set /p DEPLOY_NOW="Do you want to deploy now? (y/n): "
     if /i "!DEPLOY_NOW!"=="y" (
         echo.
         echo Connecting to server and deploying...
-        plink -ssh %SERVER% -pw %PASSWORD% -m "%TEMP_SCRIPT%"
+        "%PLINK_PATH%" -ssh %SERVER% -pw %PASSWORD% -m "%TEMP_SCRIPT%"
         if %ERRORLEVEL% EQU 0 (
             echo.
             echo =========================================
@@ -174,9 +191,14 @@ if %ERRORLEVEL% EQU 0 (
         echo Deployment cancelled.
     )
 ) else (
-    echo Plink not found. Please use manual SSH method.
+    echo Plink not found in PATH or standard locations.
     echo.
-    echo Option 1: Install plink from:
+    echo Searched locations:
+    echo   - PATH environment variable
+    echo   - C:\Program Files\PuTTY\plink.exe
+    echo   - C:\Program Files (x86)\PuTTY\plink.exe
+    echo.
+    echo Option 1: Add PuTTY to PATH or install from:
     echo   https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html
     echo.
     echo Option 2: Manual deployment:
@@ -186,6 +208,9 @@ if %ERRORLEVEL% EQU 0 (
     echo.
     echo Option 3: Use PowerShell script:
     echo   .\quick-deploy-hnyear.ps1
+    echo.
+    echo Option 4: Use simple batch file:
+    echo   .\deploy-hnyear-simple.bat
     echo.
     pause
 )
