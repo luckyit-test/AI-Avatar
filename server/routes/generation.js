@@ -33,6 +33,7 @@ router.post(`${API_PREFIX}/generate-image`, async (req, res) => {
     });
     
     // Для промежуточных изображений - обрабатываем программно
+    safeLog('CHECKING intermediate prompt', { clientIp, isIntermediatePrompt });
     if (isIntermediatePrompt) {
       try {
         const aggressiveLevel = req.body.aggressiveLevel || 1;
@@ -45,6 +46,7 @@ router.post(`${API_PREFIX}/generate-image`, async (req, res) => {
           processedImage = await processIntermediateImageAggressively(imageData, aggressiveLevel);
         }
         
+        safeLog('Intermediate image processed successfully', { clientIp });
         return res.json({
           jobId: `intermediate_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           position: 0,
@@ -58,8 +60,11 @@ router.post(`${API_PREFIX}/generate-image`, async (req, res) => {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         safeLog('Intermediate image processing failed', { clientIp, error: errorMessage });
+        // НЕ возвращаем ошибку, продолжаем обычным способом
       }
     }
+    
+    safeLog('AFTER intermediate prompt check', { clientIp, isIntermediatePrompt });
 
     // Валидация входных данных
     safeLog('BEFORE validation', { clientIp, hasImageData: !!imageData, hasPrompt: !!prompt });
