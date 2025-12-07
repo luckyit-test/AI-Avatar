@@ -999,7 +999,15 @@ function App() {
 
             let newYearPrompts;
             try {
+                console.log('[App] ========================================');
                 console.log('[App] CALLING generateNewYearPrompts API...');
+                console.log('[App] API URL:', `${API_BASE_URL}/new-year/prompts`);
+                console.log('[App] Request payload:', {
+                    hasAnalysisResult: !!imageAnalysisResult,
+                    styleId: selectedStyle,
+                    locationId: selectedLocation
+                });
+                console.log('[App] ========================================');
                 newYearPrompts = await generateNewYearPrompts(
                     imageAnalysisResult,
                     selectedStyle,
@@ -1007,7 +1015,12 @@ function App() {
                 );
                 console.log('[App] ✅ generateNewYearPrompts API SUCCESS, received', newYearPrompts?.length, 'prompts');
             } catch (error) {
-                console.error('[App] ❌ generateNewYearPrompts API FAILED:', error);
+                console.error('[App] ========================================');
+                console.error('[App] ❌ generateNewYearPrompts API FAILED');
+                console.error('[App] Error:', error);
+                console.error('[App] Error message:', error instanceof Error ? error.message : String(error));
+                console.error('[App] Error stack:', error instanceof Error ? error.stack : 'no stack');
+                console.error('[App] ========================================');
                 devLog.error('[App] Failed to generate New Year prompts:', error);
                 setImageValidationError('Не удалось сгенерировать промпты для фотосессии. Попробуйте позже.');
                 setAppState('failed');
@@ -1046,6 +1059,26 @@ function App() {
             if (!isNewYearPrompt) {
                 console.error('[App] ⚠️ WARNING: First prompt does NOT look like a New Year prompt!');
                 console.error('[App] Prompt starts with:', firstPrompt?.substring(0, 100));
+                console.error('[App] ⚠️ ABORTING GENERATION - Invalid prompts detected!');
+                devLog.error('[App] ⚠️ ABORTING GENERATION - Invalid prompts detected!');
+                setImageValidationError('Получены некорректные промпты. Пожалуйста, попробуйте снова.');
+                setAppState('failed');
+                return;
+            }
+            
+            // КРИТИЧЕСКАЯ ПРОВЕРКА: Убеждаемся, что ни один промпт не является бизнес-портретом
+            const hasBusinessPortrait = Object.values(prompts).some(p => 
+                p.includes('business portrait') || 
+                p.includes('LinkedIn profile') ||
+                p.includes('professional portrait')
+            );
+            if (hasBusinessPortrait) {
+                console.error('[App] ⚠️ CRITICAL ERROR: Business portrait prompts detected!');
+                console.error('[App] ⚠️ ABORTING GENERATION - Business portrait prompts found!');
+                devLog.error('[App] ⚠️ CRITICAL ERROR: Business portrait prompts detected!');
+                setImageValidationError('Обнаружены промпты для бизнес-портретов. Пожалуйста, попробуйте снова.');
+                setAppState('failed');
+                return;
             }
 
             // Инициализируем статусы для всех промптов
