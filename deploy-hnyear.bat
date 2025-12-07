@@ -2,8 +2,16 @@
 REM Быстрый деплой ветки new-year на домен hnyear.com
 REM Использует общий nginx контейнер из проекта newava
 
+REM Отключаем автоматическое закрытие при ошибках
 setlocal enabledelayedexpansion
 set "ERROR_OCCURRED=0"
+
+REM Добавляем обработку ошибок
+if errorlevel 1 (
+    echo ERROR occurred at start!
+    pause
+    exit /b 1
+)
 
 set SERVER=root@43.245.226.24
 set PASSWORD=Yd2Vc_Wejus0DlNB
@@ -220,14 +228,19 @@ if defined PLINK_PATH (
 )
 
 REM Удаляем временный файл
-del "%TEMP_SCRIPT%" >nul 2>&1
+if exist "%TEMP_SCRIPT%" del "%TEMP_SCRIPT%" >nul 2>&1
 
 echo.
 echo =========================================
 echo Script finished.
 echo =========================================
 echo.
-pause
+echo Press any key to exit...
+pause >nul
+if errorlevel 1 pause
 
 endlocal
+
+REM Дополнительная пауза на случай, если предыдущая не сработала
+timeout /t 3 >nul 2>&1
 
