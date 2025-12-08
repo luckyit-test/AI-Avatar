@@ -2922,23 +2922,33 @@ function generateAnimalDescription(analysisResult, isMultiple = false) {
  * Определяет ориентацию фото на основе категории, стиля и локации
  */
 function determineOrientation(categoryId, styleId, locationId, peopleCount) {
+  // ЛОГИРОВАНИЕ: Логируем входные параметры и логику определения
+  console.log('[determineOrientation] ========================================');
+  console.log('[determineOrientation] peopleCount:', peopleCount, 'type:', typeof peopleCount);
+  console.log('[determineOrientation] categoryId:', categoryId, 'styleId:', styleId, 'locationId:', locationId);
+  
   // Для одного человека - чаще вертикальная
   if (peopleCount === 1) {
     // Исключения для горизонтальных локаций
     if (['city-street', 'city-square', 'outdoor-rink', 'park'].includes(locationId)) {
+      console.log('[determineOrientation] Результат: horizontal (1 человек, уличная локация)');
       return 'horizontal';
     }
+    console.log('[determineOrientation] Результат: vertical (1 человек)');
     return 'vertical';
   }
   
   // Для двух людей - зависит от стиля и локации
   if (peopleCount === 2) {
     if (styleId === 'romantic') {
+      console.log('[determineOrientation] Результат: vertical (2 человека, романтический стиль)');
       return 'vertical'; // Романтические пары - вертикальные
     }
     if (['city-street', 'city-square', 'outdoor-rink', 'park'].includes(locationId)) {
+      console.log('[determineOrientation] Результат: horizontal (2 человека, уличная локация)');
       return 'horizontal';
     }
+    console.log('[determineOrientation] Результат: vertical (2 человека)');
     return 'vertical';
   }
   
@@ -2946,12 +2956,15 @@ function determineOrientation(categoryId, styleId, locationId, peopleCount) {
   if (peopleCount >= 3) {
     // Исключения для вертикальных локаций
     if (['photo-studio', 'library', 'balcony-terrace'].includes(locationId)) {
+      console.log('[determineOrientation] Результат: vertical (3+ человек, вертикальная локация)');
       return 'vertical';
     }
+    console.log('[determineOrientation] Результат: horizontal (3+ человек)');
     return 'horizontal';
   }
   
   // Fallback
+  console.log('[determineOrientation] Результат: horizontal (fallback)');
   return 'horizontal';
 }
 
@@ -2963,6 +2976,15 @@ function selectVariations(categoryId, styleId, locationId, variationIndex, analy
   const isSingle = peopleCount === 1;
   const isCouple = peopleCount === 2;
   const isFamily = peopleCount >= 3;
+  
+  // ЛОГИРОВАНИЕ: Проверяем что извлекается из analysisResult
+  if (variationIndex === 0) {
+    console.log('[selectVariations] ========================================');
+    console.log('[selectVariations] analysisResult.peopleCount:', analysisResult.peopleCount);
+    console.log('[selectVariations] extracted peopleCount:', peopleCount);
+    console.log('[selectVariations] isSingle:', isSingle, 'isCouple:', isCouple, 'isFamily:', isFamily);
+    console.log('[selectVariations] categoryId:', categoryId, 'styleId:', styleId, 'locationId:', locationId);
+  }
   
   // Выбираем действия
   let actions;
@@ -3029,8 +3051,20 @@ function selectVariations(categoryId, styleId, locationId, variationIndex, analy
  * @returns {Array<Object>} Массив из 6 промптов с ориентацией
  */
 export function buildNewYearPrompts(analysisResult, styleId, locationId) {
+  // ЛОГИРОВАНИЕ: Проверяем что приходит в analysisResult
+  console.log('[buildNewYearPrompts] ========================================');
+  console.log('[buildNewYearPrompts] analysisResult:', {
+    peopleCount: analysisResult.peopleCount,
+    animalsCount: analysisResult.animalsCount,
+    people: analysisResult.people ? analysisResult.people.length : 0,
+    peopleArray: analysisResult.people,
+    styleId,
+    locationId
+  });
+  
   // 1. Определяем категорию
   const categoryId = determineCategory(analysisResult);
+  console.log('[buildNewYearPrompts] categoryId:', categoryId);
   
   // 2. Получаем базовый шаблон категории
   const categoryTemplate = CATEGORY_TEMPLATES[categoryId];
