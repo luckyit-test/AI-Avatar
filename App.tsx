@@ -1932,7 +1932,7 @@ function App() {
                                 <div 
                                     className="text-2xl sm:text-3xl lg:text-4xl bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mt-1"
                                 >
-                                    за несколько минут
+                                    за несколько секунд
                                 </div>
                             </h1>
                             
