@@ -87,6 +87,8 @@ function App() {
     // Промежуточное изображение для стабильной генерации
     const [intermediateImage, setIntermediateImage] = useState<string | null>(null);
     const [isGeneratingIntermediate, setIsGeneratingIntermediate] = useState<boolean>(false);
+    // Уведомление о случайном выборе стиля и локации
+    const [autoSelectionNotification, setAutoSelectionNotification] = useState<{ style: string; location: string } | null>(null);
 
     const [isAdminView, setIsAdminView] = useState<boolean>(false);
     const [adminMode, setAdminMode] = useState<'orders' | 'promos'>('orders');
@@ -841,11 +843,40 @@ function App() {
     const handleGenerateClick = async () => {
         if (!uploadedImage) return;
         
-        // Для новогодних фотосессий стиль и локация обязательны
-        if (!selectedStyle || !selectedLocation) {
-            devLog.error('[App] Style or location not selected for New Year generation');
-            setImageValidationError('Пожалуйста, выберите стиль и локацию для фотосессии перед генерацией.');
-            return;
+        // Если стиль или локация не выбраны - выбираем случайно
+        let finalStyle = selectedStyle;
+        let finalLocation = selectedLocation;
+        
+        if (!finalStyle || !finalLocation) {
+            // Случайный выбор стиля
+            if (!finalStyle) {
+                const randomStyleIndex = Math.floor(Math.random() * NEW_YEAR_STYLES.length);
+                finalStyle = NEW_YEAR_STYLES[randomStyleIndex].id as NewYearStyleId;
+                setSelectedStyle(finalStyle);
+            }
+            
+            // Случайный выбор локации
+            if (!finalLocation) {
+                const randomLocationIndex = Math.floor(Math.random() * NEW_YEAR_LOCATIONS.length);
+                finalLocation = NEW_YEAR_LOCATIONS[randomLocationIndex].id as NewYearLocationId;
+                setSelectedLocation(finalLocation);
+            }
+            
+            // Показываем уведомление о случайном выборе
+            const selectedStyleName = NEW_YEAR_STYLES.find(s => s.id === finalStyle)?.name || '';
+            const selectedLocationName = NEW_YEAR_LOCATIONS.find(l => l.id === finalLocation)?.name || '';
+            
+            setAutoSelectionNotification({
+                style: selectedStyleName,
+                location: selectedLocationName
+            });
+            
+            // Скрываем уведомление через 5 секунд
+            setTimeout(() => {
+                setAutoSelectionNotification(null);
+            }, 5000);
+            
+            devLog.log('[App] Auto-selected style and location:', { style: finalStyle, location: finalLocation });
         }
         
         if (!imageAnalysisResult) {
@@ -967,7 +998,7 @@ function App() {
             devLog.log('[App] selectedLocation:', selectedLocation);
             devLog.log('[App] ========================================');
             
-            // Стиль и локация обязательны для новогодних фотосессий
+            // Стиль и локация должны быть выбраны (либо пользователем, либо автоматически)
             if (!imageAnalysisResult || !selectedStyle || !selectedLocation) {
                 console.error('[App] ❌ MISSING DATA - aborting generation');
                 devLog.error('[App] Missing required data for New Year prompt generation:', {
@@ -975,7 +1006,7 @@ function App() {
                     hasStyle: !!selectedStyle,
                     hasLocation: !!selectedLocation,
                 });
-                setImageValidationError('Не выбраны стиль или локация для фотосессии. Пожалуйста, выберите стиль и локацию перед генерацией.');
+                setImageValidationError('Не удалось определить стиль или локацию для фотосессии. Попробуйте еще раз.');
                 setAppState('failed');
                 return;
             }
@@ -1934,15 +1965,49 @@ function App() {
                                 )}
                                 
                                 {/* 4. Сгенерируйте фотосессию */}
-                                {selectedStyle && selectedLocation && (
-                                    <button
-                                        type="button"
-                                        onClick={handleGenerateClick}
-                                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-lg font-semibold text-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        4. Сгенерировать фотосессию
-                                    </button>
-                                )}
+                                <button
+                                    type="button"
+                                    onClick={handleGenerateClick}
+                                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-lg font-semibold text-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    4. Сгенерировать фотосессию
+                                </button>
+                                
+                                {/* Уведомление о случайном выборе */}
+                                <AnimatePresence>
+                                    {autoSelectionNotification && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: -20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: -20 }}
+                                            className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-lg shadow-md"
+                                        >
+                                            <div className="flex items-start gap-3">
+                                                <div className="flex-shrink-0 mt-0.5">
+                                                    <Icons.sparkles className="w-5 h-5 text-blue-600" />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <h4 className="text-sm font-semibold text-gray-900 mb-1">
+                                                        Стиль и локация выбраны автоматически
+                                                    </h4>
+                                                    <p className="text-sm text-gray-700">
+                                                        <span className="font-medium">Стиль:</span> {autoSelectionNotification.style}
+                                                    </p>
+                                                    <p className="text-sm text-gray-700">
+                                                        <span className="font-medium">Локация:</span> {autoSelectionNotification.location}
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setAutoSelectionNotification(null)}
+                                                    className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
+                                                >
+                                                    <Icons.close className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                                 
                                 <GenerationActions
                                     promoCodeInput={promoCodeInput}
