@@ -1971,80 +1971,85 @@ function App() {
             <main className="flex-1 w-full container mx-auto p-4 sm:p-6 lg:p-8" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingBottom: 'max(1rem, env(safe-area-inset-bottom))', paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
                 {(appState === 'generating' || appState === 'results-shown') ? (
                     /* --- Упрощенный layout во время генерации и после: Было / Стало --- */
-                    <div className="flex flex-col lg:flex-row gap-8">
-                        {/* Левая колонка: Исходное фото (пропорции как на главной странице) */}
-                        <aside className="w-full lg:w-1/2 xl:w-2/5 flex-shrink-0">
-                            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">
-                                    Было:
-                                </h2>
-                                {uploadedImage && (
-                                    <motion.div
-                                        initial={{ opacity: 0, scale: 0.95 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        transition={{ duration: 0.3 }}
-                                        className="w-full"
-                                    >
-                                        <img 
-                                            src={uploadedImage} 
-                                            alt="Исходное фото" 
-                                            className="w-full rounded-lg object-cover aspect-square shadow-lg cursor-pointer hover:shadow-xl transition-shadow duration-300" 
-                                            onClick={() => setLightboxUrl(uploadedImage)}
-                                        />
-                                    </motion.div>
-                                )}
-                            </div>
-                        </aside>
-                        
-                        {/* Правая колонка: Генерируемые изображения */}
-                        <section className="flex-1">
-                            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                                        Стало:
+                    <>
+                        <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 lg:gap-8">
+                            {/* Левая колонка: Исходное фото (пропорции как на главной странице) */}
+                            <aside className="w-full lg:w-1/2 xl:w-2/5 flex-shrink-0">
+                                <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200 shadow-sm">
+                                    <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-3 sm:mb-4">
+                                        Было:
                                     </h2>
-                                    {/* Теги с выбранным стилем и локацией */}
-                                    {(selectedStyle || selectedLocation) && (
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            {selectedStyle && (
-                                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs sm:text-sm font-medium bg-purple-100 text-purple-800 border border-purple-200">
-                                                    {NEW_YEAR_STYLES.find(s => s.id === selectedStyle)?.name || selectedStyle}
-                                                </span>
-                                            )}
-                                            {selectedLocation && (
-                                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs sm:text-sm font-medium bg-green-100 text-green-800 border border-green-200">
-                                                    {NEW_YEAR_LOCATIONS.find(l => l.id === selectedLocation)?.name || selectedLocation}
-                                                </span>
-                                            )}
-                                        </div>
+                                    {uploadedImage && (
+                                        <motion.div
+                                            initial={{ opacity: 0, scale: 0.95 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            transition={{ duration: 0.3 }}
+                                            className="w-full"
+                                        >
+                                            <img 
+                                                src={uploadedImage} 
+                                                alt="Исходное фото" 
+                                                className="w-full rounded-lg object-cover aspect-square shadow-lg cursor-pointer hover:shadow-xl transition-shadow duration-300" 
+                                                onClick={() => setLightboxUrl(uploadedImage)}
+                                            />
+                                        </motion.div>
                                     )}
                                 </div>
-                                <GenerationFlow
-                                    generatedImages={generatedImages}
-                                    onRegenerate={handleRegenerateStyle}
-                                    onDownload={handleDownloadIndividualImage}
-                                    onOpen={setLightboxUrl}
-                                    hideCaptions={true}
-                                />
-                                
-                                {/* Кнопка "ГЕНЕРИРОВАТЬ СНОВА" под фотографиями */}
-                                <div className="mt-6 flex justify-center">
-                                    <button
-                                        type="button"
-                                        onClick={handleReset}
-                                        className="inline-flex items-center justify-center px-6 py-3 rounded-lg text-base sm:text-lg font-semibold text-white transition-all duration-200 shadow-lg hover:shadow-xl active:scale-[0.98] touch-manipulation"
-                                        style={{
-                                            background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                                            boxShadow: '0 10px 15px -3px rgba(99, 102, 241, 0.3), 0 4px 6px -4px rgba(99, 102, 241, 0.3)',
-                                        }}
-                                    >
-                                        <Icons.sparkles className="w-5 h-5 mr-2" />
-                                        ГЕНЕРИРОВАТЬ СНОВА
-                                    </button>
+                            </aside>
+                            
+                            {/* Правая колонка: Генерируемые изображения */}
+                            <section className="flex-1 min-w-0">
+                                <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200 shadow-sm">
+                                    {/* Заголовок и теги - адаптивная верстка для мобильных */}
+                                    <div className="mb-3 sm:mb-4">
+                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+                                            <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">
+                                                Стало:
+                                            </h2>
+                                            {/* Теги с выбранным стилем и локацией - на мобильных под заголовком */}
+                                            {(selectedStyle || selectedLocation) && (
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    {selectedStyle && (
+                                                        <span className="inline-flex items-center px-2.5 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                                                            {NEW_YEAR_STYLES.find(s => s.id === selectedStyle)?.name || selectedStyle}
+                                                        </span>
+                                                    )}
+                                                    {selectedLocation && (
+                                                        <span className="inline-flex items-center px-2.5 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium bg-green-100 text-green-800 border border-green-200">
+                                                            {NEW_YEAR_LOCATIONS.find(l => l.id === selectedLocation)?.name || selectedLocation}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <GenerationFlow
+                                        generatedImages={generatedImages}
+                                        onRegenerate={handleRegenerateStyle}
+                                        onDownload={handleDownloadIndividualImage}
+                                        onOpen={setLightboxUrl}
+                                        hideCaptions={true}
+                                    />
                                 </div>
-                            </div>
-                        </section>
-                    </div>
+                            </section>
+                        </div>
+                        
+                        {/* Кнопка "Попробуем еще раз?" под контейнерами по центру */}
+                        <div className="mt-6 sm:mt-8 flex justify-center">
+                            <button
+                                type="button"
+                                onClick={handleReset}
+                                className="inline-flex items-center justify-center px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base lg:text-lg font-semibold text-white transition-all duration-200 shadow-lg hover:shadow-xl active:scale-[0.98] touch-manipulation w-full sm:w-auto min-h-[44px]"
+                                style={{
+                                    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                                    boxShadow: '0 10px 15px -3px rgba(99, 102, 241, 0.3), 0 4px 6px -4px rgba(99, 102, 241, 0.3)',
+                                }}
+                            >
+                                <Icons.sparkles className="w-4 h-4 sm:w-5 sm:h-5 mr-2 flex-shrink-0" />
+                                <span>Попробуем еще раз?</span>
+                            </button>
+                        </div>
+                    </>
                 ) : (
                     /* --- Обычный layout: выбор стиля и локации --- */
                     <div className="flex flex-col lg:flex-row gap-8">
