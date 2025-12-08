@@ -998,13 +998,49 @@ function App() {
             devLog.log('[App] selectedLocation:', selectedLocation);
             devLog.log('[App] ========================================');
             
+            // Если стиль или локация не выбраны - выбираем случайно (на случай автоматического запуска)
+            let finalStyle = selectedStyle;
+            let finalLocation = selectedLocation;
+            
+            if (!finalStyle || !finalLocation) {
+                // Случайный выбор стиля
+                if (!finalStyle) {
+                    const randomStyleIndex = Math.floor(Math.random() * NEW_YEAR_STYLES.length);
+                    finalStyle = NEW_YEAR_STYLES[randomStyleIndex].id as NewYearStyleId;
+                    setSelectedStyle(finalStyle);
+                }
+                
+                // Случайный выбор локации
+                if (!finalLocation) {
+                    const randomLocationIndex = Math.floor(Math.random() * NEW_YEAR_LOCATIONS.length);
+                    finalLocation = NEW_YEAR_LOCATIONS[randomLocationIndex].id as NewYearLocationId;
+                    setSelectedLocation(finalLocation);
+                }
+                
+                // Показываем уведомление о случайном выборе
+                const selectedStyleName = NEW_YEAR_STYLES.find(s => s.id === finalStyle)?.name || '';
+                const selectedLocationName = NEW_YEAR_LOCATIONS.find(l => l.id === finalLocation)?.name || '';
+                
+                setAutoSelectionNotification({
+                    style: selectedStyleName,
+                    location: selectedLocationName
+                });
+                
+                // Скрываем уведомление через 5 секунд
+                setTimeout(() => {
+                    setAutoSelectionNotification(null);
+                }, 5000);
+                
+                devLog.log('[App] Auto-selected style and location in generation block:', { style: finalStyle, location: finalLocation });
+            }
+            
             // Стиль и локация должны быть выбраны (либо пользователем, либо автоматически)
-            if (!imageAnalysisResult || !selectedStyle || !selectedLocation) {
+            if (!imageAnalysisResult || !finalStyle || !finalLocation) {
                 console.error('[App] ❌ MISSING DATA - aborting generation');
                 devLog.error('[App] Missing required data for New Year prompt generation:', {
                     hasAnalysisResult: !!imageAnalysisResult,
-                    hasStyle: !!selectedStyle,
-                    hasLocation: !!selectedLocation,
+                    hasStyle: !!finalStyle,
+                    hasLocation: !!finalLocation,
                 });
                 setImageValidationError('Не удалось определить стиль или локацию для фотосессии. Попробуйте еще раз.');
                 setAppState('failed');
@@ -1015,8 +1051,8 @@ function App() {
 
             devLog.log('[App] ========================================');
             devLog.log('[App] Generating New Year prompts via API');
-            devLog.log('[App] Style:', selectedStyle);
-            devLog.log('[App] Location:', selectedLocation);
+            devLog.log('[App] Style:', finalStyle);
+            devLog.log('[App] Location:', finalLocation);
             devLog.log('[App] Analysis result:', {
                 peopleCount: imageAnalysisResult.peopleCount,
                 animalsCount: imageAnalysisResult.animalsCount,
@@ -1037,8 +1073,8 @@ function App() {
                 console.log('[App] ========================================');
                 newYearPrompts = await generateNewYearPrompts(
                     imageAnalysisResult,
-                    selectedStyle,
-                    selectedLocation
+                    finalStyle,
+                    finalLocation
                 );
                 console.log('[App] ✅ generateNewYearPrompts API SUCCESS, received', newYearPrompts?.length, 'prompts');
             } catch (error) {
