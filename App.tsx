@@ -1848,49 +1848,6 @@ function App() {
                                    }}
                                />
                            </a>
-                           
-                           {/* Текстовая часть с улучшенной типографикой */}
-                           <div 
-                               className="flex flex-col gap-0.5"
-                               style={{
-                                   marginLeft: '-5px',
-                                   marginTop: '-5px',
-                               }}
-                           >
-                                <h1 className="flex items-baseline gap-1.5">
-                                    <span 
-                                        className="text-2xl font-bold tracking-tight"
-                                        style={{
-                                            background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-                                            WebkitBackgroundClip: 'text',
-                                            WebkitTextFillColor: 'transparent',
-                                            backgroundClip: 'text',
-                                        }}
-                                    >
-                                        newava
-                                    </span>
-                                    <span 
-                                        className="text-lg font-semibold px-1.5 py-0.5 rounded"
-                                        style={{
-                                            background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
-                                            color: 'white',
-                                            fontSize: '0.875rem',
-                                            lineHeight: '1.25rem',
-                                        }}
-                                    >
-                                        .pro
-                                    </span>
-                                </h1>
-                                <p 
-                                    className="text-xs font-medium tracking-wide"
-                                    style={{
-                                        color: '#64748b',
-                                        letterSpacing: '0.025em',
-                                    }}
-                                >
-                                    АІ-ПОРТРЕТЫ
-                                </p>
-                           </div>
                         </div>
                         
                         {/* Кнопки справа */}
