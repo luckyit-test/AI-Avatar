@@ -2975,7 +2975,77 @@ function determineOrientation(categoryId, styleId, locationId, peopleCount) {
 }
 
 /**
- * Выбирает вариации для конкретного промпта
+ * Выбирает вариации для конкретного промпта с указанной ориентацией
+ */
+function selectVariationsWithOrientation(categoryId, styleId, locationId, variationIndex, analysisResult, orientation) {
+  const { peopleCount } = analysisResult;
+  const isSingle = peopleCount === 1;
+  const isCouple = peopleCount === 2;
+  const isFamily = peopleCount >= 3;
+  
+  // ЛОГИРОВАНИЕ: Проверяем что извлекается из analysisResult
+  if (variationIndex === 0) {
+    console.log('[selectVariations] ========================================');
+    console.log('[selectVariations] analysisResult.peopleCount:', analysisResult.peopleCount);
+    console.log('[selectVariations] extracted peopleCount:', peopleCount);
+    console.log('[selectVariations] isSingle:', isSingle, 'isCouple:', isCouple, 'isFamily:', isFamily);
+    console.log('[selectVariations] categoryId:', categoryId, 'styleId:', styleId, 'locationId:', locationId);
+    console.log('[selectVariations] Переданная ориентация:', orientation);
+  }
+  
+  // Выбираем действия
+  let actions;
+  if (isSingle) {
+    actions = ACTION_VARIATIONS.single;
+  } else if (isCouple) {
+    actions = ACTION_VARIATIONS.couple;
+  } else {
+    actions = ACTION_VARIATIONS.family;
+  }
+  
+  // Если есть животные, добавляем действия с животными
+  if (analysisResult.animalsCount > 0) {
+    actions = [...actions, ...ACTION_VARIATIONS.withAnimals];
+  }
+  
+  // Выбираем позы
+  let poses;
+  if (isSingle) {
+    poses = POSE_VARIATIONS.single;
+  } else if (isCouple) {
+    poses = POSE_VARIATIONS.couple;
+  } else {
+    poses = POSE_VARIATIONS.family;
+  }
+  
+  // Используем переданную ориентацию
+  const compositions = orientation === 'vertical' 
+    ? COMPOSITION_VARIATIONS.vertical 
+    : COMPOSITION_VARIATIONS.horizontal;
+  
+  // Выбираем уникальные вариации для каждого промпта
+  const action = getUniqueItems(actions, 6)[variationIndex % actions.length];
+  const pose = getUniqueItems(poses, 6)[variationIndex % poses.length];
+  const emotion = getUniqueItems(EMOTION_VARIATIONS, 6)[variationIndex % EMOTION_VARIATIONS.length];
+  const composition = getUniqueItems(compositions, 6)[variationIndex % compositions.length];
+  const lighting = getUniqueItems(LIGHTING_VARIATIONS, 6)[variationIndex % LIGHTING_VARIATIONS.length];
+  
+  // Генерируем технические характеристики камеры
+  const cameraSpecs = generateCameraSpecs(orientation, variationIndex);
+  
+  return {
+    action,
+    pose,
+    emotion,
+    composition,
+    lighting,
+    orientation,
+    cameraSpecs
+  };
+}
+
+/**
+ * Выбирает вариации для конкретного промпта (legacy функция для обратной совместимости)
  */
 function selectVariations(categoryId, styleId, locationId, variationIndex, analysisResult) {
   const { peopleCount } = analysisResult;
@@ -3017,7 +3087,7 @@ function selectVariations(categoryId, styleId, locationId, variationIndex, analy
     poses = POSE_VARIATIONS.family;
   }
   
-  // Определяем ориентацию
+  // Определяем ориентацию (используем переданную или вычисляем)
   const orientation = determineOrientation(categoryId, styleId, locationId, peopleCount);
   const compositions = orientation === 'vertical' 
     ? COMPOSITION_VARIATIONS.vertical 
@@ -3119,12 +3189,43 @@ export function buildNewYearPrompts(analysisResult, styleId, locationId) {
     patternsIndices.push(...shuffledIndices.slice(0, patternsCount));
   }
   
-  // 6. Генерируем 6 промптов с разными вариациями
+  // 6. Определяем базовую ориентацию и планируем исключения для разнообразия
+  const baseOrientation = determineOrientation(categoryId, styleId, locationId, analysisResult.peopleCount);
+  
+  // Правила для разнообразия ориентации:
+  // - Для 3 и 4+ человек (обычно горизонтальные): 1-2 фото вертикальными
+  // - Для 1 и 2 человек (обычно вертикальные): 1-2 фото горизонтальными
+  const shouldHaveExceptions = analysisResult.peopleCount >= 1 && analysisResult.peopleCount <= 4;
+  const exceptionIndices = [];
+  
+  if (shouldHaveExceptions) {
+    // Случайно выбираем количество исключений: 1 или 2
+    const exceptionsCount = randomChoice([1, 2]);
+    // Случайно выбираем индексы промптов для исключений
+    const allIndices = [0, 1, 2, 3, 4, 5];
+    const shuffledIndices = shuffleArray([...allIndices]);
+    exceptionIndices.push(...shuffledIndices.slice(0, exceptionsCount));
+    
+    console.log('[buildNewYearPrompts] ========================================');
+    console.log('[buildNewYearPrompts] Базовая ориентация:', baseOrientation);
+    console.log('[buildNewYearPrompts] Количество исключений:', exceptionsCount);
+    console.log('[buildNewYearPrompts] Индексы промптов с исключениями:', exceptionIndices);
+  }
+  
+  // 7. Генерируем 6 промптов с разными вариациями
   const prompts = [];
   
   for (let i = 0; i < 6; i++) {
-    // Выбираем вариации для этого промпта
-    const variations = selectVariations(categoryId, styleId, locationId, i, analysisResult);
+    // Определяем финальную ориентацию для этого промпта
+    let finalOrientation = baseOrientation;
+    if (shouldHaveExceptions && exceptionIndices.includes(i)) {
+      // Инвертируем ориентацию для исключений
+      finalOrientation = baseOrientation === 'vertical' ? 'horizontal' : 'vertical';
+      console.log(`[buildNewYearPrompts] Промпт ${i}: исключение - ориентация изменена с ${baseOrientation} на ${finalOrientation}`);
+    }
+    
+    // Выбираем вариации для этого промпта (передаем финальную ориентацию)
+    const variations = selectVariationsWithOrientation(categoryId, styleId, locationId, i, analysisResult, finalOrientation);
     
     // Генерируем описание одежды для этого промпта (передаем информацию о головных уборах и узорах)
     // Важно: передаем variationIndex = i для гарантии разных одежд на каждом изображении
