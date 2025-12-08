@@ -12,10 +12,10 @@ interface LocationGridProps {
 
 // Группировка локаций по типам
 const LOCATION_GROUPS = {
-  home: ['living-room', 'winter-house', 'village-house', 'cottage', 'balcony-terrace'],
+  home: ['living-room', 'winter-house', 'village-house', 'cottage', 'balcony-terrace', 'new-year-dacha'],
   outdoor: ['city-street', 'city-square', 'outdoor-rink', 'winter-forest', 'park', 'ski-resort'],
-  luxury: ['luxury-hall', 'luxury-hotel', 'theater', 'library'],
-  unique: ['cafe-restaurant', 'photo-studio', 'greenhouse', 'workshop'],
+  luxury: ['luxury-hall', 'luxury-hotel', 'theater', 'library', 'eiffel-tower', 'new-year-ball'],
+  unique: ['cafe-restaurant', 'photo-studio', 'greenhouse', 'workshop', 'santa-residence', 'metro-new-year'],
 } as const;
 
 const GROUP_LABELS = {
