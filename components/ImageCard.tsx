@@ -407,46 +407,48 @@ const ImageCard: React.FC<ImageCardProps> = React.memo(({
                     )}
                 </AnimatePresence>
             </div>
-            <div 
-                className="p-4 border-t transition-colors duration-200"
-                style={{
-                    borderColor: status === 'queued' ? '#bae6fd' :
-                                status === 'processing' || status === 'error'
-                                    ? (gender === 'male'
-                                        ? '#93c5fd'
-                                        : gender === 'female'
-                                        ? '#f3adb7'
-                                        : '#fcd34d')
-                                    :
-                                '#e5e7eb',
-                    background: status === 'queued' ? 'rgba(239, 246, 255, 0.8)' :
-                               status === 'processing' || status === 'error'
-                                   ? (gender === 'male'
-                                        ? 'rgba(219, 234, 254, 0.8)'
-                                        : gender === 'female'
-                                        ? 'rgba(243, 173, 183, 0.15)'
-                                        : 'rgba(254, 243, 199, 0.8)')
-                                   :
-                               '#ffffff',
-                }}
-            >
-                <p 
-                    className="font-semibold text-center truncate text-sm"
+            {caption && (
+                <div 
+                    className="p-4 border-t transition-colors duration-200"
                     style={{
-                        color: status === 'queued' ? '#1e3a8a' :
-                               status === 'processing' || status === 'error'
-                                   ? (gender === 'male'
-                                        ? '#1e40af'
-                                        : gender === 'female'
-                                        ? '#9b1c40'
-                                        : '#78350f')
-                                   :
-                               '#1f2937',
+                        borderColor: status === 'queued' ? '#bae6fd' :
+                                    status === 'processing' || status === 'error'
+                                        ? (gender === 'male'
+                                            ? '#93c5fd'
+                                            : gender === 'female'
+                                            ? '#f3adb7'
+                                            : '#fcd34d')
+                                        :
+                                    '#e5e7eb',
+                        background: status === 'queued' ? 'rgba(239, 246, 255, 0.8)' :
+                                   status === 'processing' || status === 'error'
+                                       ? (gender === 'male'
+                                            ? 'rgba(219, 234, 254, 0.8)'
+                                            : gender === 'female'
+                                            ? 'rgba(243, 173, 183, 0.15)'
+                                            : 'rgba(254, 243, 199, 0.8)')
+                                       :
+                                   '#ffffff',
                     }}
                 >
-                    {caption}
-                </p>
-            </div>
+                    <p 
+                        className="font-semibold text-center truncate text-sm"
+                        style={{
+                            color: status === 'queued' ? '#1e3a8a' :
+                                   status === 'processing' || status === 'error'
+                                       ? (gender === 'male'
+                                            ? '#1e40af'
+                                            : gender === 'female'
+                                            ? '#9b1c40'
+                                            : '#78350f')
+                                       :
+                                   '#1f2937',
+                        }}
+                    >
+                        {caption}
+                    </p>
+                </div>
+            )}
         </div>
     );
 });

@@ -1972,29 +1972,12 @@ function App() {
                 {(appState === 'generating' || appState === 'results-shown') ? (
                     /* --- Упрощенный layout во время генерации и после: Было / Стало --- */
                     <div className="flex flex-col lg:flex-row gap-8">
-                        {/* Левая колонка: Исходное фото */}
-                        <aside className="w-full lg:w-1/2 flex-shrink-0">
+                        {/* Левая колонка: Исходное фото (пропорции как на главной странице) */}
+                        <aside className="w-full lg:w-1/2 xl:w-2/5 flex-shrink-0">
                             <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                                        Было:
-                                    </h2>
-                                    {/* Теги с выбранным стилем и локацией */}
-                                    {(selectedStyle || selectedLocation) && (
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            {selectedStyle && (
-                                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs sm:text-sm font-medium bg-purple-100 text-purple-800 border border-purple-200">
-                                                    {NEW_YEAR_STYLES.find(s => s.id === selectedStyle)?.name || selectedStyle}
-                                                </span>
-                                            )}
-                                            {selectedLocation && (
-                                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs sm:text-sm font-medium bg-green-100 text-green-800 border border-green-200">
-                                                    {NEW_YEAR_LOCATIONS.find(l => l.id === selectedLocation)?.name || selectedLocation}
-                                                </span>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
+                                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">
+                                    Было:
+                                </h2>
                                 {uploadedImage && (
                                     <motion.div
                                         initial={{ opacity: 0, scale: 0.95 }}
@@ -2016,14 +1999,32 @@ function App() {
                         {/* Правая колонка: Генерируемые изображения */}
                         <section className="flex-1">
                             <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">
-                                    Стало:
-                                </h2>
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                                        Стало:
+                                    </h2>
+                                    {/* Теги с выбранным стилем и локацией */}
+                                    {(selectedStyle || selectedLocation) && (
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            {selectedStyle && (
+                                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs sm:text-sm font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                                                    {NEW_YEAR_STYLES.find(s => s.id === selectedStyle)?.name || selectedStyle}
+                                                </span>
+                                            )}
+                                            {selectedLocation && (
+                                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs sm:text-sm font-medium bg-green-100 text-green-800 border border-green-200">
+                                                    {NEW_YEAR_LOCATIONS.find(l => l.id === selectedLocation)?.name || selectedLocation}
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                                 <GenerationFlow
                                     generatedImages={generatedImages}
                                     onRegenerate={handleRegenerateStyle}
                                     onDownload={handleDownloadIndividualImage}
                                     onOpen={setLightboxUrl}
+                                    hideCaptions={true}
                                 />
                                 
                                 {/* Кнопка "ГЕНЕРИРОВАТЬ СНОВА" под фотографиями */}

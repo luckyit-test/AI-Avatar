@@ -21,6 +21,7 @@ export interface GenerationFlowProps {
     onRegenerate: (style: string) => void;
     onDownload: (style: string) => void;
     onOpen: (url: string) => void;
+    hideCaptions?: boolean;
 }
 
 export function GenerationFlow({
@@ -28,6 +29,7 @@ export function GenerationFlow({
     onRegenerate,
     onDownload,
     onOpen,
+    hideCaptions = false,
 }: GenerationFlowProps) {
 
     // Для новогодних фотосессий используем динамические ключи image_0, image_1, ..., image_5
@@ -48,7 +50,7 @@ export function GenerationFlow({
                             transition={{ delay: index * 0.1 }}
                         >
                             <ImageCard
-                                caption={style}
+                                caption={hideCaptions ? '' : style}
                                 status={status}
                                 queuePosition={imageState?.queuePosition}
                                 estimatedWaitTime={imageState?.estimatedWaitTime}
