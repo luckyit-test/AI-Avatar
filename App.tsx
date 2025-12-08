@@ -2061,7 +2061,8 @@ function App() {
                                     )}
                                 </AnimatePresence>
                                 
-                                <GenerationActions
+                                {/* GenerationActions временно скрыт */}
+                                {/* <GenerationActions
                                     promoCodeInput={promoCodeInput}
                                     promoMessage={promoMessage}
                                     promoError={promoError}
@@ -2080,7 +2081,7 @@ function App() {
                                     onGenerateClick={handleGenerateClick}
                                     onReset={handleReset}
                                     getEffectiveGender={() => detectedGender}
-                                />
+                                /> */}
                             </div>
                         </div>
                     </aside>
