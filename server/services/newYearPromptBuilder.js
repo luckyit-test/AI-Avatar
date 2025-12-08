@@ -3160,6 +3160,12 @@ export function buildNewYearPrompts(analysisResult, styleId, locationId) {
     // Добавляем ориентацию и технические характеристики в конец промпта
     prompt += ` Ориентация: ${variations.orientation === 'vertical' ? 'вертикальная (portrait)' : 'горизонтальная (landscape)'}. Технические характеристики: ${variations.cameraSpecs.specs}.`;
     
+    // ЛОГИРОВАНИЕ: Логируем финальную ориентацию для каждого промпта
+    if (i === 0) {
+      console.log('[buildNewYearPrompts] ========================================');
+      console.log('[buildNewYearPrompts] Первый промпт - ориентация:', variations.orientation);
+    }
+    
     prompts.push({
       prompt,
       orientation: variations.orientation,
@@ -3167,6 +3173,15 @@ export function buildNewYearPrompts(analysisResult, styleId, locationId) {
       cameraSpecs: variations.cameraSpecs
     });
   }
+  
+  // ЛОГИРОВАНИЕ: Итоговая информация о всех промптах
+  console.log('[buildNewYearPrompts] ========================================');
+  console.log('[buildNewYearPrompts] ИТОГО: Сгенерировано промптов:', prompts.length);
+  const orientations = prompts.map(p => p.orientation);
+  console.log('[buildNewYearPrompts] Ориентации всех промптов:', orientations);
+  console.log('[buildNewYearPrompts] Вертикальных:', orientations.filter(o => o === 'vertical').length);
+  console.log('[buildNewYearPrompts] Горизонтальных:', orientations.filter(o => o === 'horizontal').length);
+  console.log('[buildNewYearPrompts] ========================================');
   
   return prompts;
 }
