@@ -288,3 +288,47 @@ export const NEW_YEAR_LOCATIONS: readonly NewYearLocation[] = [
 export type NewYearStyleId = typeof NEW_YEAR_STYLES[number]['id'];
 export type NewYearLocationId = typeof NEW_YEAR_LOCATIONS[number]['id'];
 
+// Маппинг номеров превью к ID локаций (порядок соответствует массиву NEW_YEAR_LOCATIONS)
+// Порядок: 1-24 соответствуют порядку в массиве NEW_YEAR_LOCATIONS
+export const LOCATION_PREVIEW_MAP: Record<number, NewYearLocationId> = {
+  1: 'living-room',        // Домашняя гостиная с елкой
+  2: 'winter-house',       // Зимний загородный домик
+  3: 'city-street',        // Городская улица в новогоднем убранстве
+  4: 'city-square',        // Новогодняя площадь с елкой
+  5: 'outdoor-rink',       // Каток под открытым небом
+  6: 'winter-forest',      // Зимний лес с елкой
+  7: 'luxury-hall',        // Роскошный зал/дворец
+  8: 'cafe-restaurant',    // Новогоднее кафе/ресторан
+  9: 'theater',            // Новогодний театр/концертный зал
+  10: 'ski-resort',         // Горнолыжный курорт
+  11: 'park',               // Новогодний парк/сквер
+  12: 'village-house',      // Деревенский дом с русской печью
+  13: 'photo-studio',       // Новогодняя фотостудия
+  14: 'luxury-hotel',       // Роскошный отель
+  15: 'balcony-terrace',    // Новогодний балкон/терраса
+  16: 'library',            // Новогодняя библиотека
+  17: 'loft',               // Новогодний лофт
+  18: 'greenhouse',         // Новогодний сад/оранжерея
+  19: 'cottage',            // Новогодний коттедж
+  20: 'workshop',           // Новогодняя мастерская/ателье
+  21: 'new-year-dacha',     // Новогодняя дача
+  22: 'eiffel-tower',       // Эйфелева башня
+  23: 'new-year-ball',      // Новогодний бал
+  24: 'metro-new-year',     // Новый год в метро
+  // Примечание: santa-residence (25-я в массиве) не имеет превью, будет использован градиент fallback
+};
+
+// Обратный маппинг: ID локации -> номер превью
+export const LOCATION_TO_PREVIEW_NUMBER: Record<NewYearLocationId, number> = Object.fromEntries(
+  Object.entries(LOCATION_PREVIEW_MAP).map(([num, id]) => [id, Number(num)])
+) as Record<NewYearLocationId, number>;
+
+// Функция для получения пути к превью изображения локации
+export function getLocationPreviewPath(locationId: NewYearLocationId): string {
+  const previewNumber = LOCATION_TO_PREVIEW_NUMBER[locationId];
+  if (previewNumber) {
+    return `/pre/${previewNumber}.jpg`;
+  }
+  return ''; // Fallback если нет превью
+}
+

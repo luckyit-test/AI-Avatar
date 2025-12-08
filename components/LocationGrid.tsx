@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Icons } from './Icons';
 import { cn } from '../lib/utils';
-import { NEW_YEAR_LOCATIONS, type NewYearLocationId } from '../lib/newYearConstants';
+import { NEW_YEAR_LOCATIONS, type NewYearLocationId, getLocationPreviewPath } from '../lib/newYearConstants';
 
 interface LocationGridProps {
   selectedLocation: NewYearLocationId | null;
@@ -74,6 +74,9 @@ export function LocationGrid({ selectedLocation, onSelect, className }: Location
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {groupLocations.map((location) => {
                   const isSelected = selectedLocation === location.id;
+                  const previewPath = getLocationPreviewPath(location.id);
+                  const [imageError, setImageError] = useState(false);
+                  
                   return (
                     <motion.button
                       key={location.id}
@@ -89,28 +92,47 @@ export function LocationGrid({ selectedLocation, onSelect, className }: Location
                       whileHover={{ y: -2 }}
                       whileTap={{ scale: 0.98 }}
                     >
-                      {/* Placeholder изображение с градиентом */}
+                      {/* Превью изображение или градиент fallback */}
                       <div className={cn(
-                        'w-full aspect-square bg-gradient-to-br',
-                        getGroupGradient(groupKey),
-                        'flex items-center justify-center relative'
+                        'w-full aspect-square relative overflow-hidden',
+                        !previewPath || imageError ? `bg-gradient-to-br ${getGroupGradient(groupKey)}` : ''
                       )}>
-                        {/* Иконка локации */}
-                        <Icons.mapPin className="w-12 h-12 text-white opacity-80" />
-                        
-                        {/* Overlay при наведении */}
-                        <div className={cn(
-                          'absolute inset-0 bg-black transition-opacity duration-200',
-                          'opacity-0 group-hover:opacity-20',
-                          isSelected && 'opacity-10'
-                        )} />
+                        {previewPath && !imageError ? (
+                          <>
+                            <img
+                              src={previewPath}
+                              alt={location.name}
+                              className="w-full h-full object-cover"
+                              onError={() => setImageError(true)}
+                              loading="lazy"
+                            />
+                            {/* Overlay при наведении */}
+                            <div className={cn(
+                              'absolute inset-0 bg-black transition-opacity duration-200',
+                              'opacity-0 group-hover:opacity-20',
+                              isSelected && 'opacity-10'
+                            )} />
+                          </>
+                        ) : (
+                          <>
+                            {/* Иконка локации (fallback) */}
+                            <Icons.mapPin className="w-12 h-12 text-white opacity-80 absolute inset-0 m-auto" />
+                            
+                            {/* Overlay при наведении */}
+                            <div className={cn(
+                              'absolute inset-0 bg-black transition-opacity duration-200',
+                              'opacity-0 group-hover:opacity-20',
+                              isSelected && 'opacity-10'
+                            )} />
+                          </>
+                        )}
                         
                         {/* Индикатор выбора */}
                         {isSelected && (
                           <motion.div
                             initial={{ scale: 0 }}
                             animate={{ scale: 1 }}
-                            className="absolute top-2 right-2 bg-blue-500 rounded-full p-1.5 shadow-lg"
+                            className="absolute top-2 right-2 bg-blue-500 rounded-full p-1.5 shadow-lg z-10"
                           >
                             <Icons.checkCircle className="h-5 w-5 text-white" />
                           </motion.div>
