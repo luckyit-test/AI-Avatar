@@ -1917,201 +1917,235 @@ function App() {
                 </div>
             </header>
             
-            {/* Hero Section - показываем только когда нет загруженного изображения */}
-            {/* Hero Section - показываем всегда с 4 пунктами */}
-            <section className="w-full bg-white border-b border-gray-200">
-                <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-                    <div className="max-w-4xl mx-auto">
-                        {/* Заголовок */}
-                        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6 text-center">
-                            <span className="text-gray-900">Новогодние фотосессии </span>
-                            <span 
-                                className="text-2xl sm:text-3xl lg:text-4xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
-                            >
-                                за несколько минут
-                            </span>
-                        </h1>
-                        
-                        {/* 4 пункта */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                            <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white font-semibold flex-shrink-0">
-                                    1
+            {/* Hero Section - скрываем во время генерации */}
+            {appState !== 'generating' && (
+                <section className="w-full bg-white border-b border-gray-200">
+                    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+                        <div className="max-w-4xl mx-auto">
+                            {/* Заголовок */}
+                            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6 text-center">
+                                <span className="text-gray-900">Новогодние фотосессии </span>
+                                <span 
+                                    className="text-2xl sm:text-3xl lg:text-4xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
+                                >
+                                    за несколько минут
+                                </span>
+                            </h1>
+                            
+                            {/* 4 пункта */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                                <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white font-semibold flex-shrink-0">
+                                        1
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-900">Загрузите ваше фото</span>
                                 </div>
-                                <span className="text-sm font-medium text-gray-900">Загрузите ваше фото</span>
-                            </div>
-                            <div className="flex items-center gap-3 p-4 bg-purple-50 rounded-lg border border-purple-200">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-600 text-white font-semibold flex-shrink-0">
-                                    2
+                                <div className="flex items-center gap-3 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-600 text-white font-semibold flex-shrink-0">
+                                        2
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-900">Выберите стиль фотосессии</span>
                                 </div>
-                                <span className="text-sm font-medium text-gray-900">Выберите стиль фотосессии</span>
-                            </div>
-                            <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg border border-green-200">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-white font-semibold flex-shrink-0">
-                                    3
+                                <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg border border-green-200">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-white font-semibold flex-shrink-0">
+                                        3
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-900">Выберите локацию</span>
                                 </div>
-                                <span className="text-sm font-medium text-gray-900">Выберите локацию</span>
-                            </div>
-                            <div className="flex items-center gap-3 p-4 bg-orange-50 rounded-lg border border-orange-200">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-600 text-white font-semibold flex-shrink-0">
-                                    4
+                                <div className="flex items-center gap-3 p-4 bg-orange-50 rounded-lg border border-orange-200">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-600 text-white font-semibold flex-shrink-0">
+                                        4
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-900">Сгенерируйте фотосессию</span>
                                 </div>
-                                <span className="text-sm font-medium text-gray-900">Сгенерируйте фотосессию</span>
                             </div>
                         </div>
                     </div>
-                </div>
-            </section>
+                </section>
+            )}
             
             <main className="flex-1 w-full container mx-auto p-4 sm:p-6 lg:p-8" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingBottom: 'max(1rem, env(safe-area-inset-bottom))', paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
-                <div className="flex flex-col lg:flex-row gap-8">
-                    {/* --- Left Column: Upload, Style Select, Generate Button --- */}
-                    <aside className="w-full lg:w-1/2 xl:w-2/5 flex-shrink-0">
-                        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm sticky top-8 transition-shadow duration-300 hover:shadow-md">
-                            {/* 1. Загрузите ваше фото */}
-                            <ImageUploadFlow
-                                uploadedImage={uploadedImage}
-                                isValidatingImage={isValidatingImage}
-                                validationStatusMessage={validationStatusMessage}
-                                validationTimer={validationTimer}
-                                imageValidationError={imageValidationError}
-                                onImageUpload={handleImageUpload}
-                                onReset={handleReset}
-                            />
-                            
-                            {/* Показываем исходник всегда, если есть uploadedImage */}
-                            <AnimatePresence>
-                                {uploadedImage && 
-                                  !imageValidationError && !isValidatingImage && (
-                                     <motion.div key="preview" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mt-6">
-                                        <img src={uploadedImage} alt="Uploaded preview" className="w-full rounded-md object-cover aspect-square" />
+                {appState === 'generating' ? (
+                    /* --- Упрощенный layout во время генерации: Было / Стало --- */
+                    <div className="flex flex-col lg:flex-row gap-8">
+                        {/* Левая колонка: Исходное фото */}
+                        <aside className="w-full lg:w-1/2 flex-shrink-0">
+                            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">
+                                    Было:
+                                </h2>
+                                {uploadedImage && (
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.95 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        transition={{ duration: 0.3 }}
+                                        className="w-full"
+                                    >
+                                        <img 
+                                            src={uploadedImage} 
+                                            alt="Исходное фото" 
+                                            className="w-full rounded-lg object-cover aspect-square shadow-lg" 
+                                        />
                                     </motion.div>
                                 )}
-                            </AnimatePresence>
-                            
-                            <div className="mt-6 space-y-6">
-                                {/* 2. Выберите стиль фотосессии (выпадающий список) */}
-                                {!imageValidationError && (
-                                    <StyleSelect
-                                        selectedStyle={selectedStyle}
-                                        onSelect={(styleId) => {
-                                            setSelectedStyle(styleId);
-                                        }}
-                                    />
-                                )}
+                            </div>
+                        </aside>
+                        
+                        {/* Правая колонка: Генерируемые изображения */}
+                        <section className="flex-1">
+                            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">
+                                    Стало:
+                                </h2>
+                                <GenerationFlow
+                                    generatedImages={generatedImages}
+                                    onRegenerate={handleRegenerateStyle}
+                                    onDownload={handleDownloadIndividualImage}
+                                    onOpen={setLightboxUrl}
+                                />
+                            </div>
+                        </section>
+                    </div>
+                ) : (
+                    /* --- Обычный layout: выбор стиля и локации --- */
+                    <div className="flex flex-col lg:flex-row gap-8">
+                        {/* --- Left Column: Upload, Style Select, Generate Button --- */}
+                        <aside className="w-full lg:w-1/2 xl:w-2/5 flex-shrink-0">
+                            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm sticky top-8 transition-shadow duration-300 hover:shadow-md">
+                                {/* 1. Загрузите ваше фото */}
+                                <ImageUploadFlow
+                                    uploadedImage={uploadedImage}
+                                    isValidatingImage={isValidatingImage}
+                                    validationStatusMessage={validationStatusMessage}
+                                    validationTimer={validationTimer}
+                                    imageValidationError={imageValidationError}
+                                    onImageUpload={handleImageUpload}
+                                    onReset={handleReset}
+                                />
                                 
-                                {/* 4. Сгенерируйте фотосессию */}
-                                <div className="flex items-start gap-3">
-                                    <span
-                                        className="flex h-10 w-10 items-center justify-center rounded-full text-base font-semibold text-white flex-shrink-0 mt-0.5"
-                                        style={{
-                                            background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-                                            boxShadow: '0 10px 20px rgba(249,115,22,0.35)',
-                                        }}
-                                    >
-                                        4
-                                    </span>
-                                    <div className="flex-1">
-                                        <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
-                                            Сгенерируйте фотосессию
-                                        </h2>
-                                        <button
-                                            type="button"
-                                            onClick={handleGenerateClick}
-                                            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold text-base hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Начать генерацию
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                {/* Уведомление о случайном выборе */}
+                                {/* Показываем исходник всегда, если есть uploadedImage */}
                                 <AnimatePresence>
-                                    {autoSelectionNotification && (
-                                        <motion.div
-                                            initial={{ opacity: 0, y: -20 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            exit={{ opacity: 0, y: -20 }}
-                                            className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-lg shadow-md"
-                                        >
-                                            <div className="flex items-start gap-3">
-                                                <div className="flex-shrink-0 mt-0.5">
-                                                    <Icons.sparkles className="w-5 h-5 text-blue-600" />
-                                                </div>
-                                                <div className="flex-1">
-                                                    <h4 className="text-sm font-semibold text-gray-900 mb-1">
-                                                        Стиль и локация выбраны автоматически
-                                                    </h4>
-                                                    <p className="text-sm text-gray-700">
-                                                        <span className="font-medium">Стиль:</span> {autoSelectionNotification.style}
-                                                    </p>
-                                                    <p className="text-sm text-gray-700">
-                                                        <span className="font-medium">Локация:</span> {autoSelectionNotification.location}
-                                                    </p>
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setAutoSelectionNotification(null)}
-                                                    className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
-                                                >
-                                                    <Icons.close className="w-4 h-4" />
-                                                </button>
-                                            </div>
+                                    {uploadedImage && 
+                                      !imageValidationError && !isValidatingImage && (
+                                         <motion.div key="preview" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mt-6">
+                                            <img src={uploadedImage} alt="Uploaded preview" className="w-full rounded-md object-cover aspect-square" />
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
                                 
-                                {/* GenerationActions временно скрыт */}
-                                {/* <GenerationActions
-                                    promoCodeInput={promoCodeInput}
-                                    promoMessage={promoMessage}
-                                    promoError={promoError}
-                                    promoLoading={promoLoading}
-                                    promoApplied={promoApplied}
-                                    currentOrder={currentOrder}
-                                    uploadedImage={uploadedImage}
-                                    appState={appState}
-                                    isGeneratingIntermediate={isGeneratingIntermediate}
-                                    onPromoCodeChange={(code) => {
-                                        setPromoCodeInput(code);
-                                        setPromoMessage(null);
-                                        setPromoError(null);
-                                    }}
-                                    onPromoCodeApply={handlePromoCodeApply}
-                                    onGenerateClick={handleGenerateClick}
-                                    onReset={handleReset}
-                                    getEffectiveGender={() => detectedGender}
-                                /> */}
-                            </div>
-                        </div>
-                    </aside>
-                    
-                    {/* --- Right Column: Location Selection with Images --- */}
-                    <section className="flex-1">
-                        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                            {/* 3. Выберите локацию (изображения с подписями) */}
-                            {!imageValidationError && (
-                                <LocationGrid
-                                    selectedLocation={selectedLocation}
-                                    onSelect={(locationId) => {
-                                        setSelectedLocation(locationId);
-                                    }}
-                                />
-                            )}
-                            
-                            {/* Показываем результаты генерации в правой колонке */}
-                            {(appState === 'generating' || appState === 'results-shown') && (
-                                <div className="mt-8">
-                                    {appState === 'generating' && (
-                                        <GenerationFlow
-                                            generatedImages={generatedImages}
-                                            onRegenerate={handleRegenerateStyle}
-                                            onDownload={handleDownloadIndividualImage}
-                                            onOpen={setLightboxUrl}
+                                <div className="mt-6 space-y-6">
+                                    {/* 2. Выберите стиль фотосессии (выпадающий список) */}
+                                    {!imageValidationError && (
+                                        <StyleSelect
+                                            selectedStyle={selectedStyle}
+                                            onSelect={(styleId) => {
+                                                setSelectedStyle(styleId);
+                                            }}
                                         />
                                     )}
                                     
-                                    {appState === 'results-shown' && (
+                                    {/* 4. Сгенерируйте фотосессию */}
+                                    <div className="flex items-start gap-3">
+                                        <span
+                                            className="flex h-10 w-10 items-center justify-center rounded-full text-base font-semibold text-white flex-shrink-0 mt-0.5"
+                                            style={{
+                                                background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                                                boxShadow: '0 10px 20px rgba(249,115,22,0.35)',
+                                            }}
+                                        >
+                                            4
+                                        </span>
+                                        <div className="flex-1">
+                                            <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
+                                                Сгенерируйте фотосессию
+                                            </h2>
+                                            <button
+                                                type="button"
+                                                onClick={handleGenerateClick}
+                                                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold text-base hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                Начать генерацию
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Уведомление о случайном выборе */}
+                                    <AnimatePresence>
+                                        {autoSelectionNotification && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: -20 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, y: -20 }}
+                                                className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-lg shadow-md"
+                                            >
+                                                <div className="flex items-start gap-3">
+                                                    <div className="flex-shrink-0 mt-0.5">
+                                                        <Icons.sparkles className="w-5 h-5 text-blue-600" />
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <h4 className="text-sm font-semibold text-gray-900 mb-1">
+                                                            Стиль и локация выбраны автоматически
+                                                        </h4>
+                                                        <p className="text-sm text-gray-700">
+                                                            <span className="font-medium">Стиль:</span> {autoSelectionNotification.style}
+                                                        </p>
+                                                        <p className="text-sm text-gray-700">
+                                                            <span className="font-medium">Локация:</span> {autoSelectionNotification.location}
+                                                        </p>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setAutoSelectionNotification(null)}
+                                                        className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
+                                                    >
+                                                        <Icons.close className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                    
+                                    {/* GenerationActions временно скрыт */}
+                                    {/* <GenerationActions
+                                        promoCodeInput={promoCodeInput}
+                                        promoMessage={promoMessage}
+                                        promoError={promoError}
+                                        promoLoading={promoLoading}
+                                        promoApplied={promoApplied}
+                                        currentOrder={currentOrder}
+                                        uploadedImage={uploadedImage}
+                                        appState={appState}
+                                        isGeneratingIntermediate={isGeneratingIntermediate}
+                                        onPromoCodeChange={(code) => {
+                                            setPromoCodeInput(code);
+                                            setPromoMessage(null);
+                                            setPromoError(null);
+                                        }}
+                                        onPromoCodeApply={handlePromoCodeApply}
+                                        onGenerateClick={handleGenerateClick}
+                                        onReset={handleReset}
+                                        getEffectiveGender={() => detectedGender}
+                                    /> */}
+                                </div>
+                            </div>
+                        </aside>
+                        
+                        {/* --- Right Column: Location Selection with Images --- */}
+                        <section className="flex-1">
+                            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                                {/* 3. Выберите локацию (изображения с подписями) */}
+                                {!imageValidationError && (
+                                    <LocationGrid
+                                        selectedLocation={selectedLocation}
+                                        onSelect={(locationId) => {
+                                            setSelectedLocation(locationId);
+                                        }}
+                                    />
+                                )}
+                                
+                                {/* Показываем результаты генерации в правой колонке */}
+                                {appState === 'results-shown' && (
+                                    <div className="mt-8">
                                         <ResultsView
                                             generatedImages={generatedImages}
                                             isDownloading={isDownloading}
@@ -2121,11 +2155,12 @@ function App() {
                                             onOpen={setLightboxUrl}
                                             onReset={handleReset}
                                         />
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    </section>
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+                    </div>
+                )}
                     
                     {/* Состояние ошибки */}
                     {appState === 'failed' && (
