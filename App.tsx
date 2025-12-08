@@ -1067,8 +1067,8 @@ function App() {
                 console.log('[App] API URL:', `${API_BASE_URL}/new-year/prompts`);
                 console.log('[App] Request payload:', {
                     hasAnalysisResult: !!imageAnalysisResult,
-                    styleId: selectedStyle,
-                    locationId: selectedLocation
+                    styleId: finalStyle,
+                    locationId: finalLocation
                 });
                 console.log('[App] ========================================');
                 newYearPrompts = await generateNewYearPrompts(
