@@ -2001,13 +2001,29 @@ function App() {
                                 )}
                                 
                                 {/* 4. Сгенерируйте фотосессию */}
-                                <button
-                                    type="button"
-                                    onClick={handleGenerateClick}
-                                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-lg font-semibold text-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    4. Сгенерировать фотосессию
-                                </button>
+                                <div className="flex items-start gap-3">
+                                    <span
+                                        className="flex h-10 w-10 items-center justify-center rounded-full text-base font-semibold text-white flex-shrink-0 mt-0.5"
+                                        style={{
+                                            background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                                            boxShadow: '0 10px 20px rgba(249,115,22,0.35)',
+                                        }}
+                                    >
+                                        4
+                                    </span>
+                                    <div className="flex-1">
+                                        <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
+                                            Сгенерируйте фотосессию
+                                        </h2>
+                                        <button
+                                            type="button"
+                                            onClick={handleGenerateClick}
+                                            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold text-base hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Начать генерацию
+                                        </button>
+                                    </div>
+                                </div>
                                 
                                 {/* Уведомление о случайном выборе */}
                                 <AnimatePresence>

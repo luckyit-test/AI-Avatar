@@ -39,13 +39,24 @@ const getGroupGradient = (group: keyof typeof LOCATION_GROUPS) => {
 export function LocationGrid({ selectedLocation, onSelect, className }: LocationGridProps) {
   return (
     <div className={cn('w-full', className)}>
-      <div className="mb-4">
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">
-          3. Выберите локацию
-        </h3>
-        <p className="text-sm text-gray-600">
-          Локация определит окружение для всех 6 фотографий
-        </p>
+      <div className="flex items-start gap-3 mb-4">
+        <span
+          className="flex h-10 w-10 items-center justify-center rounded-full text-base font-semibold text-white flex-shrink-0 mt-0.5"
+          style={{
+            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+            boxShadow: '0 10px 20px rgba(16,185,129,0.35)',
+          }}
+        >
+          3
+        </span>
+        <div className="flex-1">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-0.5">
+            Выберите локацию
+          </h3>
+          <p className="text-xs sm:text-sm text-gray-500">
+            Локация определит окружение для всех 6 фотографий
+          </p>
+        </div>
       </div>
 
       <div className="space-y-6">

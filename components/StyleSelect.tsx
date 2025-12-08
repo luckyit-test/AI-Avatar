@@ -11,11 +11,25 @@ interface StyleSelectProps {
 export function StyleSelect({ selectedStyle, onSelect, className }: StyleSelectProps) {
   return (
     <div className={cn('w-full', className)}>
-      <label className="block mb-2">
-        <span className="text-base font-semibold text-gray-900">
-          2. Выберите стиль фотосессии
+      <div className="flex items-start gap-3 mb-3">
+        <span
+          className="flex h-10 w-10 items-center justify-center rounded-full text-base font-semibold text-white flex-shrink-0 mt-0.5"
+          style={{
+            background: 'linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%)',
+            boxShadow: '0 10px 20px rgba(139,92,246,0.35)',
+          }}
+        >
+          2
         </span>
-      </label>
+        <div className="flex-1">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-0.5">
+            Выберите стиль фотосессии
+          </h2>
+          <p className="text-xs sm:text-sm text-gray-500">
+            Стиль определит общую атмосферу всех 6 фотографий
+          </p>
+        </div>
+      </div>
       <select
         value={selectedStyle || ''}
         onChange={(e) => {
