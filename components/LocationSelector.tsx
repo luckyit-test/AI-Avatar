@@ -34,12 +34,12 @@ export function LocationSelector({ selectedLocation, onSelect, className }: Loca
 
   return (
     <div className={cn('w-full', className)}>
-      <div className="mb-4">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          Выберите новогоднюю локацию
+      <div className="mb-3">
+        <h3 className="text-base font-semibold text-gray-900 mb-1">
+          Локация фотосессии
         </h3>
-        <p className="text-sm text-gray-600">
-          Локация определит окружение для всех 6 фотографий
+        <p className="text-xs text-gray-600">
+          Выберите локацию для всех 6 фотографий
         </p>
       </div>
 
@@ -82,7 +82,7 @@ export function LocationSelector({ selectedLocation, onSelect, className }: Loca
                     transition={{ duration: 0.2 }}
                     className="overflow-hidden"
                   >
-                    <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="p-3 grid grid-cols-1 gap-2">
                       {groupLocations.map((location) => {
                         const isSelected = selectedLocation === location.id;
                         return (

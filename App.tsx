@@ -35,7 +35,7 @@ interface GeneratedImage {
     estimatedWaitTime?: number;
 }
 
-type AppState = 'idle' | 'image-uploaded' | 'style-selection' | 'location-selection' | 'generating' | 'results-shown' | 'failed';
+type AppState = 'idle' | 'image-uploaded' | 'generating' | 'results-shown' | 'failed';
 
 function App() {
     const onboarding = useOnboarding();
@@ -717,8 +717,8 @@ function App() {
                     photoQuality: evaluation.photoQuality
                 });
                 
-                // Переходим к выбору стиля для новогодних фотосессий
-                setAppState('style-selection');
+                // Переходим к состоянию готовности - стиль и локация будут доступны в левой колонке
+                setAppState('image-uploaded');
                 } catch (error) {
                     const errorDetails = {
                         error: error instanceof Error ? error.message : String(error),
@@ -847,7 +847,6 @@ function App() {
         if (!selectedStyle || !selectedLocation) {
             devLog.error('[App] Style or location not selected for New Year generation');
             setImageValidationError('Пожалуйста, выберите стиль и локацию для фотосессии перед генерацией.');
-            setAppState('style-selection');
             return;
         }
         
@@ -1898,113 +1897,46 @@ function App() {
                                 onReset={handleReset}
                             />
                             
-                            {/* Показываем исходник всегда, если есть uploadedImage или если заказ в процессе генерации/завершен */}
+                            {/* Показываем исходник всегда, если есть uploadedImage */}
                             <AnimatePresence>
-                                {((uploadedImage && (appState === 'image-uploaded' || appState === 'generating' || appState === 'results-shown')) || 
-                                  (appState === 'generating' || appState === 'results-shown')) && 
+                                {uploadedImage && 
                                   !imageValidationError && !isValidatingImage && (
                                      <motion.div key="preview" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mt-6">
-                                        {uploadedImage ? (
-                                            <img src={uploadedImage} alt="Uploaded preview" className="w-full rounded-md object-cover aspect-square" />
-                                        ) : (
-                                            // Показываем placeholder, если изображение не восстановилось, но генерация идет
-                                            <div className="w-full aspect-square rounded-md border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center">
-                                                <p className="text-sm text-gray-500">Исходное изображение</p>
-                                            </div>
-                                        )}
+                                        <img src={uploadedImage} alt="Uploaded preview" className="w-full rounded-md object-cover aspect-square" />
                                     </motion.div>
                                 )}
                             </AnimatePresence>
                             
                             <div className="mt-6">
-                                {/* Выбор стиля новогодней фотосессии */}
-                                {!isValidatingImage && !imageValidationError && uploadedImage && appState === 'style-selection' && (
+                                {/* Выбор стиля и локации новогодней фотосессии - показываем сразу в левой колонке */}
+                                {!isValidatingImage && !imageValidationError && uploadedImage && (
                                     <div className="space-y-6">
+                                        {/* Выбор стиля */}
                                         <StyleSelector
                                             selectedStyle={selectedStyle}
                                             onSelect={(styleId) => {
                                                 setSelectedStyle(styleId);
-                                                setAppState('location-selection');
                                             }}
                                         />
-                                        <div className="flex justify-end">
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setUploadedImage(null);
-                                                    setSelectedStyle(null);
-                                                    setSelectedLocation(null);
-                                                    setImageAnalysisResult(null);
-                                                    setAppState('idle');
-                                                }}
-                                                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                                            >
-                                                Начать заново
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                                
-                                {/* Выбор локации новогодней фотосессии */}
-                                {!isValidatingImage && !imageValidationError && uploadedImage && appState === 'location-selection' && (
-                                    <div className="space-y-6">
+                                        
+                                        {/* Выбор локации */}
                                         <LocationSelector
                                             selectedLocation={selectedLocation}
                                             onSelect={locationId => {
                                                 setSelectedLocation(locationId);
-                                                // После выбора локации переходим к состоянию готовности к генерации
-                                                setAppState('image-uploaded');
                                             }}
                                         />
-                                        <div className="flex flex-col gap-3">
-                                            {selectedStyle && selectedLocation && (
-                                                <button
-                                                    type="button"
-                                                    onClick={handleGenerateClick}
-                                                    className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold text-lg hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                >
-                                                    Сгенерировать новогодние фото
-                                                </button>
-                                            )}
-                                            <div className="flex justify-between">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setSelectedLocation(null);
-                                                        setAppState('style-selection');
-                                                    }}
-                                                    className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                                                >
-                                                    ← Назад к стилю
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setUploadedImage(null);
-                                                        setSelectedStyle(null);
-                                                        setSelectedLocation(null);
-                                                        setImageAnalysisResult(null);
-                                                        setAppState('idle');
-                                                    }}
-                                                    className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                                                >
-                                                    Начать заново
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                                
-                                {/* Кнопка генерации после выбора стиля и локации */}
-                                {!isValidatingImage && !imageValidationError && uploadedImage && appState === 'image-uploaded' && selectedStyle && selectedLocation && (
-                                    <div className="mt-6">
-                                        <button
-                                            type="button"
-                                            onClick={handleGenerateClick}
-                                            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold text-lg hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Сгенерировать новогодние фото
-                                        </button>
+                                        
+                                        {/* Кнопка генерации */}
+                                        {selectedStyle && selectedLocation && (
+                                            <button
+                                                type="button"
+                                                onClick={handleGenerateClick}
+                                                className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold text-lg hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                Сгенерировать новогодние фото
+                                            </button>
+                                        )}
                                     </div>
                                 )}
                                 

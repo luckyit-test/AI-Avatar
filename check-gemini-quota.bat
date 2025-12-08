@@ -18,3 +18,4 @@ plink.exe -ssh root@43.245.226.24 -pw Yd2Vc_Wejus0DlNB "cd /opt/newava && echo '
 
 pause
 
+

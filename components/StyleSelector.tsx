@@ -13,16 +13,16 @@ interface StyleSelectorProps {
 export function StyleSelector({ selectedStyle, onSelect, className }: StyleSelectorProps) {
   return (
     <div className={cn('w-full', className)}>
-      <div className="mb-4">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          Выберите стиль новогодней фотосессии
+      <div className="mb-3">
+        <h3 className="text-base font-semibold text-gray-900 mb-1">
+          Стиль фотосессии
         </h3>
-        <p className="text-sm text-gray-600">
-          Стиль определит общую атмосферу и настроение всех 6 фотографий
+        <p className="text-xs text-gray-600">
+          Выберите стиль для всех 6 фотографий
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-3">
         {NEW_YEAR_STYLES.map((style) => {
           const isSelected = selectedStyle === style.id;
           return (
@@ -31,10 +31,10 @@ export function StyleSelector({ selectedStyle, onSelect, className }: StyleSelec
               type="button"
               onClick={() => onSelect(style.id)}
               className={cn(
-                'relative p-4 rounded-xl border-2 transition-all duration-200 text-left',
-                'hover:shadow-lg hover:scale-[1.02]',
+                'relative p-3 rounded-lg border-2 transition-all duration-200 text-left',
+                'hover:shadow-md',
                 isSelected
-                  ? 'border-blue-500 bg-blue-50 shadow-md ring-2 ring-blue-200'
+                  ? 'border-blue-500 bg-blue-50 shadow-sm ring-2 ring-blue-200'
                   : 'border-gray-200 bg-white hover:border-blue-300'
               )}
               whileHover={{ y: -2 }}
@@ -51,10 +51,10 @@ export function StyleSelector({ selectedStyle, onSelect, className }: StyleSelec
               )}
 
               <div className="pr-8">
-                <h4 className="text-base font-semibold text-gray-900 mb-2">
+                <h4 className="text-sm font-semibold text-gray-900 mb-1">
                   {style.name}
                 </h4>
-                <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                <p className="text-xs text-gray-600 mb-2 line-clamp-2">
                   {style.description}
                 </p>
                 <div className="flex flex-wrap gap-1">
