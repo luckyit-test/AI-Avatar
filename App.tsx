@@ -1840,8 +1840,8 @@ function App() {
                                className="flex items-center justify-center logo-container cursor-pointer transition-opacity duration-200 hover:opacity-80"
                            >
                                <img 
-                                   src="/logo-variant-6.svg" 
-                                   alt="newava.pro logo"
+                                   src="/loho-hn.png" 
+                                   alt="Новогодние фотосессии"
                                    className="w-auto object-contain"
                                    style={{
                                        height: '55px',
@@ -1908,8 +1908,8 @@ function App() {
                                 href="/gallery"
                                 className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium text-white transition-all duration-200 touch-manipulation active:scale-[0.98]"
                                 style={{
-                                    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                                    boxShadow: '0 4px 6px -1px rgba(99, 102, 241, 0.3), 0 2px 4px -2px rgba(99, 102, 241, 0.3)',
+                                    background: 'linear-gradient(135deg, #f97316 0%, #ef4444 100%)',
+                                    boxShadow: '0 4px 6px -1px rgba(249, 115, 22, 0.3), 0 2px 4px -2px rgba(239, 68, 68, 0.3)',
                                 }}
                             >
                                 <Icons.sparkles className="w-4 h-4" />
@@ -1928,12 +1928,12 @@ function App() {
                         <div className="max-w-4xl mx-auto">
                             {/* Заголовок */}
                             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6 text-center">
-                                <span className="text-gray-900">Новогодние фотосессии </span>
-                                <span 
-                                    className="text-2xl sm:text-3xl lg:text-4xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
+                                <div className="text-gray-900">Новогодние фотосессии</div>
+                                <div 
+                                    className="text-2xl sm:text-3xl lg:text-4xl bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mt-1"
                                 >
                                     за несколько минут
-                                </span>
+                                </div>
                             </h1>
                             
                             {/* 4 пункта */}
@@ -1944,8 +1944,8 @@ function App() {
                                     </div>
                                     <span className="text-sm font-medium text-gray-900">Загрузите ваше фото</span>
                                 </div>
-                                <div className="flex items-center gap-3 p-4 bg-purple-50 rounded-lg border border-purple-200">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-600 text-white font-semibold flex-shrink-0">
+                                <div className="flex items-center gap-3 p-4 bg-orange-50 rounded-lg border border-orange-200">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-600 text-white font-semibold flex-shrink-0">
                                         2
                                     </div>
                                     <span className="text-sm font-medium text-gray-900">Выберите стиль фотосессии</span>
@@ -2010,7 +2010,7 @@ function App() {
                                             {(selectedStyle || selectedLocation) && (
                                                 <div className="flex items-center gap-2 flex-wrap">
                                                     {selectedStyle && (
-                                                        <span className="inline-flex items-center px-2.5 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                                                        <span className="inline-flex items-center px-2.5 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium bg-orange-100 text-orange-800 border border-orange-200">
                                                             {NEW_YEAR_STYLES.find(s => s.id === selectedStyle)?.name || selectedStyle}
                                                         </span>
                                                     )}
@@ -2040,10 +2040,10 @@ function App() {
                                 type="button"
                                 onClick={handleReset}
                                 className="inline-flex items-center justify-center px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base lg:text-lg font-semibold text-white transition-all duration-200 shadow-lg hover:shadow-xl active:scale-[0.98] touch-manipulation w-full sm:w-auto min-h-[44px]"
-                                style={{
-                                    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                                    boxShadow: '0 10px 15px -3px rgba(99, 102, 241, 0.3), 0 4px 6px -4px rgba(99, 102, 241, 0.3)',
-                                }}
+                                        style={{
+                                            background: 'linear-gradient(135deg, #f97316 0%, #ef4444 100%)',
+                                            boxShadow: '0 10px 15px -3px rgba(249, 115, 22, 0.3), 0 4px 6px -4px rgba(239, 68, 68, 0.3)',
+                                        }}
                             >
                                 <Icons.sparkles className="w-4 h-4 sm:w-5 sm:h-5 mr-2 flex-shrink-0" />
                                 <span>Попробуем еще раз?</span>
@@ -2106,7 +2106,7 @@ function App() {
                                             <button
                                                 type="button"
                                                 onClick={handleGenerateClick}
-                                                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold text-base hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                                                className="w-full bg-gradient-to-r from-orange-600 to-red-600 text-white py-3 rounded-lg font-semibold text-base hover:from-orange-700 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
                                                 Начать генерацию
                                             </button>
@@ -2120,7 +2120,7 @@ function App() {
                                                 initial={{ opacity: 0, y: -20 }}
                                                 animate={{ opacity: 1, y: 0 }}
                                                 exit={{ opacity: 0, y: -20 }}
-                                                className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-lg shadow-md"
+                                                className="mt-4 p-4 bg-gradient-to-r from-orange-50 to-red-50 border-2 border-orange-200 rounded-lg shadow-md"
                                             >
                                                 <div className="flex items-start gap-3">
                                                     <div className="flex-shrink-0 mt-0.5">
