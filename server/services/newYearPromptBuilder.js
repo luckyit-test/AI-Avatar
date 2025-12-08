@@ -2952,14 +2952,20 @@ function determineOrientation(categoryId, styleId, locationId, peopleCount) {
     return 'vertical';
   }
   
-  // Для 3+ людей - чаще горизонтальная
+  // Для 3+ людей - всегда горизонтальная (семьи должны быть горизонтальными)
   if (peopleCount >= 3) {
-    // Исключения для вертикальных локаций
-    if (['photo-studio', 'library', 'balcony-terrace'].includes(locationId)) {
-      console.log('[determineOrientation] Результат: vertical (3+ человек, вертикальная локация)');
+    // Для семей из 4+ человек - СТРОГО горизонтальная, независимо от локации
+    if (peopleCount >= 4) {
+      console.log('[determineOrientation] Результат: horizontal (4+ человек, семья)');
+      return 'horizontal';
+    }
+    // Для 3 человек - горизонтальная, но можно сделать исключение только для очень специфичных локаций
+    // Исключения только для локаций, где вертикальная композиция действительно имеет смысл
+    if (['photo-studio'].includes(locationId)) {
+      console.log('[determineOrientation] Результат: vertical (3 человека, фотостудия)');
       return 'vertical';
     }
-    console.log('[determineOrientation] Результат: horizontal (3+ человек)');
+    console.log('[determineOrientation] Результат: horizontal (3 человека)');
     return 'horizontal';
   }
   
