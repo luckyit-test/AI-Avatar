@@ -2161,57 +2161,56 @@ function App() {
                         </section>
                     </div>
                 )}
-                    
-                    {/* Состояние ошибки */}
-                    {appState === 'failed' && (
-                        <section className="flex-1">
-                            <div className="bg-white p-6 rounded-xl border border-red-200 shadow-sm">
-                                <motion.div
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    className="flex flex-col items-center justify-center p-6 text-center"
-                                >
-                                    <Icons.xCircle className="h-16 w-16 text-red-500 mb-4" />
-                                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                                        Не удалось сгенерировать фотосессию
-                                    </h3>
-                                    <p className="text-sm text-gray-600 mb-4 max-w-md">
-                                        Произошла техническая ошибка при генерации. Попробуйте загрузить другое фото и
-                                        повторить попытку. Оплата за заказ сохранена, повторная оплата не требуется.
+                
+                {/* Состояние ошибки */}
+                {appState === 'failed' && (
+                    <section className="flex-1">
+                        <div className="bg-white p-6 rounded-xl border border-red-200 shadow-sm">
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="flex flex-col items-center justify-center p-6 text-center"
+                            >
+                                <Icons.xCircle className="h-16 w-16 text-red-500 mb-4" />
+                                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                                    Не удалось сгенерировать фотосессию
+                                </h3>
+                                <p className="text-sm text-gray-600 mb-4 max-w-md">
+                                    Произошла техническая ошибка при генерации. Попробуйте загрузить другое фото и
+                                    повторить попытку. Оплата за заказ сохранена, повторная оплата не требуется.
+                                </p>
+                                {currentOrder && (
+                                    <p className="text-xs text-gray-500 max-w-md">
+                                        {currentOrder.failureReason && (
+                                            <span className="block mb-1">
+                                                Причина: {currentOrder.failureReason}
+                                            </span>
+                                        )}
+                                        Осталось попыток:{' '}
+                                        <span className="font-semibold">
+                                            {Math.max(0, 2 - (currentOrder.retries ?? 0))}
+                                        </span>{' '}
+                                        из 2. Если повторные попытки не помогут, напишите в поддержку:&nbsp;
+                                        <a
+                                            href="mailto:kuznetsov@i-integrator.com"
+                                            className="text-blue-600 hover:underline"
+                                        >
+                                            kuznetsov@i-integrator.com
+                                        </a>
+                                        .
                                     </p>
-                                    {currentOrder && (
-                                        <p className="text-xs text-gray-500 max-w-md">
-                                            {currentOrder.failureReason && (
-                                                <span className="block mb-1">
-                                                    Причина: {currentOrder.failureReason}
-                                                </span>
-                                            )}
-                                            Осталось попыток:{' '}
-                                            <span className="font-semibold">
-                                                {Math.max(0, 2 - (currentOrder.retries ?? 0))}
-                                            </span>{' '}
-                                            из 2. Если повторные попытки не помогут, напишите в поддержку:&nbsp;
-                                            <a
-                                                href="mailto:kuznetsov@i-integrator.com"
-                                                className="text-blue-600 hover:underline"
-                                            >
-                                                kuznetsov@i-integrator.com
-                                            </a>
-                                            .
-                                        </p>
-                                    )}
-                                    <button
-                                        type="button"
-                                        onClick={handleReset}
-                                        className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                                    >
-                                        Начать заново
-                                    </button>
-                                </motion.div>
-                            </div>
-                        </section>
-                    )}
-                </div>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={handleReset}
+                                    className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                >
+                                    Начать заново
+                                </button>
+                            </motion.div>
+                        </div>
+                    </section>
+                )}
             </main>
             <Footer onOpenRules={() => setIsRulesOpen(true)} />
             
