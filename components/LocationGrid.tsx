@@ -1,0 +1,129 @@
+import React from 'react';
+import { motion } from 'framer-motion';
+import { Icons } from './Icons';
+import { cn } from '../lib/utils';
+import { NEW_YEAR_LOCATIONS, type NewYearLocationId } from '../lib/newYearConstants';
+
+interface LocationGridProps {
+  selectedLocation: NewYearLocationId | null;
+  onSelect: (locationId: NewYearLocationId) => void;
+  className?: string;
+}
+
+// Группировка локаций по типам
+const LOCATION_GROUPS = {
+  home: ['living-room', 'winter-house', 'village-house', 'cottage', 'balcony-terrace'],
+  outdoor: ['city-street', 'city-square', 'outdoor-rink', 'winter-forest', 'park', 'ski-resort'],
+  luxury: ['luxury-hall', 'luxury-hotel', 'theater', 'library'],
+  unique: ['cafe-restaurant', 'photo-studio', 'greenhouse', 'workshop'],
+} as const;
+
+const GROUP_LABELS = {
+  home: 'Домашние локации',
+  outdoor: 'Уличные локации',
+  luxury: 'Роскошные локации',
+  unique: 'Необычные локации',
+} as const;
+
+// Функция для получения цвета градиента для группы
+const getGroupGradient = (group: keyof typeof LOCATION_GROUPS) => {
+  const gradients = {
+    home: 'from-blue-500 to-blue-600',
+    outdoor: 'from-green-500 to-green-600',
+    luxury: 'from-purple-500 to-purple-600',
+    unique: 'from-orange-500 to-orange-600',
+  };
+  return gradients[group] || 'from-gray-500 to-gray-600';
+};
+
+export function LocationGrid({ selectedLocation, onSelect, className }: LocationGridProps) {
+  return (
+    <div className={cn('w-full', className)}>
+      <div className="mb-4">
+        <h3 className="text-xl font-semibold text-gray-900 mb-2">
+          3. Выберите локацию
+        </h3>
+        <p className="text-sm text-gray-600">
+          Локация определит окружение для всех 6 фотографий
+        </p>
+      </div>
+
+      <div className="space-y-6">
+        {(Object.keys(LOCATION_GROUPS) as Array<keyof typeof LOCATION_GROUPS>).map((groupKey) => {
+          const groupLocationIds = LOCATION_GROUPS[groupKey];
+          const groupLocations = NEW_YEAR_LOCATIONS.filter(loc => 
+            groupLocationIds.includes(loc.id as any)
+          );
+
+          return (
+            <div key={groupKey}>
+              <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                {GROUP_LABELS[groupKey]}
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {groupLocations.map((location) => {
+                  const isSelected = selectedLocation === location.id;
+                  return (
+                    <motion.button
+                      key={location.id}
+                      type="button"
+                      onClick={() => onSelect(location.id)}
+                      className={cn(
+                        'relative group rounded-lg overflow-hidden border-2 transition-all duration-200',
+                        'hover:shadow-lg hover:scale-[1.02]',
+                        isSelected
+                          ? 'border-blue-500 shadow-md ring-2 ring-blue-200'
+                          : 'border-gray-200 hover:border-blue-300'
+                      )}
+                      whileHover={{ y: -2 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      {/* Placeholder изображение с градиентом */}
+                      <div className={cn(
+                        'w-full aspect-square bg-gradient-to-br',
+                        getGroupGradient(groupKey),
+                        'flex items-center justify-center relative'
+                      )}>
+                        {/* Иконка локации */}
+                        <Icons.mapPin className="w-12 h-12 text-white opacity-80" />
+                        
+                        {/* Overlay при наведении */}
+                        <div className={cn(
+                          'absolute inset-0 bg-black transition-opacity duration-200',
+                          'opacity-0 group-hover:opacity-20',
+                          isSelected && 'opacity-10'
+                        )} />
+                        
+                        {/* Индикатор выбора */}
+                        {isSelected && (
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            className="absolute top-2 right-2 bg-blue-500 rounded-full p-1.5 shadow-lg"
+                          >
+                            <Icons.checkCircle className="h-5 w-5 text-white" />
+                          </motion.div>
+                        )}
+                      </div>
+                      
+                      {/* Подпись */}
+                      <div className="p-3 bg-white">
+                        <h5 className="text-sm font-semibold text-gray-900 mb-1 line-clamp-1">
+                          {location.name}
+                        </h5>
+                        <p className="text-xs text-gray-600 line-clamp-2">
+                          {location.description}
+                        </p>
+                      </div>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+

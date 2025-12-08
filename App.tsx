@@ -12,7 +12,6 @@ import Footer from './components/Footer';
 import AdminDashboard from './components/AdminDashboard';
 import Uploader from './components/Uploader';
 import ImageCard from './components/ImageCard';
-import AnimatedPortraitsBackground from './components/AnimatedPortraitsBackground';
 import { Icons } from './components/Icons';
 import { CustomSelect } from './components/CustomSelect';
 import { Onboarding, useOnboarding } from './components/Onboarding';
@@ -21,8 +20,8 @@ import { GenerationActions } from './components/GenerationActions';
 import { GenerationFlow } from './components/GenerationFlow';
 import { ResultsView } from './components/ResultsView';
 import { GalleryPage } from './components/GalleryPage';
-import { StyleSelector } from './components/StyleSelector';
-import { LocationSelector } from './components/LocationSelector';
+import { StyleSelect } from './components/StyleSelect';
+import { LocationGrid } from './components/LocationGrid';
 import { NEW_YEAR_STYLES, NEW_YEAR_LOCATIONS, type NewYearStyleId, type NewYearLocationId } from './lib/newYearConstants';
 import { cn, devLog } from './lib/utils';
 
@@ -40,7 +39,6 @@ type AppState = 'idle' | 'image-uploaded' | 'generating' | 'results-shown' | 'fa
 function App() {
     const onboarding = useOnboarding();
     const fileInputRef = React.useRef<HTMLInputElement>(null);
-    const rightColumnRef = React.useRef<HTMLElement>(null);
     
     // Проверка и автоматическое перенаправление на HTTPS
     useEffect(() => {
@@ -1853,40 +1851,57 @@ function App() {
             </header>
             
             {/* Hero Section - показываем только когда нет загруженного изображения */}
-            {!uploadedImage && appState === 'idle' && (
-                <section className="w-full bg-white border-b border-gray-200">
-                    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-                        <div className="max-w-3xl mx-auto text-center">
-                            {/* Тег */}
-                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-50 border border-blue-200 mb-4">
-                                <Icons.sparkles className="w-4 h-4 text-blue-600" />
-                                <span className="text-sm font-medium text-blue-900">Идеальное фото для новой карьеры</span>
+            {/* Hero Section - показываем всегда с 4 пунктами */}
+            <section className="w-full bg-white border-b border-gray-200">
+                <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+                    <div className="max-w-4xl mx-auto">
+                        {/* Заголовок */}
+                        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6 text-center">
+                            <span className="text-gray-900">Новогодние фотосессии </span>
+                            <span 
+                                className="text-2xl sm:text-3xl lg:text-4xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
+                            >
+                                за несколько минут
+                            </span>
+                        </h1>
+                        
+                        {/* 4 пункта */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                            <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white font-semibold flex-shrink-0">
+                                    1
+                                </div>
+                                <span className="text-sm font-medium text-gray-900">Загрузите ваше фото</span>
                             </div>
-                            
-                            {/* Заголовок */}
-                            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
-                                <span className="text-gray-900">Профессиональные портреты </span>
-                                <span 
-                                    className="text-2xl sm:text-3xl lg:text-4xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
-                                >
-                                    за несколько минут
-                                </span>
-                            </h1>
-                            
-                            {/* Описание */}
-                            <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
-                                Загрузите своё фото и получите 6 новогодних фотосессий в разных стилях и локациях
-                            </p>
+                            <div className="flex items-center gap-3 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-600 text-white font-semibold flex-shrink-0">
+                                    2
+                                </div>
+                                <span className="text-sm font-medium text-gray-900">Выберите стиль фотосессии</span>
+                            </div>
+                            <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg border border-green-200">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-white font-semibold flex-shrink-0">
+                                    3
+                                </div>
+                                <span className="text-sm font-medium text-gray-900">Выберите локацию</span>
+                            </div>
+                            <div className="flex items-center gap-3 p-4 bg-orange-50 rounded-lg border border-orange-200">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-600 text-white font-semibold flex-shrink-0">
+                                    4
+                                </div>
+                                <span className="text-sm font-medium text-gray-900">Сгенерируйте фотосессию</span>
+                            </div>
                         </div>
                     </div>
-                </section>
-            )}
+                </div>
+            </section>
             
             <main className="flex-1 w-full container mx-auto p-4 sm:p-6 lg:p-8" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingBottom: 'max(1rem, env(safe-area-inset-bottom))', paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
                 <div className="flex flex-col lg:flex-row gap-8">
-                    {/* --- Left Column: Controls --- */}
-                    <aside className="w-full lg:w-1/3 lg:max-w-sm flex-shrink-0">
+                    {/* --- Left Column: Upload, Style Select, Generate Button --- */}
+                    <aside className="w-full lg:w-1/2 xl:w-2/5 flex-shrink-0">
                         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm sticky top-8 transition-shadow duration-300 hover:shadow-md">
+                            {/* 1. Загрузите ваше фото */}
                             <ImageUploadFlow
                                 uploadedImage={uploadedImage}
                                 isValidatingImage={isValidatingImage}
@@ -1907,37 +1922,26 @@ function App() {
                                 )}
                             </AnimatePresence>
                             
-                            <div className="mt-6">
-                                {/* Выбор стиля и локации новогодней фотосессии - показываем сразу в левой колонке */}
-                                {!isValidatingImage && !imageValidationError && uploadedImage && (
-                                    <div className="space-y-6">
-                                        {/* Выбор стиля */}
-                                        <StyleSelector
-                                            selectedStyle={selectedStyle}
-                                            onSelect={(styleId) => {
-                                                setSelectedStyle(styleId);
-                                            }}
-                                        />
-                                        
-                                        {/* Выбор локации */}
-                                        <LocationSelector
-                                            selectedLocation={selectedLocation}
-                                            onSelect={locationId => {
-                                                setSelectedLocation(locationId);
-                                            }}
-                                        />
-                                        
-                                        {/* Кнопка генерации */}
-                                        {selectedStyle && selectedLocation && (
-                                            <button
-                                                type="button"
-                                                onClick={handleGenerateClick}
-                                                className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold text-lg hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                Сгенерировать новогодние фото
-                                            </button>
-                                        )}
-                                    </div>
+                            <div className="mt-6 space-y-6">
+                                {/* 2. Выберите стиль фотосессии (выпадающий список) */}
+                                {!isValidatingImage && !imageValidationError && (
+                                    <StyleSelect
+                                        selectedStyle={selectedStyle}
+                                        onSelect={(styleId) => {
+                                            setSelectedStyle(styleId);
+                                        }}
+                                    />
+                                )}
+                                
+                                {/* 4. Сгенерируйте фотосессию */}
+                                {selectedStyle && selectedLocation && (
+                                    <button
+                                        type="button"
+                                        onClick={handleGenerateClick}
+                                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-lg font-semibold text-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        4. Сгенерировать фотосессию
+                                    </button>
                                 )}
                                 
                                 <GenerationActions
@@ -1964,47 +1968,59 @@ function App() {
                         </div>
                     </aside>
                     
-                    {/* --- Right Column: Results --- */}
-                    <section ref={rightColumnRef} className="flex-1 relative overflow-hidden" style={{ borderRadius: '20px' }}>
-                        {/* Анимированный фон с портретами - показываем до начала генерации */}
-                        {(appState === 'idle' || appState === 'image-uploaded') && (
-                            <AnimatedPortraitsBackground className="absolute inset-0" containerRef={rightColumnRef} />
-                        )}
-                        
-                        <AnimatePresence>
-                            {(appState === 'idle' || appState === 'image-uploaded') && (
-                                <motion.div 
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0 }}
-                                    className="h-full flex flex-col items-center justify-center p-8 text-center relative z-10"
-                                >
-                                    {/* Градиентные оверлеи для читаемости текста (как на сайте) */}
-                                    <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-white/50 to-white/85 z-[5]" />
-                                    <div className="absolute inset-0 bg-gradient-to-r from-white/60 via-transparent to-white/40 z-[5]" />
-                                    
-                                    {/* Контент поверх анимации */}
-                                    <div className="relative z-20 bg-white/80 backdrop-blur-sm rounded-lg border-2 border-dashed border-gray-300 px-8 py-12">
-                                        <Icons.gallery className="h-16 w-16 text-gray-400 mb-4 mx-auto" />
-                                        <h3 className="text-xl font-semibold text-gray-800">Ваши бизнес-портреты</h3>
-                                        <p className="text-gray-500 mt-2 max-w-md">
-                                            {appState === 'idle' 
-                                                ? 'После загрузки фото здесь появятся ваши сгенерированные изображения.'
-                                                : 'Нажмите "Применить" или "Сгенерировать" чтобы начать создание портретов.'}
-                                        </p>
-                                    </div>
-                                </motion.div>
+                    {/* --- Right Column: Location Selection with Images --- */}
+                    <section className="flex-1">
+                        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                            {/* 3. Выберите локацию (изображения с подписями) */}
+                            {!isValidatingImage && !imageValidationError && (
+                                <LocationGrid
+                                    selectedLocation={selectedLocation}
+                                    onSelect={(locationId) => {
+                                        setSelectedLocation(locationId);
+                                    }}
+                                />
                             )}
-
-                            {appState === 'failed' && (
+                            
+                            {/* Показываем результаты генерации в правой колонке */}
+                            {(appState === 'generating' || appState === 'results-shown') && (
+                                <div className="mt-8">
+                                    {appState === 'generating' && (
+                                        <GenerationFlow
+                                            generatedImages={generatedImages}
+                                            onRegenerate={handleRegenerateStyle}
+                                            onDownload={handleDownloadIndividualImage}
+                                            onOpen={setLightboxUrl}
+                                        />
+                                    )}
+                                    
+                                    {appState === 'results-shown' && (
+                                        <ResultsView
+                                            generatedImages={generatedImages}
+                                            isDownloading={isDownloading}
+                                            onRegenerate={handleRegenerateStyle}
+                                            onDownload={handleDownloadIndividualImage}
+                                            onDownloadAll={handleDownloadAlbum}
+                                            onOpen={setLightboxUrl}
+                                            onReset={handleReset}
+                                        />
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </section>
+                    
+                    {/* Состояние ошибки */}
+                    {appState === 'failed' && (
+                        <section className="flex-1">
+                            <div className="bg-white p-6 rounded-xl border border-red-200 shadow-sm">
                                 <motion.div
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    className="h-full flex flex-col items-center justify-center bg-white rounded-lg border border-red-200 p-6 text-center"
+                                    className="flex flex-col items-center justify-center p-6 text-center"
                                 >
                                     <Icons.xCircle className="h-16 w-16 text-red-500 mb-4" />
                                     <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                                        Не удалось сгенерировать портреты
+                                        Не удалось сгенерировать фотосессию
                                     </h3>
                                     <p className="text-sm text-gray-600 mb-4 max-w-md">
                                         Произошла техническая ошибка при генерации. Попробуйте загрузить другое фото и
@@ -2031,31 +2047,17 @@ function App() {
                                             .
                                         </p>
                                     )}
+                                    <button
+                                        type="button"
+                                        onClick={handleReset}
+                                        className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                    >
+                                        Начать заново
+                                    </button>
                                 </motion.div>
-                            )}
-                        </AnimatePresence>
-
-                        {appState === 'generating' && (
-                            <GenerationFlow
-                                generatedImages={generatedImages}
-                                onRegenerate={handleRegenerateStyle}
-                                onDownload={handleDownloadIndividualImage}
-                                onOpen={setLightboxUrl}
-                            />
-                        )}
-                        
-                        {appState === 'results-shown' && (
-                            <ResultsView
-                                generatedImages={generatedImages}
-                                isDownloading={isDownloading}
-                                onRegenerate={handleRegenerateStyle}
-                                onDownload={handleDownloadIndividualImage}
-                                onDownloadAll={handleDownloadAlbum}
-                                onOpen={setLightboxUrl}
-                                onReset={handleReset}
-                            />
-                        )}
-                    </section>
+                            </div>
+                        </section>
+                    )}
                 </div>
             </main>
             <Footer onOpenRules={() => setIsRulesOpen(true)} />
