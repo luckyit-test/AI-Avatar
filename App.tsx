@@ -1924,7 +1924,7 @@ function App() {
                             
                             <div className="mt-6 space-y-6">
                                 {/* 2. Выберите стиль фотосессии (выпадающий список) */}
-                                {!isValidatingImage && !imageValidationError && (
+                                {!imageValidationError && (
                                     <StyleSelect
                                         selectedStyle={selectedStyle}
                                         onSelect={(styleId) => {
@@ -1972,7 +1972,7 @@ function App() {
                     <section className="flex-1">
                         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
                             {/* 3. Выберите локацию (изображения с подписями) */}
-                            {!isValidatingImage && !imageValidationError && (
+                            {!imageValidationError && (
                                 <LocationGrid
                                     selectedLocation={selectedLocation}
                                     onSelect={(locationId) => {
