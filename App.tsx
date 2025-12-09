@@ -1877,7 +1877,10 @@ function App() {
                                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white font-bold text-lg flex-shrink-0 shadow-md">
                                             1
                                         </div>
-                                        <span className="text-sm font-medium text-gray-900 mt-2 text-center">Загрузите фото</span>
+                                        <div className="text-sm font-medium text-gray-900 mt-3 text-center leading-relaxed">
+                                            <div>Загрузите</div>
+                                            <div className="mt-1">фото</div>
+                                        </div>
                                     </div>
                                     
                                     {/* Шаг 2 */}
@@ -1885,7 +1888,10 @@ function App() {
                                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white font-bold text-lg flex-shrink-0 shadow-md">
                                             2
                                         </div>
-                                        <span className="text-sm font-medium text-gray-900 mt-2 text-center">Выберите стиль</span>
+                                        <div className="text-sm font-medium text-gray-900 mt-3 text-center leading-relaxed">
+                                            <div>Выберите</div>
+                                            <div className="mt-1">стиль</div>
+                                        </div>
                                     </div>
                                     
                                     {/* Шаг 3 */}
@@ -1893,7 +1899,10 @@ function App() {
                                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white font-bold text-lg flex-shrink-0 shadow-md">
                                             3
                                         </div>
-                                        <span className="text-sm font-medium text-gray-900 mt-2 text-center">Выберите локацию</span>
+                                        <div className="text-sm font-medium text-gray-900 mt-3 text-center leading-relaxed">
+                                            <div>Выберите</div>
+                                            <div className="mt-1">локацию</div>
+                                        </div>
                                     </div>
                                     
                                     {/* Шаг 4 */}
@@ -1901,7 +1910,10 @@ function App() {
                                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white font-bold text-lg flex-shrink-0 shadow-md">
                                             4
                                         </div>
-                                        <span className="text-sm font-medium text-gray-900 mt-2 text-center">Получите результат</span>
+                                        <div className="text-sm font-medium text-gray-900 mt-3 text-center leading-relaxed">
+                                            <div>Получите</div>
+                                            <div className="mt-1">результат</div>
+                                        </div>
                                     </div>
                                 </div>
                                 

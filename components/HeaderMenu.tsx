@@ -100,7 +100,7 @@ export function HeaderMenu() {
                             transition={{ duration: 0.2 }}
                             className="md:hidden overflow-hidden"
                         >
-                            <div className="py-4 space-y-2 border-t border-white/20">
+                            <div className="py-4 border-t border-white/20">
                                 {menuItems.map((item, index) => {
                                     return (
                                         <a
@@ -111,7 +111,7 @@ export function HeaderMenu() {
                                                 handleMenuClick(item.href);
                                             }}
                                             className={cn(
-                                                'px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200',
+                                                'block px-4 py-4 rounded-lg text-base font-medium transition-all duration-200 mb-2',
                                                 item.highlight
                                                     ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white'
                                                     : 'text-white hover:bg-white/10'
