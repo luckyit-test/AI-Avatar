@@ -2011,9 +2011,9 @@ function App() {
                     /* --- Обычный layout: выбор стиля и локации --- */
                     <div className="flex flex-col lg:flex-row gap-8">
                         {/* --- Left Column: Upload, Style Select, Generate Button --- */}
-                        <aside className="w-full lg:w-1/2 xl:w-2/5 flex-shrink-0">
-                            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm sticky top-8 transition-shadow duration-300 hover:shadow-md">
-                                {/* 1. Загрузите ваше фото */}
+                        <aside className="w-full lg:w-1/2 xl:w-2/5 flex-shrink-0 space-y-6 sticky top-8">
+                            {/* Контейнер 1: Загрузите ваше фото */}
+                            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm transition-shadow duration-300 hover:shadow-md">
                                 <ImageUploadFlow
                                     uploadedImage={uploadedImage}
                                     isValidatingImage={isValidatingImage}
@@ -2033,19 +2033,23 @@ function App() {
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
-                                
-                                <div className="mt-6 space-y-6">
-                                    {/* 2. Выберите стиль фотосессии (выпадающий список) */}
-                                    {!imageValidationError && (
-                                        <StyleSelect
-                                            selectedStyle={selectedStyle}
-                                            onSelect={(styleId) => {
-                                                setSelectedStyle(styleId);
-                                            }}
-                                        />
-                                    )}
-                                    
-                                    {/* 4. Сгенерируйте фотосессию */}
+                            </div>
+                            
+                            {/* Контейнер 2: Выберите стиль фотосессии */}
+                            {!imageValidationError && (
+                                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm transition-shadow duration-300 hover:shadow-md">
+                                    <StyleSelect
+                                        selectedStyle={selectedStyle}
+                                        onSelect={(styleId) => {
+                                            setSelectedStyle(styleId);
+                                        }}
+                                    />
+                                </div>
+                            )}
+                            
+                            {/* Контейнер 3: Сгенерируйте фотосессию */}
+                            {!imageValidationError && (
+                                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm transition-shadow duration-300 hover:shadow-md">
                                     <div className="flex items-start gap-3">
                                         <span
                                             className="flex h-10 w-10 items-center justify-center rounded-full text-base font-semibold text-white flex-shrink-0 mt-0.5"
@@ -2105,30 +2109,8 @@ function App() {
                                             </motion.div>
                                         )}
                                     </AnimatePresence>
-                                    
-                                    {/* GenerationActions временно скрыт */}
-                                    {/* <GenerationActions
-                                        promoCodeInput={promoCodeInput}
-                                        promoMessage={promoMessage}
-                                        promoError={promoError}
-                                        promoLoading={promoLoading}
-                                        promoApplied={promoApplied}
-                                        currentOrder={currentOrder}
-                                        uploadedImage={uploadedImage}
-                                        appState={appState}
-                                        isGeneratingIntermediate={isGeneratingIntermediate}
-                                        onPromoCodeChange={(code) => {
-                                            setPromoCodeInput(code);
-                                            setPromoMessage(null);
-                                            setPromoError(null);
-                                        }}
-                                        onPromoCodeApply={handlePromoCodeApply}
-                                        onGenerateClick={handleGenerateClick}
-                                        onReset={handleReset}
-                                        getEffectiveGender={() => detectedGender}
-                                    /> */}
                                 </div>
-                            </div>
+                            )}
                         </aside>
                         
                         {/* --- Right Column: Location Selection with Images --- */}
