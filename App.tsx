@@ -1877,7 +1877,7 @@ function App() {
                                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white font-bold text-lg flex-shrink-0 shadow-md">
                                             1
                                         </div>
-                                        <div className="text-sm font-medium text-gray-900 mt-3 text-center leading-relaxed">
+                                        <div className="text-sm font-medium text-gray-900 mt-3 text-center" style={{ lineHeight: '15px' }}>
                                             <div>Загрузите</div>
                                             <div className="mt-1">фото</div>
                                         </div>
@@ -1888,7 +1888,7 @@ function App() {
                                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white font-bold text-lg flex-shrink-0 shadow-md">
                                             2
                                         </div>
-                                        <div className="text-sm font-medium text-gray-900 mt-3 text-center leading-relaxed">
+                                        <div className="text-sm font-medium text-gray-900 mt-3 text-center" style={{ lineHeight: '15px' }}>
                                             <div>Выберите</div>
                                             <div className="mt-1">стиль</div>
                                         </div>
@@ -1899,7 +1899,7 @@ function App() {
                                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white font-bold text-lg flex-shrink-0 shadow-md">
                                             3
                                         </div>
-                                        <div className="text-sm font-medium text-gray-900 mt-3 text-center leading-relaxed">
+                                        <div className="text-sm font-medium text-gray-900 mt-3 text-center" style={{ lineHeight: '15px' }}>
                                             <div>Выберите</div>
                                             <div className="mt-1">локацию</div>
                                         </div>
@@ -1910,7 +1910,7 @@ function App() {
                                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white font-bold text-lg flex-shrink-0 shadow-md">
                                             4
                                         </div>
-                                        <div className="text-sm font-medium text-gray-900 mt-3 text-center leading-relaxed">
+                                        <div className="text-sm font-medium text-gray-900 mt-3 text-center" style={{ lineHeight: '15px' }}>
                                             <div>Получите</div>
                                             <div className="mt-1">результат</div>
                                         </div>
