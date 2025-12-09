@@ -128,9 +128,21 @@ export function LocationGrid({ selectedLocation, onSelect, className }: Location
 
           return (
             <div key={groupKey}>
-              <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                {GROUP_LABELS[groupKey]}
-              </h4>
+              <div className="flex justify-center mb-4">
+                <h4 className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-semibold text-white shadow-md"
+                  style={{
+                    background: groupKey === 'home' 
+                      ? 'rgb(220, 38, 38)' 
+                      : groupKey === 'outdoor'
+                      ? 'rgb(234, 88, 12)'
+                      : groupKey === 'luxury'
+                      ? 'rgb(185, 28, 28)'
+                      : 'rgb(194, 65, 12)',
+                  }}
+                >
+                  {GROUP_LABELS[groupKey]}
+                </h4>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 {groupLocations.map((location) => {
                   const isSelected = selectedLocation === location.id;

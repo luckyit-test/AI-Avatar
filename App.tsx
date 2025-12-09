@@ -1870,49 +1870,87 @@ function App() {
                             
                             {/* 4 шага с соединительными линиями */}
                             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-2 mb-6">
-                                {/* Шаг 1 */}
-                                <div className="flex items-center gap-2 sm:gap-3">
+                                {/* Мобильная версия: сетка 2x2 */}
+                                <div className="grid grid-cols-2 gap-4 sm:hidden w-full max-w-md">
+                                    {/* Шаг 1 */}
                                     <div className="flex flex-col items-center">
                                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white font-bold text-lg flex-shrink-0 shadow-md">
                                             1
                                         </div>
                                         <span className="text-sm font-medium text-gray-900 mt-2 text-center">Загрузите фото</span>
                                     </div>
-                                    {/* Соединительная линия */}
-                                    <div className="hidden sm:block w-8 h-0.5 bg-gray-300 mx-2"></div>
-                                </div>
-                                
-                                {/* Шаг 2 */}
-                                <div className="flex items-center gap-2 sm:gap-3">
+                                    
+                                    {/* Шаг 2 */}
                                     <div className="flex flex-col items-center">
                                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white font-bold text-lg flex-shrink-0 shadow-md">
                                             2
                                         </div>
                                         <span className="text-sm font-medium text-gray-900 mt-2 text-center">Выберите стиль</span>
                                     </div>
-                                    {/* Соединительная линия */}
-                                    <div className="hidden sm:block w-8 h-0.5 bg-gray-300 mx-2"></div>
-                                </div>
-                                
-                                {/* Шаг 3 */}
-                                <div className="flex items-center gap-2 sm:gap-3">
+                                    
+                                    {/* Шаг 3 */}
                                     <div className="flex flex-col items-center">
                                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white font-bold text-lg flex-shrink-0 shadow-md">
                                             3
                                         </div>
                                         <span className="text-sm font-medium text-gray-900 mt-2 text-center">Выберите локацию</span>
                                     </div>
-                                    {/* Соединительная линия */}
-                                    <div className="hidden sm:block w-8 h-0.5 bg-gray-300 mx-2"></div>
-                                </div>
-                                
-                                {/* Шаг 4 */}
-                                <div className="flex items-center gap-2 sm:gap-3">
+                                    
+                                    {/* Шаг 4 */}
                                     <div className="flex flex-col items-center">
                                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white font-bold text-lg flex-shrink-0 shadow-md">
                                             4
                                         </div>
                                         <span className="text-sm font-medium text-gray-900 mt-2 text-center">Получите результат</span>
+                                    </div>
+                                </div>
+                                
+                                {/* Десктопная версия: горизонтальная линия */}
+                                <div className="hidden sm:flex items-center gap-2">
+                                    {/* Шаг 1 */}
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex flex-col items-center">
+                                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white font-bold text-lg flex-shrink-0 shadow-md">
+                                                1
+                                            </div>
+                                            <span className="text-sm font-medium text-gray-900 mt-2 text-center">Загрузите фото</span>
+                                        </div>
+                                        {/* Соединительная линия */}
+                                        <div className="w-8 h-0.5 bg-gray-300 mx-2"></div>
+                                    </div>
+                                    
+                                    {/* Шаг 2 */}
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex flex-col items-center">
+                                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white font-bold text-lg flex-shrink-0 shadow-md">
+                                                2
+                                            </div>
+                                            <span className="text-sm font-medium text-gray-900 mt-2 text-center">Выберите стиль</span>
+                                        </div>
+                                        {/* Соединительная линия */}
+                                        <div className="w-8 h-0.5 bg-gray-300 mx-2"></div>
+                                    </div>
+                                    
+                                    {/* Шаг 3 */}
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex flex-col items-center">
+                                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white font-bold text-lg flex-shrink-0 shadow-md">
+                                                3
+                                            </div>
+                                            <span className="text-sm font-medium text-gray-900 mt-2 text-center">Выберите локацию</span>
+                                        </div>
+                                        {/* Соединительная линия */}
+                                        <div className="w-8 h-0.5 bg-gray-300 mx-2"></div>
+                                    </div>
+                                    
+                                    {/* Шаг 4 */}
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex flex-col items-center">
+                                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white font-bold text-lg flex-shrink-0 shadow-md">
+                                                4
+                                            </div>
+                                            <span className="text-sm font-medium text-gray-900 mt-2 text-center">Получите результат</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
