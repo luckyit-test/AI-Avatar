@@ -38,21 +38,21 @@ const getGroupGradient = (group: CategoryKey) => {
   return gradients[group] || 'from-gray-500 to-gray-600';
 };
 
-// Цвета для табов
+// Цвета для табов - красно-оранжевые оттенки
 const getTabColors = (group: CategoryKey, isActive: boolean) => {
   const colors = {
     home: isActive 
-      ? 'bg-blue-500 text-white shadow-lg shadow-blue-200' 
-      : 'bg-blue-50 text-blue-600 hover:bg-blue-100',
+      ? 'bg-red-600 text-white shadow-lg shadow-red-200' 
+      : 'bg-red-100 text-white hover:bg-red-200',
     outdoor: isActive 
-      ? 'bg-green-500 text-white shadow-lg shadow-green-200' 
-      : 'bg-green-50 text-green-600 hover:bg-green-100',
+      ? 'bg-orange-600 text-white shadow-lg shadow-orange-200' 
+      : 'bg-orange-100 text-white hover:bg-orange-200',
     luxury: isActive 
-      ? 'bg-purple-500 text-white shadow-lg shadow-purple-200' 
-      : 'bg-purple-50 text-purple-600 hover:bg-purple-100',
+      ? 'bg-red-700 text-white shadow-lg shadow-red-300' 
+      : 'bg-red-200 text-white hover:bg-red-300',
     magic: isActive 
-      ? 'bg-orange-500 text-white shadow-lg shadow-orange-200' 
-      : 'bg-orange-50 text-orange-600 hover:bg-orange-100',
+      ? 'bg-orange-700 text-white shadow-lg shadow-orange-300' 
+      : 'bg-orange-200 text-white hover:bg-orange-300',
   };
   return colors[group];
 };
@@ -94,7 +94,7 @@ export function LocationGrid({ selectedLocation, onSelect, className }: Location
 
       {/* Табы для ПК версии */}
       <div className="hidden md:block mb-6">
-        <div className="flex gap-2 bg-gray-100 p-1.5 rounded-xl">
+        <div className="flex gap-2 bg-red-50 p-1.5 rounded-xl">
           {(Object.keys(LOCATION_GROUPS) as CategoryKey[]).map((categoryKey) => {
             const isActive = activeCategory === categoryKey;
             return (
