@@ -88,7 +88,8 @@ export function GenerationActions({
                                 onPromoCodeChange(e.target.value.toUpperCase().slice(0, 6));
                             }}
                             placeholder="Введите промокод"
-                            className="flex-1 h-10 px-3 rounded-lg border border-gray-300 text-sm tracking-[0.15em] sm:tracking-[0.24em] uppercase focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="flex-1 h-10 px-3 rounded-lg border text-sm tracking-[0.15em] sm:tracking-[0.24em] uppercase focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            style={{ borderColor: 'rgb(245, 75, 75)' }}
                         />
                         <button
                             type="button"
@@ -154,7 +155,8 @@ export function GenerationActions({
                     <button 
                         type="button"
                         onClick={onReset} 
-                        className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 flex-1 h-10 py-2 px-4 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm hover:shadow-md active:scale-[0.98] touch-manipulation"
+                        className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 flex-1 h-10 py-2 px-4 border bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm hover:shadow-md active:scale-[0.98] touch-manipulation"
+                        style={{ borderColor: 'rgb(245, 75, 75)' }}
                     >
                         <Icons.reset className="w-4 h-4 mr-2" />
                         Сбросить

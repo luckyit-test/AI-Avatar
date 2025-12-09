@@ -38,7 +38,8 @@ export function ResultsView({
             <div className="flex items-center gap-3 mt-6">
                 <button 
                     onClick={onReset} 
-                    className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 flex-1 h-10 py-2 px-4 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm hover:shadow-md active:scale-[0.98]"
+                    className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 flex-1 h-10 py-2 px-4 border bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 shadow-sm hover:shadow-md active:scale-[0.98]"
+                    style={{ borderColor: 'rgb(245, 75, 75)' }}
                 >
                     <Icons.reset className="w-4 h-4 mr-2" />
                     Создать новый

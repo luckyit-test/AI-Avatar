@@ -126,7 +126,8 @@ export function GalleryPage() {
                                     type="button"
                                     onClick={() => handlePageChange(currentPage - 1)}
                                     disabled={currentPage === 1}
-                                    className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 touch-manipulation"
+                                    className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 bg-white border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 touch-manipulation"
+                                    style={{ borderColor: 'rgb(245, 75, 75)' }}
                                 >
                                     Назад
                                 </button>
@@ -140,8 +141,9 @@ export function GalleryPage() {
                                             className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 touch-manipulation ${
                                                 page === currentPage
                                                     ? 'bg-blue-600 text-white'
-                                                    : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                                                    : 'text-gray-700 bg-white border hover:bg-gray-50'
                                             }`}
+                                            style={page !== currentPage ? { borderColor: 'rgb(245, 75, 75)' } : undefined}
                                         >
                                             {page}
                                         </button>
@@ -152,7 +154,8 @@ export function GalleryPage() {
                                     type="button"
                                     onClick={() => handlePageChange(currentPage + 1)}
                                     disabled={currentPage === totalPages}
-                                    className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 touch-manipulation"
+                                    className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 bg-white border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 touch-manipulation"
+                                    style={{ borderColor: 'rgb(245, 75, 75)' }}
                                 >
                                     Вперед
                                 </button>

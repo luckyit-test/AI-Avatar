@@ -73,8 +73,9 @@ const Uploader: React.FC<UploaderProps> = React.memo(({ onImageUpload, fileInput
                 "relative block w-full aspect-square rounded-xl border-2 border-dashed p-6 text-center cursor-pointer transition-all duration-200 flex flex-col items-center justify-center shadow-sm",
                 isDragging 
                     ? "border-blue-400 bg-blue-50 shadow-md scale-[1.02]" 
-                    : "border-gray-300 hover:border-blue-300 hover:bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    : "hover:border-blue-300 hover:bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             )}
+            style={!isDragging ? { borderColor: 'rgb(245, 75, 75)' } : undefined}
         >
             <input
                 ref={fileInputRef}
