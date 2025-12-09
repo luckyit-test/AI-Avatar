@@ -312,15 +312,20 @@ const ImageCard: React.FC<ImageCardProps> = React.memo(({
                                 {status === 'processing' && (
                                     <>
                                         {/* Обычная анимация для стилей без видеофона */}
-                                        <div className="mb-4 p-3 rounded-full bg-amber-100">
-                                            <Icons.lightning className="w-8 h-8 text-amber-600 animate-pulse" />
+                                        <div className="mb-4 p-3 rounded-full" style={{ backgroundColor: 'rgb(254, 226, 226)' }}>
+                                            <motion.img 
+                                                src="/dm.png" 
+                                                alt="Генерация" 
+                                                className="w-8 h-8 animate-pulse"
+                                                style={{ objectFit: 'contain' }}
+                                            />
                                         </div>
                                         <div className="text-center">
-                                            <p className="text-sm font-semibold text-amber-900 mb-1">
+                                            <p className="text-sm font-semibold mb-1" style={{ color: 'rgb(153, 27, 27)' }}>
                                                 Генерация...
                                             </p>
                                             {estimatedWaitTime !== undefined && estimatedWaitTime > 0 && (
-                                                <p className="text-xs text-amber-700">
+                                                <p className="text-xs" style={{ color: 'rgb(185, 28, 28)' }}>
                                                     Осталось ~{formatWaitTime(estimatedWaitTime)}
                                                 </p>
                                             )}
@@ -329,7 +334,8 @@ const ImageCard: React.FC<ImageCardProps> = React.memo(({
                                                 {[0, 1, 2].map((i) => (
                                                     <motion.div
                                                         key={i}
-                                                        className="w-2 h-2 bg-amber-500 rounded-full"
+                                                        className="w-2 h-2 rounded-full"
+                                                        style={{ backgroundColor: 'rgb(220, 38, 38)' }}
                                                         animate={{
                                                             scale: [1, 1.2, 1],
                                                             opacity: [0.5, 1, 0.5],
