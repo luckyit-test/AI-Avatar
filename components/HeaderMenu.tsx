@@ -7,10 +7,10 @@ export function HeaderMenu() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const menuItems = [
-        { label: 'Как это работает', href: '#how-it-works', icon: Icons.helpCircle },
-        { label: 'Примеры работ', href: '/gallery', icon: Icons.gallery },
-        { label: 'Цены', href: '#prices', icon: Icons.sparkles },
-        { label: 'Попробовать бесплатно', href: '#try-free', icon: Icons.lightning, highlight: true },
+        { label: 'КАК ЭТО РАБОТАЕТ', href: '#how-it-works' },
+        { label: 'ПРИМЕРЫ РАБОТ', href: '/gallery' },
+        { label: 'ЦЕНЫ', href: '#prices' },
+        { label: 'ПОПРОБОВАТЬ БЕСПЛАТНО', href: '#try-free', highlight: true },
     ];
 
     const handleMenuClick = (href: string) => {
@@ -54,7 +54,6 @@ export function HeaderMenu() {
                     {/* Десктопное меню */}
                     <nav className="hidden md:flex items-center gap-1">
                         {menuItems.map((item, index) => {
-                            const Icon = item.icon;
                             return (
                                 <a
                                     key={index}
@@ -65,14 +64,12 @@ export function HeaderMenu() {
                                     }}
                                     className={cn(
                                         'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
-                                        'flex items-center gap-2',
                                         item.highlight
                                             ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white hover:from-orange-700 hover:to-red-700 shadow-lg hover:shadow-xl'
                                             : 'text-white hover:bg-white/10 hover:text-white'
                                     )}
                                 >
-                                    <Icon className="w-4 h-4" />
-                                    <span>{item.label}</span>
+                                    {item.label}
                                 </a>
                             );
                         })}
@@ -105,7 +102,6 @@ export function HeaderMenu() {
                         >
                             <div className="py-4 space-y-2 border-t border-white/20">
                                 {menuItems.map((item, index) => {
-                                    const Icon = item.icon;
                                     return (
                                         <a
                                             key={index}
@@ -115,14 +111,13 @@ export function HeaderMenu() {
                                                 handleMenuClick(item.href);
                                             }}
                                             className={cn(
-                                                'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200',
+                                                'px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200',
                                                 item.highlight
                                                     ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white'
                                                     : 'text-white hover:bg-white/10'
                                             )}
                                         >
-                                            <Icon className="w-5 h-5" />
-                                            <span>{item.label}</span>
+                                            {item.label}
                                         </a>
                                     );
                                 })}
