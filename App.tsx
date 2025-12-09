@@ -2102,13 +2102,23 @@ function App() {
                                 </AnimatePresence>
                                 
                                 {/* Большая кнопка генерации */}
-                                <button
-                                    type="button"
-                                    onClick={handleGenerateClick}
-                                    className="w-full max-w-md bg-gradient-to-r from-orange-600 to-red-600 text-white py-4 px-8 rounded-lg font-semibold text-lg hover:from-orange-700 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    Начать генерацию
-                                </button>
+                                <div className="flex items-center gap-4 w-full max-w-md justify-center">
+                                    <span
+                                        className="flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold text-white flex-shrink-0 shadow-md"
+                                        style={{
+                                            background: 'rgb(220, 38, 38)',
+                                        }}
+                                    >
+                                        4
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={handleGenerateClick}
+                                        className="flex-1 bg-gradient-to-r from-orange-600 to-red-600 text-white py-4 px-8 rounded-lg font-semibold text-lg hover:from-orange-700 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Начать генерацию
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>

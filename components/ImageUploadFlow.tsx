@@ -34,10 +34,9 @@ export function ImageUploadFlow({
             <div data-onboarding="upload" className="mb-4">
                 <div className="flex items-start gap-3">
                     <span
-                        className="flex h-12 w-12 items-center justify-center rounded-full text-base font-semibold text-white flex-shrink-0 mt-0.5"
+                        className="flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold text-white flex-shrink-0 mt-0.5 shadow-md"
                         style={{
-                            background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                            boxShadow: '0 10px 20px rgba(79,70,229,0.35)',
+                            background: 'rgb(220, 38, 38)',
                         }}
                     >
                         1

@@ -75,10 +75,9 @@ export function LocationGrid({ selectedLocation, onSelect, className }: Location
       {/* Заголовок */}
       <div className="flex items-start gap-3 mb-6">
         <span
-          className="flex h-10 w-10 items-center justify-center rounded-full text-base font-semibold text-white flex-shrink-0 mt-0.5"
+          className="flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold text-white flex-shrink-0 mt-0.5 shadow-md"
           style={{
-            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-            boxShadow: '0 10px 20px rgba(16,185,129,0.35)',
+            background: 'rgb(220, 38, 38)',
           }}
         >
           3

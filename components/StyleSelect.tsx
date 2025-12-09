@@ -33,10 +33,9 @@ export function StyleSelect({ selectedStyle, onSelect, className }: StyleSelectP
     <div className={cn('w-full', className)}>
       <div className="flex items-start gap-3 mb-3">
         <span
-          className="flex h-10 w-10 items-center justify-center rounded-full text-base font-semibold text-white flex-shrink-0 mt-0.5"
+          className="flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold text-white flex-shrink-0 mt-0.5 shadow-md"
           style={{
-            background: 'linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%)',
-            boxShadow: '0 10px 20px rgba(139,92,246,0.35)',
+            background: 'rgb(220, 38, 38)',
           }}
         >
           2
