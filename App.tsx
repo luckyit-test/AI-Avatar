@@ -1880,44 +1880,93 @@ function App() {
             
             {/* Hero Section - скрываем во время генерации */}
             {appState !== 'generating' && (
-                <section className="w-full bg-white border-b border-gray-200">
-                    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-                        <div className="max-w-4xl mx-auto">
+                <section 
+                    className="w-full border-b border-gray-200 relative overflow-hidden"
+                    style={{
+                        background: 'linear-gradient(180deg, #faf8f5 0%, #f5f3f0 100%)',
+                        backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.8) 1px, transparent 1px)',
+                        backgroundSize: '20px 20px'
+                    }}
+                >
+                    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+                        <div className="max-w-5xl mx-auto">
+                            {/* Тег с иконкой снежинки */}
+                            <div className="flex justify-center mb-6">
+                                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-pink-100 border border-pink-200">
+                                    <svg className="w-4 h-4 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                                    </svg>
+                                    <span className="text-sm font-medium text-gray-900">Магия новогодних фотосессий</span>
+                                </div>
+                            </div>
+                            
                             {/* Заголовок */}
-                            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6 text-center">
-                                <div className="text-gray-900">Новогодние фотосессии</div>
+                            <h1 className="text-center mb-4">
                                 <div 
-                                    className="text-2xl sm:text-3xl lg:text-4xl bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mt-1"
+                                    className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 mb-2"
+                                    style={{ fontFamily: "'Playfair Display', serif" }}
+                                >
+                                    Новогодние фотосессии
+                                </div>
+                                <div 
+                                    className="text-2xl sm:text-3xl lg:text-4xl font-bold text-red-600"
+                                    style={{ fontFamily: "'Playfair Display', serif" }}
                                 >
                                     за несколько секунд
                                 </div>
                             </h1>
                             
-                            {/* 4 пункта */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                                <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white font-semibold flex-shrink-0">
-                                        1
+                            {/* Описательный текст */}
+                            <p className="text-center text-gray-700 text-base sm:text-lg mb-10 max-w-2xl mx-auto">
+                                Загрузите ваше фото, выберите стиль и локацию — наш ИИ создаст волшебную праздничную фотосессию
+                            </p>
+                            
+                            {/* 4 шага с соединительными линиями */}
+                            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-2 mb-6">
+                                {/* Шаг 1 */}
+                                <div className="flex items-center gap-2 sm:gap-3">
+                                    <div className="flex flex-col items-center">
+                                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white font-bold text-lg flex-shrink-0 shadow-md">
+                                            1
+                                        </div>
+                                        <span className="text-sm font-medium text-gray-900 mt-2 text-center">Загрузите фото</span>
                                     </div>
-                                    <span className="text-sm font-medium text-gray-900">Загрузите ваше фото</span>
+                                    {/* Соединительная линия */}
+                                    <div className="hidden sm:block w-8 h-0.5 bg-gray-300 mx-2"></div>
                                 </div>
-                                <div className="flex items-center gap-3 p-4 bg-orange-50 rounded-lg border border-orange-200">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-600 text-white font-semibold flex-shrink-0">
-                                        2
+                                
+                                {/* Шаг 2 */}
+                                <div className="flex items-center gap-2 sm:gap-3">
+                                    <div className="flex flex-col items-center">
+                                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white font-bold text-lg flex-shrink-0 shadow-md">
+                                            2
+                                        </div>
+                                        <span className="text-sm font-medium text-gray-900 mt-2 text-center">Выберите стиль</span>
                                     </div>
-                                    <span className="text-sm font-medium text-gray-900">Выберите стиль фотосессии</span>
+                                    {/* Соединительная линия */}
+                                    <div className="hidden sm:block w-8 h-0.5 bg-gray-300 mx-2"></div>
                                 </div>
-                                <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg border border-green-200">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-white font-semibold flex-shrink-0">
-                                        3
+                                
+                                {/* Шаг 3 */}
+                                <div className="flex items-center gap-2 sm:gap-3">
+                                    <div className="flex flex-col items-center">
+                                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white font-bold text-lg flex-shrink-0 shadow-md">
+                                            3
+                                        </div>
+                                        <span className="text-sm font-medium text-gray-900 mt-2 text-center">Выберите локацию</span>
                                     </div>
-                                    <span className="text-sm font-medium text-gray-900">Выберите локацию</span>
+                                    {/* Соединительная линия */}
+                                    <div className="hidden sm:block w-8 h-0.5 bg-gray-300 mx-2"></div>
                                 </div>
-                                <div className="flex items-center gap-3 p-4 bg-orange-50 rounded-lg border border-orange-200">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-600 text-white font-semibold flex-shrink-0">
-                                        4
+                                
+                                {/* Шаг 4 */}
+                                <div className="flex items-center gap-2 sm:gap-3">
+                                    <div className="flex flex-col items-center">
+                                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white font-bold text-lg flex-shrink-0 shadow-md">
+                                            4
+                                        </div>
+                                        <span className="text-sm font-medium text-gray-900 mt-2 text-center">Получите результат</span>
                                     </div>
-                                    <span className="text-sm font-medium text-gray-900">Сгенерируйте фотосессию</span>
                                 </div>
                             </div>
                         </div>
