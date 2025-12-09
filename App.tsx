@@ -1840,7 +1840,7 @@ function App() {
                                className="flex items-center justify-center logo-container cursor-pointer transition-opacity duration-200 hover:opacity-80"
                            >
                                <img 
-                                   src="/logo-hnyear.svg" 
+                                   src="/loho-hn.png" 
                                    alt="Новогодние фотосессии"
                                    className="w-auto object-contain"
                                    style={{
