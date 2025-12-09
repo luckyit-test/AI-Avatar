@@ -77,8 +77,8 @@ export function GalleryPage() {
                                 className="flex items-center justify-center logo-container cursor-pointer transition-opacity duration-200 hover:opacity-80"
                             >
                                 <img 
-                                    src="/logo-variant-6.svg" 
-                                    alt="newava.pro logo"
+                                    src="/logo-hnyear.svg" 
+                                    alt="Новогодние фотосессии"
                                     className="w-auto object-contain"
                                     style={{
                                         height: '55px',
