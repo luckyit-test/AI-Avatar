@@ -62,7 +62,7 @@ export function GalleryPage() {
             <header 
                 className="border-b sticky top-0 z-50"
                 style={{
-                    background: 'rgba(255, 255, 255, 0.98)',
+                    background: 'rgb(139, 5, 5)',
                     backdropFilter: 'blur(16px)',
                     borderColor: 'rgba(226, 232, 240, 0.6)',
                     boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.05)',
