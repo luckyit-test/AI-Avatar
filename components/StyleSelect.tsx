@@ -97,7 +97,7 @@ export function StyleSelect({ selectedStyle, onSelect, className }: StyleSelectP
                 boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
               }}
             >
-              <div className="max-h-72 overflow-auto py-1">
+              <div className="max-h-72 overflow-y-auto overflow-x-hidden py-1">
                 {NEW_YEAR_STYLES.map((style) => {
                   const isSelected = style.id === selectedStyle;
                   return (
@@ -118,11 +118,11 @@ export function StyleSelect({ selectedStyle, onSelect, className }: StyleSelectP
                       whileHover={{ x: 2 }}
                       transition={{ duration: 0.1 }}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-base">{style.name}</div>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex-1 min-w-0 overflow-hidden">
+                          <div className="font-medium text-base break-words">{style.name}</div>
                           <div className={cn(
-                            'text-xs mt-0.5 truncate',
+                            'text-xs mt-0.5 break-words',
                             isSelected ? 'text-purple-600' : 'text-gray-500'
                           )}>
                             {style.description}
