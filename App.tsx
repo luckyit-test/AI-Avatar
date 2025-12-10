@@ -1751,8 +1751,9 @@ function App() {
                                 )}
                             </AnimatePresence>
                             
-                            <div className="mt-6">
-                                {!isValidatingImage && !imageValidationError && uploadedImage && (appState === 'image-uploaded' || appState === 'generating' || appState === 'results-shown') && (
+                            {/* Показываем блок "Настройте параметры" всегда, если есть загруженное фото */}
+                            {!isValidatingImage && !imageValidationError && uploadedImage && (
+                                <div className="mt-6">
                                     <ImageConfiguration
                                         genderOverride={genderOverride}
                                         selectedRole={selectedRole}
@@ -1763,8 +1764,10 @@ function App() {
                                         onCompanyChange={setSelectedCompany}
                                         getEffectiveGender={getEffectiveGender}
                                     />
-                                )}
-                                
+                                </div>
+                            )}
+                            
+                            <div className="mt-6">
                                 <GenerationActions
                                     promoCodeInput={promoCodeInput}
                                     promoMessage={promoMessage}

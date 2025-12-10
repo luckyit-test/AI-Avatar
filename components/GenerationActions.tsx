@@ -89,7 +89,7 @@ export function GenerationActions({
                                         backgroundClip: 'text',
                                     }}
                                 >
-                                    2
+                                    3
                                 </span>
                             </div>
                         </div>
