@@ -1493,6 +1493,7 @@ function App() {
     };
     
     const handleReset = () => {
+        // Очищаем все состояния формы
         setUploadedImage(null);
         setImageValidationError(null);
         setIsValidatingImage(false);
@@ -1502,6 +1503,30 @@ function App() {
         setDetectedGender('unknown');
         setIntermediateImage(null);
         setIsGeneratingIntermediate(false);
+        
+        // Очищаем состояния заказа и промокода
+        setCurrentOrder(null);
+        setCurrentInvId(null);
+        setHasActivePayment(false);
+        setPromoCodeInput('');
+        setPromoMessage(null);
+        setPromoError(null);
+        setPromoApplied(false);
+        setPromoLoading(false);
+        
+        // Очищаем localStorage
+        if (typeof window !== 'undefined') {
+            window.localStorage.removeItem(CURRENT_ORDER_KEY);
+            window.localStorage.removeItem(PENDING_GENERATION_KEY);
+            window.localStorage.removeItem(LAST_SOURCE_IMAGE_KEY);
+        }
+        
+        // Очищаем URL параметры если они есть
+        if (typeof window !== 'undefined' && window.location.search) {
+            const url = new URL(window.location.href);
+            url.search = '';
+            window.history.replaceState({}, '', url.toString());
+        }
     };
 
     const handleDownloadIndividualImage = (style: string) => {
