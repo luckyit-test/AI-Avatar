@@ -43,6 +43,8 @@ export function GenerationActions({
     const effectiveGender = getEffectiveGender();
     const canGenerate = effectiveGender && (effectiveGender === 'male' || effectiveGender === 'female');
     const canUsePromo = !currentOrder && uploadedImage && canGenerate;
+    // Промокод можно использовать если есть загруженное фото (пол может быть не выбран еще)
+    const canEnterPromo = !currentOrder && uploadedImage;
     
     // Состояние для отслеживания touch событий и предотвращения двойных нажатий
     const [isProcessing, setIsProcessing] = React.useState(false);
@@ -121,7 +123,7 @@ export function GenerationActions({
                                 />
                                 <button
                                     type="button"
-                                    disabled={promoLoading || !promoCodeInput || promoCodeInput.length !== 6 || !canUsePromo}
+                                    disabled={promoLoading || !promoCodeInput || promoCodeInput.length !== 6 || !canEnterPromo}
                                     onClick={onPromoCodeApply}
                                     className="inline-flex items-center justify-center h-10 px-3 rounded-lg text-xs font-medium text-white disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed touch-manipulation active:scale-[0.98]"
                                     style={{
@@ -147,21 +149,14 @@ export function GenerationActions({
                     )}
                     
                     {/* Блок стоимости генерации - переверстан с градиентной границей */}
-                    <div className="mb-4 w-full rounded-xl relative" style={{ padding: '3px' }}>
-                        <div
-                            className="w-full h-full rounded-xl"
-                            style={{
-                                background: 'linear-gradient(135deg, #60a5fa 0%, #6366f1 50%, #8b5cf6 100%)',
-                            }}
-                        >
-                            <div className="w-full rounded-xl bg-white px-4 py-4 flex items-center justify-between">
-                                <span className="text-sm font-medium" style={{ color: 'rgb(124 93 242)' }}>
-                                    Стоимость генерации
-                                </span>
-                                <span className="text-lg font-semibold" style={{ color: 'rgb(124 93 242)' }}>
-                                    100 ₽
-                                </span>
-                            </div>
+                    <div className="mb-4 w-full rounded-xl relative overflow-hidden" style={{ padding: '3px', background: 'linear-gradient(135deg, #60a5fa 0%, #6366f1 50%, #8b5cf6 100%)' }}>
+                        <div className="w-full rounded-xl bg-white px-4 py-4 flex items-center justify-between">
+                            <span className="text-sm font-medium" style={{ color: 'rgb(124 93 242)' }}>
+                                Стоимость генерации
+                            </span>
+                            <span className="text-lg font-semibold" style={{ color: 'rgb(124 93 242)' }}>
+                                100 ₽
+                            </span>
                         </div>
                     </div>
                 </div>

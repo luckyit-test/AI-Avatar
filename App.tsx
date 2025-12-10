@@ -1805,13 +1805,11 @@ function App() {
                                     className="h-full flex flex-col items-center justify-center p-8 text-center relative z-10"
                                 >
                                     {/* Контент поверх анимации */}
-                                    <div className="relative z-20 bg-white/90 backdrop-blur-sm rounded-lg border-2 border-dashed border-gray-300 px-8 py-12">
-                                        <Icons.gallery className="h-16 w-16 text-gray-400 mb-4 mx-auto" />
+                                    <div className="relative z-20 bg-white/90 backdrop-blur-sm rounded-lg border-2 border-dashed border-gray-300 px-8 py-12 aspect-square flex flex-col items-center justify-center">
+                                        <Icons.gallery className="h-16 w-16 mb-4 mx-auto" style={{ color: 'rgb(139, 92, 246)' }} />
                                         <h3 className="text-xl font-semibold text-gray-800">Ваши бизнес-портреты</h3>
                                         <p className="text-gray-500 mt-2 max-w-md">
-                                            {appState === 'idle' 
-                                                ? 'После загрузки фото здесь появятся ваши сгенерированные изображения.'
-                                                : 'Нажмите "Применить" или "Сгенерировать" чтобы начать создание портретов.'}
+                                            После загрузки фото здесь появятся ваши портреты.
                                         </p>
                                     </div>
                                 </motion.div>

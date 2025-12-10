@@ -83,7 +83,7 @@ const Uploader: React.FC<UploaderProps> = React.memo(({ onImageUpload, fileInput
                 accept="image/png, image/jpeg, image/webp"
                 onChange={handleFileSelect}
             />
-            <Icons.upload className="mx-auto h-12 w-12 text-gray-400" />
+            <Icons.upload className="mx-auto h-12 w-12" style={{ color: 'rgb(139, 92, 246)' }} />
             <span className="mt-2 block text-sm font-medium text-gray-900">
                 Перетащите фото сюда
             </span>
