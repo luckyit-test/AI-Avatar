@@ -169,6 +169,11 @@ textarea {
     background-clip: text;
 }
 
+/* Кастомный цвет границы для border-gray-300 */
+.border-gray-300 {
+    border-color: rgb(124 93 242) !important;
+}
+
 /* Акцентный бейдж для .pro */
 .pro-badge {
     background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
