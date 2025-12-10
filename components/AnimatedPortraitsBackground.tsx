@@ -148,10 +148,12 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
           // Рассчитываем ширину одного набора портретов
           const singleSetWidth = rowPortraitsSet.length * (portraitSize + portraitGap) - portraitGap; // Ширина одного набора без padding
           // Нужно достаточно наборов чтобы заполнить экран + запас для бесконечного движения
-          const setsNeeded = Math.ceil((containerWidth * 3) / singleSetWidth) + 4; // 3 экрана ширины + запас
+          // Увеличиваем количество наборов для гарантированного заполнения без пробелов
+          const setsNeeded = Math.max(8, Math.ceil((containerWidth * 4) / singleSetWidth) + 6); // 4 экрана ширины + большой запас
           
           const rowPortraits: Portrait[] = [];
           // Создаем несколько наборов портретов для бесконечного движения
+          // Важно: создаем достаточно портретов, чтобы при любом положении экран был заполнен
           for (let setIndex = 0; setIndex < setsNeeded; setIndex++) {
             for (let i = 0; i < rowPortraitsSet.length; i++) {
               rowPortraits.push({
@@ -233,18 +235,22 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
         // Рассчитываем общую ширину всех портретов в ряду
         const totalRowWidth = row.portraits.length * singlePortraitWidth - portraitGap + rowPadding * 2;
         
-        // Ряды должны сразу отображаться в контейнере и заполнять весь экран
-        // Для бесшовного движения: когда один набор портретов уходит за экран,
-        // следующий набор уже должен быть виден. Двигаемся на ширину одного набора.
-        // Для движения влево: начинаем так, чтобы портреты заполняли экран справа налево
-        // Для движения вправо: начинаем так, чтобы портреты заполняли экран слева направо
-        const startX = row.direction === 'left' 
-          ? containerWidth - singleSetWidth + rowPadding // Начинаем так, чтобы портреты были видны справа налево
-          : -singleSetWidth + containerWidth + rowPadding; // Начинаем так, чтобы портреты были видны слева направо
+        // Для бесшовного бесконечного движения:
+        // 1. Ряды должны сразу заполнять весь экран
+        // 2. Анимация должна двигаться ровно на ширину одного набора (singleSetWidth)
+        // 3. Когда анимация повторяется, она должна начинаться с той же позиции
         
+        // Для движения влево: портреты движутся справа налево
+        // Начальная позиция: портреты заполняют экран справа
+        // Конечная позиция: на singleSetWidth левее начальной (ровно один набор)
+        const startX = row.direction === 'left' 
+          ? containerWidth + rowPadding // Начинаем справа от экрана
+          : -singleSetWidth + rowPadding; // Начинаем слева от экрана
+        
+        // Конечная позиция должна быть ровно на один набор дальше для бесшовного зацикливания
         const endX = row.direction === 'left' 
-          ? containerWidth - singleSetWidth * 2 + rowPadding // Заканчиваем так, чтобы следующий набор начинался справа
-          : containerWidth + rowPadding; // Заканчиваем справа, чтобы следующий набор начинался слева
+          ? startX - singleSetWidth // Двигаемся на один набор влево
+          : startX + singleSetWidth; // Двигаемся на один набор вправо
 
         return (
           <motion.div
