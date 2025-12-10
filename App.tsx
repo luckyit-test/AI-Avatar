@@ -1658,49 +1658,6 @@ function App() {
                                    }}
                                />
                            </a>
-                           
-                           {/* Текстовая часть с улучшенной типографикой */}
-                           <div 
-                               className="flex flex-col gap-0.5"
-                               style={{
-                                   marginLeft: '-5px',
-                                   marginTop: '-5px',
-                               }}
-                           >
-                                <h1 className="flex items-baseline gap-1.5">
-                                    <span 
-                                        className="text-2xl font-bold tracking-tight"
-                                        style={{
-                                            background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-                                            WebkitBackgroundClip: 'text',
-                                            WebkitTextFillColor: 'transparent',
-                                            backgroundClip: 'text',
-                                        }}
-                                    >
-                                        newava
-                                    </span>
-                                    <span 
-                                        className="text-lg font-semibold px-1.5 py-0.5 rounded"
-                                        style={{
-                                            background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
-                                            color: 'white',
-                                            fontSize: '0.875rem',
-                                            lineHeight: '1.25rem',
-                                        }}
-                                    >
-                                        .pro
-                                    </span>
-                                </h1>
-                                <p 
-                                    className="text-xs font-medium tracking-wide"
-                                    style={{
-                                        color: '#64748b',
-                                        letterSpacing: '0.025em',
-                                    }}
-                                >
-                                    АІ-ПОРТРЕТЫ
-                                </p>
-                           </div>
                         </div>
                         
                         {/* Кнопки справа */}
@@ -1847,12 +1804,8 @@ function App() {
                                     exit={{ opacity: 0 }}
                                     className="h-full flex flex-col items-center justify-center p-8 text-center relative z-10"
                                 >
-                                    {/* Градиентные оверлеи для читаемости текста (как на сайте) */}
-                                    <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-white/50 to-white/85 z-[5]" />
-                                    <div className="absolute inset-0 bg-gradient-to-r from-white/60 via-transparent to-white/40 z-[5]" />
-                                    
                                     {/* Контент поверх анимации */}
-                                    <div className="relative z-20 bg-white/80 backdrop-blur-sm rounded-lg border-2 border-dashed border-gray-300 px-8 py-12">
+                                    <div className="relative z-20 bg-white/90 backdrop-blur-sm rounded-lg border-2 border-dashed border-gray-300 px-8 py-12">
                                         <Icons.gallery className="h-16 w-16 text-gray-400 mb-4 mx-auto" />
                                         <h3 className="text-xl font-semibold text-gray-800">Ваши бизнес-портреты</h3>
                                         <p className="text-gray-500 mt-2 max-w-md">
