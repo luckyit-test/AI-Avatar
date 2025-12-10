@@ -35,10 +35,38 @@ export function ImageConfiguration({
     return (
         <>
             <div className="mb-6" data-onboarding="gender">
-                <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900 mb-1">
-                    <Icons.career className="w-4 h-4 text-blue-500" />
-                    Пол
-                </h2>
+                <div className="flex items-start gap-3 mb-4">
+                    <div
+                        className="flex h-14 w-14 items-center justify-center rounded-full flex-shrink-0 mt-0.5 relative"
+                        style={{
+                            background: 'linear-gradient(135deg, #60a5fa 0%, #6366f1 50%, #8b5cf6 100%)',
+                            padding: '3px',
+                            boxShadow: '0 2px 8px rgba(99, 102, 241, 0.15)',
+                        }}
+                    >
+                        <div className="w-full h-full rounded-full bg-white flex items-center justify-center">
+                            <span
+                                className="text-xl font-bold"
+                                style={{
+                                    background: 'linear-gradient(135deg, #3b82f6 0%, #6366f1 50%, #8b5cf6 100%)',
+                                    WebkitBackgroundClip: 'text',
+                                    WebkitTextFillColor: 'transparent',
+                                    backgroundClip: 'text',
+                                }}
+                            >
+                                2
+                            </span>
+                        </div>
+                    </div>
+                    <div className="flex-1">
+                        <h2 className="text-lg sm:text-xl font-bold mb-1" style={{ color: '#1e293b' }}>
+                            Настройте параметры
+                        </h2>
+                        <p className="text-sm text-gray-500">
+                            Выберите пол, должность и тип компании.
+                        </p>
+                    </div>
+                </div>
                 <p className="text-sm text-gray-500 mb-3">
                     {genderOverride === null 
                         ? 'Выберите пол для генерации портретов' 

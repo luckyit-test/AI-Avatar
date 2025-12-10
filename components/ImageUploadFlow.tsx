@@ -33,20 +33,33 @@ export function ImageUploadFlow({
         <>
             <div data-onboarding="upload" className="mb-4">
                 <div className="flex items-start gap-3">
-                    <span
-                        className="flex h-12 w-12 items-center justify-center rounded-full text-base font-semibold text-white flex-shrink-0 mt-0.5"
+                    <div
+                        className="flex h-14 w-14 items-center justify-center rounded-full flex-shrink-0 mt-0.5 relative"
                         style={{
-                            background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                            boxShadow: '0 10px 20px rgba(79,70,229,0.35)',
+                            background: 'linear-gradient(135deg, #60a5fa 0%, #6366f1 50%, #8b5cf6 100%)',
+                            padding: '3px',
+                            boxShadow: '0 2px 8px rgba(99, 102, 241, 0.15)',
                         }}
                     >
-                        1
-                    </span>
-                    <div>
-                        <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-0.5">
+                        <div className="w-full h-full rounded-full bg-white flex items-center justify-center">
+                            <span
+                                className="text-xl font-bold"
+                                style={{
+                                    background: 'linear-gradient(135deg, #3b82f6 0%, #6366f1 50%, #8b5cf6 100%)',
+                                    WebkitBackgroundClip: 'text',
+                                    WebkitTextFillColor: 'transparent',
+                                    backgroundClip: 'text',
+                                }}
+                            >
+                                1
+                            </span>
+                        </div>
+                    </div>
+                    <div className="flex-1">
+                        <h2 className="text-lg sm:text-xl font-bold mb-1" style={{ color: '#1e293b' }}>
                             Загрузите ваше фото
                         </h2>
-                        <p className="text-xs sm:text-sm text-gray-500">
+                        <p className="text-sm text-gray-500">
                             Прикрепите фото анфас.
                         </p>
                     </div>
