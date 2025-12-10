@@ -70,9 +70,6 @@ export function ImageConfiguration({
 
             {/* Секция "Пол" */}
             <div className="mb-6">
-                <label className="block text-sm font-bold mb-3" style={{ color: '#1e293b' }}>
-                    Пол
-                </label>
                 <div className="flex gap-2">
                     <button
                         className={cn(
@@ -117,7 +114,6 @@ export function ImageConfiguration({
                     Должность в ИТ
                 </label>
                 <CustomSelect
-                    label="Должность в ИТ"
                     options={IT_ROLES}
                     value={selectedRole}
                     onChange={(value) => onRoleChange(value as typeof IT_ROLES[number])}
@@ -131,7 +127,6 @@ export function ImageConfiguration({
                     Тип компании
                 </label>
                 <CustomSelect
-                    label="Тип компании"
                     options={COMPANY_TYPES}
                     value={selectedCompany}
                     onChange={(value) => onCompanyChange(value as typeof COMPANY_TYPES[number])}

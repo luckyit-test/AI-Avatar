@@ -1751,8 +1751,8 @@ function App() {
                                 )}
                             </AnimatePresence>
                             
-                            {/* Показываем блок "Настройте параметры" всегда, если есть загруженное фото */}
-                            {!isValidatingImage && !imageValidationError && uploadedImage && (
+                            {/* Показываем блок "Настройте параметры" всегда */}
+                            {!isValidatingImage && !imageValidationError && (
                                 <div className="mt-6">
                                     <ImageConfiguration
                                         genderOverride={genderOverride}
