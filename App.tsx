@@ -1805,11 +1805,12 @@ function App() {
                                     className="h-full flex flex-col items-center justify-center p-8 text-center relative z-10"
                                 >
                                     {/* Контент поверх анимации */}
-                                    <div className="relative z-20 bg-white/90 backdrop-blur-sm rounded-lg border-2 border-dashed border-gray-300 px-8 py-12 aspect-square flex flex-col items-center justify-center">
+                                    <div className="relative z-20 bg-white/90 backdrop-blur-sm rounded-lg border-2 border-dashed border-gray-300 px-6 py-6 aspect-square flex flex-col items-center justify-center max-w-xs mx-auto">
                                         <Icons.gallery className="h-16 w-16 mb-4 mx-auto" style={{ color: 'rgb(139, 92, 246)' }} />
                                         <h3 className="text-xl font-semibold text-gray-800">Ваши бизнес-портреты</h3>
-                                        <p className="text-gray-500 mt-2 max-w-md">
-                                            После загрузки фото здесь появятся ваши портреты.
+                                        <p className="text-gray-500 mt-2 text-center">
+                                            После загрузки фото<br />
+                                            здесь появятся ваши портреты.
                                         </p>
                                     </div>
                                 </motion.div>

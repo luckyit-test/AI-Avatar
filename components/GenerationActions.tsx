@@ -119,7 +119,7 @@ export function GenerationActions({
                                         onPromoCodeChange(e.target.value.toUpperCase().slice(0, 6));
                                     }}
                                     placeholder="ПРОМОКОД"
-                                    className="flex-1 h-10 px-3 rounded-lg border border-gray-300 text-sm tracking-[0.15em] sm:tracking-[0.24em] uppercase focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    className="flex-1 h-10 px-3 rounded-lg border border-gray-300 text-sm tracking-[0.15em] sm:tracking-[0.24em] uppercase focus:outline-none"
                                 />
                                 <button
                                     type="button"
@@ -149,7 +149,7 @@ export function GenerationActions({
                     )}
                     
                     {/* Блок стоимости генерации - переверстан с градиентной границей */}
-                    <div className="mb-4 w-full rounded-xl relative overflow-hidden" style={{ padding: '3px', background: 'linear-gradient(135deg, #60a5fa 0%, #6366f1 50%, #8b5cf6 100%)' }}>
+                    <div className="mb-4 w-full rounded-xl relative overflow-hidden" style={{ padding: '2px', background: 'linear-gradient(135deg, #60a5fa 0%, #6366f1 50%, #8b5cf6 100%)' }}>
                         <div className="w-full rounded-xl bg-white px-4 py-4 flex items-center justify-between">
                             <span className="text-sm font-medium" style={{ color: 'rgb(124 93 242)' }}>
                                 Стоимость генерации
