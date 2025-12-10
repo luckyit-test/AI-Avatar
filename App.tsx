@@ -1650,7 +1650,7 @@ function App() {
                                className="flex items-center justify-center logo-container cursor-pointer transition-opacity duration-200 hover:opacity-80"
                            >
                                <img 
-                                   src="/logo-variant-6.svg" 
+                                   src="/logo.png" 
                                    alt="newava.pro logo"
                                    className="w-auto object-contain"
                                    style={{
