@@ -1654,7 +1654,7 @@ function App() {
                                    alt="newava.pro logo"
                                    className="w-auto object-contain"
                                    style={{
-                                       height: '55px',
+                                       height: '75px',
                                    }}
                                />
                            </a>
