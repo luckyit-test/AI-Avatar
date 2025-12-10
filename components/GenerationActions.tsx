@@ -100,56 +100,69 @@ export function GenerationActions({
                             </p>
                         </div>
                     </div>
-                    <div className="mb-4 w-full rounded-lg border border-gray-200 bg-slate-50 px-3 h-16 flex items-center justify-between">
-                        <span className="text-xs sm:text-sm text-gray-500">
-                            Стоимость генерации
-                        </span>
-                        <span className="text-sm sm:text-lg font-semibold text-gray-900">
-                            100 ₽
-                        </span>
-                    </div>
                     
                     {/* Блок промокода - перемещен под шаг 2 */}
-                    <div className="mb-4">
-                        <div className="flex gap-2">
-                            <input
-                                type="text"
-                                inputMode="text"
-                                autoCapitalize="characters"
-                                autoComplete="off"
-                                autoCorrect="off"
-                                spellCheck="false"
-                                value={promoCodeInput}
-                                onChange={(e) => {
-                                    onPromoCodeChange(e.target.value.toUpperCase().slice(0, 6));
-                                }}
-                                placeholder="ПРОМОКОД"
-                                className="flex-1 h-10 px-3 rounded-lg border border-gray-300 text-sm tracking-[0.15em] sm:tracking-[0.24em] uppercase focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                            <button
-                                type="button"
-                                disabled={promoLoading || !promoCodeInput || promoCodeInput.length !== 6 || !canUsePromo}
-                                onClick={onPromoCodeApply}
-                                className="inline-flex items-center justify-center h-10 px-3 rounded-lg text-xs font-medium text-white disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed touch-manipulation active:scale-[0.98]"
-                                style={{
-                                    background: 'linear-gradient(135deg, #60a5fa 0%, #6366f1 50%, #8b5cf6 100%)',
-                                    boxShadow: '0 2px 8px rgba(99, 102, 241, 0.15)',
-                                }}
-                            >
-                                {promoLoading ? 'Проверяем…' : 'Применить'}
-                            </button>
-                        </div>
-                        {promoMessage && (
-                            <div className="mt-2 flex items-center text-[11px] text-emerald-600">
-                                <Icons.checkCircle className="w-3.5 h-3.5 mr-1.5" />
-                                <span>{promoMessage}</span>
+                    {!currentOrder && (
+                        <div className="mb-4">
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    inputMode="text"
+                                    autoCapitalize="characters"
+                                    autoComplete="off"
+                                    autoCorrect="off"
+                                    spellCheck="false"
+                                    value={promoCodeInput}
+                                    onChange={(e) => {
+                                        onPromoCodeChange(e.target.value.toUpperCase().slice(0, 6));
+                                    }}
+                                    placeholder="ПРОМОКОД"
+                                    className="flex-1 h-10 px-3 rounded-lg border border-gray-300 text-sm tracking-[0.15em] sm:tracking-[0.24em] uppercase focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                                <button
+                                    type="button"
+                                    disabled={promoLoading || !promoCodeInput || promoCodeInput.length !== 6 || !canUsePromo}
+                                    onClick={onPromoCodeApply}
+                                    className="inline-flex items-center justify-center h-10 px-3 rounded-lg text-xs font-medium text-white disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed touch-manipulation active:scale-[0.98]"
+                                    style={{
+                                        background: 'linear-gradient(135deg, #60a5fa 0%, #6366f1 50%, #8b5cf6 100%)',
+                                        boxShadow: '0 2px 8px rgba(99, 102, 241, 0.15)',
+                                    }}
+                                >
+                                    {promoLoading ? 'Проверяем…' : 'Применить'}
+                                </button>
                             </div>
-                        )}
-                        {!promoMessage && promoError && (
-                            <p className="mt-2 text-[11px] text-red-600">
-                                {promoError}
-                            </p>
-                        )}
+                            {promoMessage && (
+                                <div className="mt-2 flex items-center text-[11px] text-emerald-600">
+                                    <Icons.checkCircle className="w-3.5 h-3.5 mr-1.5" />
+                                    <span>{promoMessage}</span>
+                                </div>
+                            )}
+                            {!promoMessage && promoError && (
+                                <p className="mt-2 text-[11px] text-red-600">
+                                    {promoError}
+                                </p>
+                            )}
+                        </div>
+                    )}
+                    
+                    {/* Блок стоимости генерации - переверстан с градиентной границей */}
+                    <div className="mb-4 w-full rounded-xl relative" style={{ padding: '3px' }}>
+                        <div
+                            className="w-full h-full rounded-xl"
+                            style={{
+                                background: 'linear-gradient(135deg, #60a5fa 0%, #6366f1 50%, #8b5cf6 100%)',
+                            }}
+                        >
+                            <div className="w-full rounded-xl bg-white px-4 py-4 flex items-center justify-between">
+                                <span className="text-sm font-medium" style={{ color: 'rgb(124 93 242)' }}>
+                                    Стоимость генерации
+                                </span>
+                                <span className="text-lg font-semibold" style={{ color: 'rgb(124 93 242)' }}>
+                                    100 ₽
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
