@@ -236,16 +236,16 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
         const totalRowWidth = row.portraits.length * singlePortraitWidth - portraitGap + rowPadding * 2;
         
         // Для бесшовного бесконечного движения:
-        // 1. Ряды должны сразу заполнять весь экран
+        // 1. Ряды должны сразу заполнять весь экран (без выезжания с края)
         // 2. Анимация должна двигаться ровно на ширину одного набора (singleSetWidth)
         // 3. Когда анимация повторяется, она должна начинаться с той же позиции
         
         // Для движения влево: портреты движутся справа налево
-        // Начальная позиция: портреты заполняют экран справа
+        // Начальная позиция: портреты уже заполняют экран (начинаем с видимой позиции)
         // Конечная позиция: на singleSetWidth левее начальной (ровно один набор)
         const startX = row.direction === 'left' 
-          ? containerWidth + rowPadding // Начинаем справа от экрана
-          : -singleSetWidth + rowPadding; // Начинаем слева от экрана
+          ? containerWidth - singleSetWidth + rowPadding // Начинаем так, чтобы портреты сразу заполняли экран
+          : rowPadding; // Начинаем слева, чтобы портреты сразу заполняли экран
         
         // Конечная позиция должна быть ровно на один набор дальше для бесшовного зацикливания
         const endX = row.direction === 'left' 
