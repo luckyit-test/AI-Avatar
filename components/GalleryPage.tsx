@@ -94,7 +94,11 @@ export function GalleryPage() {
                                 href="mailto:kuznetsov@i-integrator.com"
                                 className="hidden md:inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 touch-manipulation active:scale-[0.98]"
                             >
-                                <Icons.helpCircle className="w-4 h-4" />
+                                <img 
+                                    src="/headphone.png" 
+                                    alt="Support"
+                                    className="w-4 h-4 object-contain"
+                                />
                                 Поддержка
                             </a>
                             {/* Кнопка "Портреты" - адаптивный текст */}
