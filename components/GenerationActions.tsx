@@ -119,13 +119,13 @@ export function GenerationActions({
                                         onPromoCodeChange(e.target.value.toUpperCase().slice(0, 6));
                                     }}
                                     placeholder="ПРОМОКОД"
-                                    className="flex-1 h-10 px-3 rounded-lg border border-gray-300 text-sm tracking-[0.15em] sm:tracking-[0.24em] uppercase focus:outline-none"
+                                    className="flex-1 h-10 px-2 sm:px-3 rounded-lg border border-gray-300 text-sm tracking-[0.15em] sm:tracking-[0.24em] uppercase focus:outline-none max-w-[calc(100%-90px)] sm:max-w-none"
                                 />
                                 <button
                                     type="button"
                                     disabled={promoLoading || !promoCodeInput || promoCodeInput.length !== 6 || !canEnterPromo}
                                     onClick={onPromoCodeApply}
-                                    className="inline-flex items-center justify-center h-10 px-3 rounded-lg text-xs font-medium text-white disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed touch-manipulation active:scale-[0.98]"
+                                    className="inline-flex items-center justify-center h-10 px-2 sm:px-3 rounded-lg text-xs font-medium text-white disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed touch-manipulation active:scale-[0.98] flex-shrink-0"
                                     style={{
                                         background: 'linear-gradient(135deg, #60a5fa 0%, #6366f1 50%, #8b5cf6 100%)',
                                         boxShadow: '0 2px 8px rgba(99, 102, 241, 0.15)',

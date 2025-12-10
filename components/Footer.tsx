@@ -13,10 +13,10 @@ const Footer: React.FC<FooterProps> = ({ onOpenRules }) => {
     return (
         <footer className="w-full mt-8 bg-white border-t border-gray-200">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8">
+                <div className="flex flex-col lg:flex-row items-center lg:items-start justify-between gap-8">
                     {/* Левая секция - Контактная информация */}
-                    <div className="flex flex-col gap-3">
-                        <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-3 items-center lg:items-start">
+                        <div className="flex flex-col gap-1 items-center lg:items-start">
                             <span className="text-sm text-gray-500">Email</span>
                             <a 
                                 href="mailto:kuznetsov@i-integrator.com" 
@@ -26,7 +26,7 @@ const Footer: React.FC<FooterProps> = ({ onOpenRules }) => {
                                 kuznetsov@i-integrator.com
                             </a>
                         </div>
-                        <div className="flex flex-col gap-1">
+                        <div className="flex flex-col gap-1 items-center lg:items-start">
                             <span className="text-sm text-gray-500">Телефон</span>
                             <a 
                                 href="tel:+79256852525" 
