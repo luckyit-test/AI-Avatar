@@ -47,7 +47,7 @@ const Footer: React.FC<FooterProps> = ({ onOpenRules }) => {
                                 alt="newava.pro logo"
                                 className="w-auto object-contain"
                                 style={{
-                                    height: '48px',
+                                    height: '75px',
                                 }}
                             />
                         </div>
