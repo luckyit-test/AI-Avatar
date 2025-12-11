@@ -1806,7 +1806,7 @@ app.get('/api/images/optimized', async (req, res) => {
       large: 300    // Для больших экранов (если понадобится)
     };
     
-    const targetSize = sizeMap[size as keyof typeof sizeMap] || sizeMap.medium;
+    const targetSize = sizeMap[size] || sizeMap.medium;
     
     // Читаем исходное изображение
     const imageBuffer = await fs.readFile(filePath);
