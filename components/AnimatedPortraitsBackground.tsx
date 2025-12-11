@@ -10,6 +10,7 @@ interface Portrait {
   id: string;
   url: string;
   size: number; // пиксели
+  loaded?: boolean; // Флаг загрузки для Intersection Observer
 }
 
 interface PortraitRow {
@@ -20,6 +21,108 @@ interface PortraitRow {
   y: number; // позиция Y в пикселях (абсолютная)
   duration: number; // секунды
 }
+
+// Функция для получения оптимизированного URL изображения
+const getOptimizedImageUrl = (originalUrl: string, size: 'small' | 'medium' = 'medium', format: 'webp' | 'jpeg' = 'webp'): string => {
+  if (!originalUrl || !originalUrl.startsWith('/images/')) {
+    return originalUrl;
+  }
+  
+  // Определяем размер в зависимости от ширины экрана
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const imageSize = isMobile ? 'small' : size;
+  
+  // Формируем URL для оптимизированного изображения
+  const params = new URLSearchParams({
+    url: originalUrl,
+    size: imageSize,
+    format: format,
+  });
+  
+  return `/api/images/optimized?${params.toString()}`;
+};
+
+// Компонент для одного портрета с Intersection Observer и WebP fallback
+const OptimizedPortrait: React.FC<{ portrait: Portrait; size: number }> = ({ portrait, size }) => {
+  const [isInView, setIsInView] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const imgRef = useRef<HTMLDivElement>(null);
+  
+  // Определяем размер в зависимости от ширины экрана
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const imageSize = isMobile ? 'small' : 'medium';
+  
+  useEffect(() => {
+    if (!imgRef.current) return;
+    
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setIsInView(true);
+            // Отключаем наблюдение после загрузки
+            observer.disconnect();
+          }
+        });
+      },
+      {
+        rootMargin: '50px', // Начинаем загрузку за 50px до появления в viewport
+        threshold: 0.01,
+      }
+    );
+    
+    observer.observe(imgRef.current);
+    
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+  
+  // Генерируем URL для WebP и fallback на JPEG
+  const webpUrl = isInView ? getOptimizedImageUrl(portrait.url, imageSize, 'webp') : '';
+  const jpegUrl = isInView ? getOptimizedImageUrl(portrait.url, imageSize, 'jpeg') : '';
+  
+  return (
+    <div
+      ref={imgRef}
+      style={{
+        width: `${size}px`,
+        height: `${size}px`,
+        flexShrink: 0,
+      }}
+    >
+      {isInView && (
+        <picture>
+          {/* WebP с fallback на JPEG */}
+          <source srcSet={webpUrl} type="image/webp" />
+          <img
+            src={jpegUrl || portrait.url}
+            alt="Business portrait"
+            className="w-full h-full object-cover"
+            style={{
+              borderRadius: '12px',
+              filter: 'brightness(0.98) contrast(1.08) saturate(1.1)',
+              opacity: 1,
+            }}
+            loading="lazy"
+            onError={(e) => {
+              if (!imageError) {
+                setImageError(true);
+                // Если WebP не загрузился, пробуем оригинальное изображение
+                const img = e.currentTarget;
+                if (img.src !== portrait.url) {
+                  img.src = portrait.url;
+                } else {
+                  console.error('[AnimatedPortraitsBackground] Failed to load image:', portrait.url);
+                }
+              }
+            }}
+          />
+        </picture>
+      )}
+    </div>
+  );
+};
 
 const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = ({ className = '', containerRef: externalContainerRef }) => {
   const [rows, setRows] = useState<PortraitRow[]>([]);
@@ -100,7 +203,7 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
         const currentHeight = element?.clientHeight || containerHeight;
         
         // Вычисляем количество рядов, которые поместятся в контейнер
-        // Ряды должны заполнять всю высоту без перекрытий и без отступов
+        // Ряды должны заполнять всю высоту без перекрытий и без свободного пространства
         // Добавляем дополнительный ряд для гарантированного заполнения без пробелов
         const numRows = Math.max(5, Math.ceil(currentHeight / rowHeight) + 1);
         
@@ -161,6 +264,7 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
                 id: `portrait-${rowIndex}-${setIndex}-${i}-${Date.now()}`,
                 url: rowPortraitsSet[i],
                 size: portraitSize,
+                loaded: false,
               });
             }
           }
@@ -292,29 +396,11 @@ const AnimatedPortraitsBackground: React.FC<AnimatedPortraitsBackgroundProps> = 
             }}
           >
             {row.portraits.map((portrait) => (
-              <div
+              <OptimizedPortrait
                 key={portrait.id}
-                style={{
-                  width: `${portrait.size}px`,
-                  height: `${portrait.size}px`,
-                  flexShrink: 0,
-                }}
-              >
-                <img
-                  src={portrait.url}
-                  alt="Business portrait"
-                  className="w-full h-full object-cover"
-                  style={{
-                    borderRadius: '12px',
-                    filter: 'brightness(0.98) contrast(1.08) saturate(1.1)',
-                    opacity: 1,
-                  }}
-                  loading="lazy"
-                  onError={(e) => {
-                    console.error('[AnimatedPortraitsBackground] Failed to load image:', portrait.url);
-                  }}
-                />
-              </div>
+                portrait={portrait}
+                size={portrait.size}
+              />
             ))}
           </motion.div>
         );

@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { join, basename } from 'path';
 import { promises as fs } from 'fs';
+import sharp from 'sharp';
 
 // Import configuration
 import {
@@ -1779,6 +1780,62 @@ app.use(paymentRoutes);
 
 // createNextInvId is imported from db/orders.js
 // Routes are already mounted above (after initialization)
+
+// Эндпоинт для оптимизированных версий изображений (WebP, разные размеры)
+app.get('/api/images/optimized', async (req, res) => {
+  try {
+    const { url, size = 'medium', format = 'webp' } = req.query;
+    
+    if (!url || typeof url !== 'string' || !url.startsWith('/images/')) {
+      return res.status(400).json({ error: 'Invalid image URL' });
+    }
+
+    const filePath = join(IMAGE_ROOT_DIR, url.replace('/images/', ''));
+    
+    // Проверяем существование файла
+    try {
+      await fs.access(filePath);
+    } catch {
+      return res.status(404).json({ error: 'Image not found' });
+    }
+
+    // Определяем размеры в зависимости от параметра size
+    const sizeMap = {
+      small: 150,   // Для мобильных устройств
+      medium: 200,  // Для десктопа (текущий размер)
+      large: 300    // Для больших экранов (если понадобится)
+    };
+    
+    const targetSize = sizeMap[size as keyof typeof sizeMap] || sizeMap.medium;
+    
+    // Читаем исходное изображение
+    const imageBuffer = await fs.readFile(filePath);
+    
+    // Обрабатываем через sharp
+    let processedImage = sharp(imageBuffer).resize(targetSize, targetSize, {
+      fit: 'cover',
+      withoutEnlargement: true
+    });
+
+    // Конвертируем в нужный формат
+    if (format === 'webp') {
+      processedImage = processedImage.webp({ quality: 85 });
+      res.setHeader('Content-Type', 'image/webp');
+    } else {
+      processedImage = processedImage.jpeg({ quality: 85 });
+      res.setHeader('Content-Type', 'image/jpeg');
+    }
+
+    // Кеширование на 1 день
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    
+    const optimizedBuffer = await processedImage.toBuffer();
+    res.send(optimizedBuffer);
+  } catch (err) {
+    console.error('[Optimized Images] Error:', err);
+    res.status(500).json({ error: 'Failed to optimize image' });
+  }
+});
 
 // Раздаём сохранённые изображения как статику
 app.use('/images', express.static(IMAGE_ROOT_DIR));
