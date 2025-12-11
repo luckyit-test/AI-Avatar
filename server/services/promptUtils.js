@@ -77,7 +77,7 @@ export function describeCompany(company) {
   }
 }
 
-export function attireByContext(gender, role, company) {
+export function attireByContext(gender, role, company, specificGarment = null) {
   const baseFemale = 'No facial hair. No beard. No mustache.';
   const baseMale = 'Preserve facial hair exactly as in original. If no facial hair in original, do not add any. Do not remove facial hair if present. Grooming neat and professional.';
 
@@ -154,11 +154,16 @@ export function attireByContext(gender, role, company) {
   const noSuitModern = (isModernCompany && role !== 'CTO') ? 'No suit. No tie. No tuxedo. Avoid formal blazer.' : '';
   const femaleNoSuit = (gender === 'female' && isModernCompany && role !== 'CTO') ? 'Avoid suit jacket; prefer blouse/knit.' : '';
 
+  // Если передан конкретный вариант одежды, используем его, иначе выбираем случайный
   let garment = '';
-  if (gender === 'female') {
-    garment = isFormalCompany ? randomChoice(femaleFormalPool) : randomChoice(femaleModernPool);
-  } else if (gender === 'male') {
-    garment = isFormalCompany ? randomChoice(maleFormalPool) : randomChoice(maleModernPool);
+  if (typeof specificGarment === 'string' && specificGarment) {
+    garment = specificGarment;
+  } else {
+    if (gender === 'female') {
+      garment = isFormalCompany ? randomChoice(femaleFormalPool) : randomChoice(femaleModernPool);
+    } else if (gender === 'male') {
+      garment = isFormalCompany ? randomChoice(maleFormalPool) : randomChoice(maleModernPool);
+    }
   }
 
   const grooming = gender === 'female' ? baseFemale : baseMale;
