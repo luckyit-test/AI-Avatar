@@ -58,7 +58,7 @@ const OptimizedPortrait: React.FC<{ portrait: Portrait; size: number }> = ({ por
   
   // Определяем размер в зависимости от ширины экрана
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  const imageSize = isMobile ? 'small' : 'medium';
+  const imageSize: 'small' | 'medium' = isMobile ? 'small' : 'medium';
   
   useEffect(() => {
     if (!imgRef.current) return;
