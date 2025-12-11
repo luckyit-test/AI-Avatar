@@ -1701,7 +1701,7 @@ function App() {
                                     className="w-4 h-4 object-contain"
                                 />
                                 Поддержка
-                            </a>
+                            </button>
                             {/* Кнопка "Портреты" - адаптивный текст */}
                             <a
                                 href="/gallery"
