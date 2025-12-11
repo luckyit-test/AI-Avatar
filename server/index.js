@@ -95,6 +95,10 @@ import generationRoutes, { initializeGenerationRoutes } from './routes/generatio
 import analysisRoutes, { initializeAnalysisRoutes } from './routes/analysis.js';
 import paymentRoutes, { initializePaymentRoutes } from './routes/payment.js';
 
+// Import Telegram Bot (optional)
+import { initializeTelegramBot, startTelegramBot } from './bot/telegram.js';
+import { TELEGRAM_BOT_TOKEN } from './config/index.js';
+
 const app = express();
 
 // Initialize database
@@ -2593,6 +2597,20 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Сервер запущен на порту ${PORT}`);
   console.log(`📡 API доступен по адресу: http://0.0.0.0:${PORT}`);
   console.log(`🔒 CORS разрешен для: ${allowedOrigins.join(', ')}`);
+  
+  // Инициализация Telegram бота (опционально, только если токен указан)
+  if (TELEGRAM_BOT_TOKEN) {
+    console.log('🤖 Инициализация Telegram бота...');
+    const telegramBot = initializeTelegramBot(TELEGRAM_BOT_TOKEN);
+    if (telegramBot) {
+      startTelegramBot(telegramBot);
+      console.log('✅ Telegram бот запущен');
+    } else {
+      console.log('⚠️ Не удалось инициализировать Telegram бота');
+    }
+  } else {
+    console.log('ℹ️ Telegram бот не настроен (TELEGRAM_BOT_TOKEN не указан)');
+  }
 }).on('error', (err) => {
   console.error('❌ Ошибка при запуске сервера:', err);
   if (err.code === 'EADDRINUSE') {

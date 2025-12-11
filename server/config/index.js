@@ -66,6 +66,9 @@ export const RATE_LIMIT_MAX_REQUESTS = 200;
 // API prefix
 export const API_PREFIX = '/api';
 
+// Telegram Bot config
+export const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+
 // Проверка обязательных переменных окружения
 if (!GEMINI_API_KEY_GENERATION) {
   console.error('❌ ERROR: GEMINI_API_KEY не установлен в переменных окружения');
