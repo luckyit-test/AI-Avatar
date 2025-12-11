@@ -90,8 +90,11 @@ const Footer: React.FC<FooterProps> = ({ onOpenRules }) => {
 
                     {/* Правая секция - Кнопка поддержки */}
                     <div className="flex items-center">
-                        <a
-                            href="mailto:info@i-integrator.com"
+                        <button
+                            type="button"
+                            onClick={() => {
+                                window.location.href = 'mailto:info@i-integrator.com';
+                            }}
                             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors hover:bg-gray-50"
                             style={{ 
                                 borderColor: 'rgb(147, 197, 253)',
@@ -104,7 +107,7 @@ const Footer: React.FC<FooterProps> = ({ onOpenRules }) => {
                                 className="w-5 h-5 object-contain"
                             />
                             <span className="text-sm font-medium">Служба поддержки</span>
-                        </a>
+                        </button>
                     </div>
                 </div>
 
