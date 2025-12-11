@@ -1689,7 +1689,7 @@ function App() {
                         <div className="flex items-center gap-2 sm:gap-3">
                             {/* Кнопка "Поддержка" - скрыта на мобильных */}
                             <a
-                                href="mailto:kuznetsov@i-integrator.com"
+                                href="mailto:info@i-integrator.com"
                                 className="hidden md:inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 touch-manipulation active:scale-[0.98]"
                             >
                                 <img 
@@ -1875,10 +1875,10 @@ function App() {
                                             </span>{' '}
                                             из 2. Если повторные попытки не помогут, напишите в поддержку:&nbsp;
                                             <a
-                                                href="mailto:kuznetsov@i-integrator.com"
+                                                href="mailto:info@i-integrator.com"
                                                 className="text-blue-600 hover:underline"
                                             >
-                                                kuznetsov@i-integrator.com
+                                                info@i-integrator.com
                                             </a>
                                             .
                                         </p>
@@ -2023,7 +2023,13 @@ function App() {
                                     </p>
                                 </div>
                                 <div className="space-y-2">
-                                    <h3 className="font-semibold text-gray-900">4. Ответственность и поддержка</h3>
+                                    <h3 className="font-semibold text-gray-900">4. Права на сгенерированные изображения</h3>
+                                    <p>
+                                        Нажимая на кнопку <span className="font-semibold">«Сгенерировать портреты»</span> или при применении промокода, вы даёте право нам на сгенерированные изображения и мы можем использовать их в качестве примеров сгенерированных портретов на этом ресурсе.
+                                    </p>
+                                </div>
+                                <div className="space-y-2">
+                                    <h3 className="font-semibold text-gray-900">5. Ответственность и поддержка</h3>
                                     <p>
                                         Нажимая кнопку <span className="font-semibold">«Сгенерировать»</span>, вы
                                         подтверждаете, что согласны с этими правилами. В случае нарушения правил
@@ -2033,10 +2039,10 @@ function App() {
                                         Если вы не согласны с полученными результатами или у вас есть вопросы, вы
                                         можете написать в службу поддержки по адресу:{' '}
                                         <a
-                                            href="mailto:kuznetsov@i-integrator.com"
+                                            href="mailto:info@i-integrator.com"
                                             className="text-blue-600 hover:underline"
                                         >
-                                            kuznetsov@i-integrator.com
+                                            info@i-integrator.com
                                         </a>
                                         .
                                     </p>

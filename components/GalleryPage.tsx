@@ -91,7 +91,7 @@ export function GalleryPage() {
                         <div className="flex items-center gap-2 sm:gap-3">
                             {/* Кнопка "Поддержка" - скрыта на мобильных */}
                             <a
-                                href="mailto:kuznetsov@i-integrator.com"
+                                href="mailto:info@i-integrator.com"
                                 className="hidden md:inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 touch-manipulation active:scale-[0.98]"
                             >
                                 <img 

@@ -19,11 +19,11 @@ const Footer: React.FC<FooterProps> = ({ onOpenRules }) => {
                         <div className="flex flex-col gap-1 items-center lg:items-start">
                             <span className="text-sm text-gray-500">Email</span>
                             <a 
-                                href="mailto:kuznetsov@i-integrator.com" 
+                                href="mailto:info@i-integrator.com" 
                                 className="text-sm font-medium transition-colors"
                                 style={{ color: 'rgb(67, 89, 241)' }}
                             >
-                                kuznetsov@i-integrator.com
+                                info@i-integrator.com
                             </a>
                         </div>
                         <div className="flex flex-col gap-1 items-center lg:items-start">
@@ -91,7 +91,7 @@ const Footer: React.FC<FooterProps> = ({ onOpenRules }) => {
                     {/* Правая секция - Кнопка поддержки */}
                     <div className="flex items-center">
                         <a
-                            href="mailto:kuznetsov@i-integrator.com"
+                            href="mailto:info@i-integrator.com"
                             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors hover:bg-gray-50"
                             style={{ 
                                 borderColor: 'rgb(147, 197, 253)',
