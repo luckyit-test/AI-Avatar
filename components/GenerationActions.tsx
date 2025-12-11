@@ -103,6 +103,18 @@ export function GenerationActions({
                         </div>
                     </div>
                     
+                    {/* Блок стоимости генерации - переверстан с градиентной границей */}
+                    <div className="mb-4 w-full rounded-xl relative overflow-hidden" style={{ padding: '1px', background: 'linear-gradient(135deg, #60a5fa 0%, #6366f1 50%, #8b5cf6 100%)' }}>
+                        <div className="w-full rounded-xl bg-white px-4 py-4 flex items-center justify-between">
+                            <span className="text-sm font-medium" style={{ color: 'rgb(124 93 242)' }}>
+                                Стоимость генерации
+                            </span>
+                            <span className="text-lg font-semibold" style={{ color: 'rgb(124 93 242)' }}>
+                                200 ₽
+                            </span>
+                        </div>
+                    </div>
+                    
                     {/* Блок промокода - перемещен под шаг 2 */}
                     {!currentOrder && (
                         <div className="mb-4">
@@ -147,18 +159,6 @@ export function GenerationActions({
                             )}
                         </div>
                     )}
-                    
-                    {/* Блок стоимости генерации - переверстан с градиентной границей */}
-                    <div className="mb-4 w-full rounded-xl relative overflow-hidden" style={{ padding: '1px', background: 'linear-gradient(135deg, #60a5fa 0%, #6366f1 50%, #8b5cf6 100%)' }}>
-                        <div className="w-full rounded-xl bg-white px-4 py-4 flex items-center justify-between">
-                            <span className="text-sm font-medium" style={{ color: 'rgb(124 93 242)' }}>
-                                Стоимость генерации
-                            </span>
-                            <span className="text-lg font-semibold" style={{ color: 'rgb(124 93 242)' }}>
-                                100 ₽
-                            </span>
-                        </div>
-                    </div>
                 </div>
             )}
             

@@ -50,7 +50,7 @@ export const ROBOKASSA_LOGIN = process.env.ROBOKASSA_LOGIN || 'newava.pro';
 export const ROBOKASSA_PASSWORD1 = process.env.ROBOKASSA_PASSWORD1;
 export const ROBOKASSA_PASSWORD2 = process.env.ROBOKASSA_PASSWORD2;
 export const ROBOKASSA_IS_TEST = process.env.ROBOKASSA_IS_TEST === '1' ? 1 : 0;
-export const ROBOKASSA_PAYMENT_AMOUNT = parseFloat(process.env.ROBOKASSA_PAYMENT_AMOUNT || '100.00');
+export const ROBOKASSA_PAYMENT_AMOUNT = parseFloat(process.env.ROBOKASSA_PAYMENT_AMOUNT || '200.00');
 export const ROBOKASSA_PAYMENT_DESC =
   process.env.ROBOKASSA_PAYMENT_DESC || 'Генерация бизнес-портретов (1 пакет из 6 изображений)';
 
