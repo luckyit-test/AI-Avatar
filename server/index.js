@@ -1795,7 +1795,8 @@ app.get('/api/images/optimized', async (req, res) => {
     // Проверяем существование файла
     try {
       await fs.access(filePath);
-    } catch {
+    } catch (accessError) {
+      console.error('[Optimized Images] File not found:', filePath, accessError);
       return res.status(404).json({ error: 'Image not found' });
     }
 
@@ -1808,31 +1809,46 @@ app.get('/api/images/optimized', async (req, res) => {
     
     const targetSize = sizeMap[size] || sizeMap.medium;
     
-    // Читаем исходное изображение
-    const imageBuffer = await fs.readFile(filePath);
-    
-    // Обрабатываем через sharp
-    let processedImage = sharp(imageBuffer).resize(targetSize, targetSize, {
-      fit: 'cover',
-      withoutEnlargement: true
-    });
+    try {
+      // Читаем исходное изображение
+      const imageBuffer = await fs.readFile(filePath);
+      
+      // Обрабатываем через sharp
+      let processedImage = sharp(imageBuffer).resize(targetSize, targetSize, {
+        fit: 'cover',
+        withoutEnlargement: true
+      });
 
-    // Конвертируем в нужный формат
-    if (format === 'webp') {
-      processedImage = processedImage.webp({ quality: 85 });
-      res.setHeader('Content-Type', 'image/webp');
-    } else {
-      processedImage = processedImage.jpeg({ quality: 85 });
-      res.setHeader('Content-Type', 'image/jpeg');
+      // Конвертируем в нужный формат
+      if (format === 'webp') {
+        processedImage = processedImage.webp({ quality: 85 });
+        res.setHeader('Content-Type', 'image/webp');
+      } else {
+        processedImage = processedImage.jpeg({ quality: 85 });
+        res.setHeader('Content-Type', 'image/jpeg');
+      }
+
+      // Кеширование на 1 день
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      
+      const optimizedBuffer = await processedImage.toBuffer();
+      res.send(optimizedBuffer);
+    } catch (processingError) {
+      console.error('[Optimized Images] Processing error:', processingError);
+      // Если обработка не удалась, пробуем отдать оригинальный файл
+      try {
+        const originalBuffer = await fs.readFile(filePath);
+        res.setHeader('Content-Type', 'image/jpeg');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        res.send(originalBuffer);
+      } catch (fallbackError) {
+        console.error('[Optimized Images] Fallback error:', fallbackError);
+        res.status(500).json({ error: 'Failed to serve image' });
+      }
     }
-
-    // Кеширование на 1 день
-    res.setHeader('Cache-Control', 'public, max-age=86400');
-    
-    const optimizedBuffer = await processedImage.toBuffer();
-    res.send(optimizedBuffer);
   } catch (err) {
-    console.error('[Optimized Images] Error:', err);
+    console.error('[Optimized Images] Unexpected error:', err);
+    // Не отправляем ошибку, чтобы не сломать страницу
     res.status(500).json({ error: 'Failed to optimize image' });
   }
 });

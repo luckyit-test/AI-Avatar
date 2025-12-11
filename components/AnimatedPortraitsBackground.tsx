@@ -23,23 +23,31 @@ interface PortraitRow {
 }
 
 // Функция для получения оптимизированного URL изображения
+// Использует оригинальный URL как fallback если оптимизация недоступна
 const getOptimizedImageUrl = (originalUrl: string, size: 'small' | 'medium' = 'medium', format: 'webp' | 'jpeg' = 'webp'): string => {
   if (!originalUrl || !originalUrl.startsWith('/images/')) {
     return originalUrl;
   }
   
-  // Определяем размер в зависимости от ширины экрана
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  const imageSize = isMobile ? 'small' : size;
-  
-  // Формируем URL для оптимизированного изображения
-  const params = new URLSearchParams({
-    url: originalUrl,
-    size: imageSize,
-    format: format,
-  });
-  
-  return `/api/images/optimized?${params.toString()}`;
+  // Проверяем поддержку WebP (опционально, можно убрать для упрощения)
+  // Если оптимизация недоступна, используем оригинальный URL
+  try {
+    // Определяем размер в зависимости от ширины экрана
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    const imageSize = isMobile ? 'small' : size;
+    
+    // Формируем URL для оптимизированного изображения
+    const params = new URLSearchParams({
+      url: originalUrl,
+      size: imageSize,
+      format: format,
+    });
+    
+    return `/api/images/optimized?${params.toString()}`;
+  } catch (error) {
+    // В случае ошибки возвращаем оригинальный URL
+    return originalUrl;
+  }
 };
 
 // Компонент для одного портрета с Intersection Observer и WebP fallback
@@ -108,10 +116,16 @@ const OptimizedPortrait: React.FC<{ portrait: Portrait; size: number }> = ({ por
             onError={(e) => {
               if (!imageError) {
                 setImageError(true);
-                // Если WebP не загрузился, пробуем оригинальное изображение
+                // Если оптимизированное изображение не загрузилось, пробуем оригинальное
                 const img = e.currentTarget;
-                if (img.src !== portrait.url) {
-                  img.src = portrait.url;
+                if (img.src !== portrait.url && img.src !== jpegUrl) {
+                  // Пробуем JPEG fallback
+                  if (jpegUrl && img.src !== jpegUrl) {
+                    img.src = jpegUrl;
+                  } else {
+                    // Если и JPEG не загрузился, используем оригинальный URL
+                    img.src = portrait.url;
+                  }
                 } else {
                   console.error('[AnimatedPortraitsBackground] Failed to load image:', portrait.url);
                 }
