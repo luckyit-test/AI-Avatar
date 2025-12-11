@@ -19,6 +19,7 @@ services:
       - ROBOKASSA_PASSWORD2=${ROBOKASSA_PASSWORD2:-XZ5g281nZGqZdvNPlV8E}
       - ROBOKASSA_IS_TEST=${ROBOKASSA_IS_TEST:-0}
       - ROBOKASSA_PAYMENT_AMOUNT=${ROBOKASSA_PAYMENT_AMOUNT:-200.00}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
     restart: unless-stopped
     volumes:
       - ./data:/data
