@@ -1162,13 +1162,6 @@ function clearGalleryCache() {
   console.log('[Gallery] Cache cleared due to new portrait generation');
 }
 
-// Функция для очистки кэша галереи (вызывается при сохранении новых портретов)
-export function clearGalleryCache() {
-  galleryCache = null;
-  galleryCacheTime = 0;
-  console.log('[Gallery] Cache cleared');
-}
-
 app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit) || 50, 100); // Максимум 100 портретов
