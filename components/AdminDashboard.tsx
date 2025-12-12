@@ -20,31 +20,33 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab = 'orders' }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <header className="w-full border-b bg-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-semibold text-slate-900">Админка NEWAVA.pro</h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Управление заказами, генерациями и промокодами.
-            </p>
+      <header className="w-full border-b bg-white shadow-sm">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-4 lg:py-5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Админка NEWAVA.pro</h1>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                Управление заказами, генерациями и промокодами
+              </p>
+            </div>
+            <a
+              href="/"
+              className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900 transition-colors underline decoration-dotted underline-offset-2"
+            >
+              ← Назад к сервису
+            </a>
           </div>
-          <a
-            href="/"
-            className="text-xs text-slate-500 hover:text-slate-900 underline decoration-dotted"
-          >
-            Назад к сервису
-          </a>
         </div>
-        <div className="border-t bg-slate-50">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <nav className="flex space-x-4">
+        <div className="border-t bg-slate-50/50">
+          <div className="w-full px-4 sm:px-6 lg:px-8">
+            <nav className="flex space-x-1 sm:space-x-2 overflow-x-auto -mb-px">
               <button
                 type="button"
                 onClick={() => handleTabChange('orders')}
-                className={`py-2 px-3 text-sm border-b-2 ${
+                className={`py-3 px-4 sm:px-6 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === 'orders'
-                    ? 'border-slate-900 text-slate-900 font-semibold'
-                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+                    ? 'border-slate-900 text-slate-900 bg-white'
+                    : 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300'
                 }`}
               >
                 Заказы
@@ -52,10 +54,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialTab = 'orders' }
               <button
                 type="button"
                 onClick={() => handleTabChange('promos')}
-                className={`py-2 px-3 text-sm border-b-2 ${
+                className={`py-3 px-4 sm:px-6 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === 'promos'
-                    ? 'border-slate-900 text-slate-900 font-semibold'
-                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+                    ? 'border-slate-900 text-slate-900 bg-white'
+                    : 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300'
                 }`}
               >
                 Промокоды
