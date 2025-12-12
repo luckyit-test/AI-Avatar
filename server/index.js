@@ -1170,10 +1170,20 @@ app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
     
     // Проверяем кэш
     const now = Date.now();
-    if (galleryCache && (now - galleryCacheTime) < GALLERY_CACHE_TTL) {
+    const cacheAge = galleryCacheTime ? (now - galleryCacheTime) : Infinity;
+    console.log('[Gallery Recent] Cache status:', {
+      hasCache: !!galleryCache,
+      cacheAge: cacheAge,
+      cacheTTL: GALLERY_CACHE_TTL,
+      cacheValid: galleryCache && cacheAge < GALLERY_CACHE_TTL
+    });
+    
+    if (galleryCache && cacheAge < GALLERY_CACHE_TTL) {
       console.log('[Gallery Recent] Returning cached portraits:', galleryCache.length);
       return res.json({ portraits: galleryCache.slice(0, limit) });
     }
+    
+    console.log('[Gallery Recent] Cache expired or missing, fetching from database...');
 
     // Получаем последние завершенные заказы с портретами
     // Пробуем сначала строгие условия, потом смягчаем

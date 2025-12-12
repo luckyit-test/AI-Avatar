@@ -288,8 +288,14 @@ export async function generatePortraitsForOrder(invId, MAX_QUEUE_SIZE, addToQueu
     saveOrder(order);
     
     // Очищаем кэш галереи при завершении генерации (если есть успешные портреты)
-    if (successful.length > 0 && clearGalleryCacheFn) {
-      clearGalleryCacheFn();
+    if (successful.length > 0) {
+      console.log(`[generatePortraitsForOrder] Clearing gallery cache for order ${invId}, successful portraits: ${successful.length}`);
+      if (clearGalleryCacheFn) {
+        clearGalleryCacheFn();
+        console.log(`[generatePortraitsForOrder] Gallery cache cleared successfully`);
+      } else {
+        console.warn(`[generatePortraitsForOrder] clearGalleryCacheFn is not set! Gallery cache will not be cleared.`);
+      }
     }
     
   } catch (err) {
