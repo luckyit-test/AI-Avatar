@@ -78,6 +78,8 @@ export function saveOrder(order) {
     imagesCount,
     failureReason: order.failureReason ?? null,
     retries: order.retries ?? 0,
+    paymentType: order.paymentType ?? null,
+    promoCode: order.promoCode ?? null,
   });
 }
 

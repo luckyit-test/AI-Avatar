@@ -18,6 +18,7 @@ interface AdminOrder {
   imagesCount?: number;
   failureReason?: string | null;
   retries: number;
+  promoCode?: string | null;
 }
 
 interface AdminOrdersResponse {
@@ -231,6 +232,7 @@ const AdminOrders: React.FC<AdminOrdersProps> = ({ embedded }) => {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider whitespace-nowrap">InvId</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider whitespace-nowrap">Статус</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider whitespace-nowrap">Сумма</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider whitespace-nowrap hidden md:table-cell">Промокод</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider whitespace-nowrap hidden lg:table-cell">Создан</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider whitespace-nowrap hidden md:table-cell">Пол</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider whitespace-nowrap hidden lg:table-cell">Роль</th>
@@ -260,6 +262,15 @@ const AdminOrders: React.FC<AdminOrdersProps> = ({ embedded }) => {
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-900">
                       {order.amount} ₽
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap hidden md:table-cell">
+                      {order.promoCode ? (
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200 font-mono tracking-[0.1em] uppercase">
+                          {order.promoCode}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 text-sm">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap hidden lg:table-cell">
                       {formatDate(order.createdAt)}
