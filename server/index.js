@@ -1794,7 +1794,9 @@ initializeAnalysisRoutes({
 // Передаем addToQueueLocal в generatePortraitsForOrder для запуска обработки очереди
 import { setAddToQueueFunction, setClearGalleryCacheFunction } from './services/portraitGeneration.js';
 setAddToQueueFunction(addToQueueLocal);
-setClearGalleryCacheFunction(clearGalleryCache);
+if (typeof setClearGalleryCacheFunction === 'function') {
+  setClearGalleryCacheFunction(clearGalleryCache);
+}
 
 initializePaymentRoutes({
   createNextInvId,

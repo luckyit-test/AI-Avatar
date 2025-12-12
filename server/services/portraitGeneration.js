@@ -20,6 +20,12 @@ export function setAddToQueueFunction(fn) {
   addToQueueWithProcessing = fn;
 }
 
+let clearGalleryCacheFn = null;
+
+export function setClearGalleryCacheFunction(fn) {
+  clearGalleryCacheFn = fn;
+}
+
 /**
  * Сохраняет изображение на диск и возвращает публичный URL
  */
