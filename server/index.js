@@ -1204,7 +1204,10 @@ app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
     `);
     
     let orders = stmt.all();
-    console.log('[Gallery Recent] Found completed orders:', orders.length);
+    console.log('[Gallery Recent] Found completed orders (excluding Telegram):', orders.length);
+    if (orders.length > 0) {
+      console.log('[Gallery Recent] Sample order IDs:', orders.slice(0, 5).map(o => ({ invId: o.invId, paymentType: o.paymentType, imagesCount: o.imagesCount })));
+    }
     
     // Если не нашли завершенные заказы, пробуем найти любые заказы с портретами (но все равно исключаем Telegram)
     if (orders.length === 0) {
