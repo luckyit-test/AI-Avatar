@@ -61,24 +61,42 @@ const updateImagesCountStmt = db.prepare(
 );
 
 export function saveOrder(order) {
-  const imagesCount =
-    typeof order.imagesCount === 'number'
-      ? order.imagesCount
-      : order.generatedImages
-      ? Object.keys(order.generatedImages).length
-      : 0;
+  // Вычисляем imagesCount из generatedImages, если он не установлен или равен 0
+  let imagesCount = typeof order.imagesCount === 'number' ? order.imagesCount : 0;
+  
+  // Если imagesCount = 0, но есть generatedImages, пересчитываем
+  if (imagesCount === 0 && order.generatedImages && typeof order.generatedImages === 'object') {
+    const keys = Object.keys(order.generatedImages);
+    if (keys.length > 0) {
+      imagesCount = keys.length;
+      console.log(`[saveOrder] Recalculated imagesCount for order ${order.invId}: ${imagesCount} (was 0)`);
+    }
+  }
+  
+  // Если imagesCount все еще 0, но есть generatedImagesJson, пытаемся распарсить
+  if (imagesCount === 0 && order.generatedImages && typeof order.generatedImages === 'object') {
+    const keys = Object.keys(order.generatedImages);
+    imagesCount = keys.length;
+  }
 
   const generatedImagesJson = order.generatedImages ? JSON.stringify(order.generatedImages) : null;
   
   // Логируем сохранение заказа для диагностики
   if (order.status === 'completed' && generatedImagesJson) {
+    const actualKeys = order.generatedImages ? Object.keys(order.generatedImages) : [];
     console.log(`[saveOrder] Saving completed order ${order.invId}:`, {
       status: order.status,
       paymentType: order.paymentType ?? 'NULL',
       imagesCount,
       generatedImagesJsonLength: generatedImagesJson.length,
-      generatedImagesKeys: order.generatedImages ? Object.keys(order.generatedImages) : []
+      generatedImagesKeys: actualKeys,
+      actualImagesCount: actualKeys.length
     });
+    
+    // Если imagesCount не совпадает с реальным количеством, предупреждаем
+    if (actualKeys.length > 0 && imagesCount !== actualKeys.length) {
+      console.warn(`[saveOrder] WARNING: imagesCount mismatch for order ${order.invId}: DB=${imagesCount}, actual=${actualKeys.length}`);
+    }
   }
 
   insertOrderStmt.run({

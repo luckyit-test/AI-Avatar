@@ -1192,13 +1192,15 @@ app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
     // Получаем последние завершенные заказы с портретами
     // ИСКЛЮЧАЕМ портреты из Telegram бота (только портреты с сайта)
     // Используем LIKE вместо NOT IN для более надежной фильтрации NULL значений
+    // УБРАЛИ условие imagesCount > 0, так как imagesCount может быть 0 из-за бага, но generatedImagesJson содержит данные
     let stmt = db.prepare(`
       SELECT invId, generatedImagesJson, createdAt, status, imagesCount, paymentType
       FROM orders 
       WHERE status = 'completed' 
         AND generatedImagesJson IS NOT NULL 
         AND generatedImagesJson != 'null'
-        AND imagesCount > 0
+        AND generatedImagesJson != ''
+        AND LENGTH(generatedImagesJson) > 10
         AND (paymentType IS NULL OR paymentType NOT LIKE 'telegram_%')
       ORDER BY createdAt DESC 
       LIMIT 50
@@ -1219,7 +1221,8 @@ app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
         WHERE generatedImagesJson IS NOT NULL 
           AND generatedImagesJson != 'null'
           AND generatedImagesJson != ''
-          AND (imagesCount > 0 OR generatedImagesJson LIKE '%/images/%')
+          AND LENGTH(generatedImagesJson) > 10
+          AND (generatedImagesJson LIKE '%/images/%' OR generatedImagesJson LIKE '%"')
           AND (paymentType IS NULL OR paymentType NOT LIKE 'telegram_%')
         ORDER BY createdAt DESC 
         LIMIT 50
@@ -1314,7 +1317,8 @@ app.get(`${API_PREFIX}/gallery/orders`, (req, res) => {
         WHERE generatedImagesJson IS NOT NULL 
           AND generatedImagesJson != 'null'
           AND generatedImagesJson != ''
-          AND (imagesCount > 0 OR generatedImagesJson LIKE '%/images/%')
+          AND LENGTH(generatedImagesJson) > 10
+          AND (generatedImagesJson LIKE '%/images/%' OR generatedImagesJson LIKE '%"')
           AND (paymentType IS NULL OR paymentType NOT LIKE 'telegram_%')
         ORDER BY createdAt DESC 
         LIMIT 45
