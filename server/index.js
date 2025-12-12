@@ -2638,6 +2638,95 @@ app.post(`${API_PREFIX}/detect-gender`, async (req, res) => {
   }
 });
 
+// Диагностический эндпоинт для проверки галереи (без пароля, только диагностика)
+app.get(`${API_PREFIX}/diagnostics/gallery`, (req, res) => {
+  try {
+    console.log('[Diagnostics] Gallery diagnostics requested');
+    
+    // Получаем последние заказы из БД
+    const recentOrdersStmt = db.prepare(`
+      SELECT invId, status, paymentType, imagesCount, createdAt,
+             CASE WHEN generatedImagesJson IS NOT NULL AND generatedImagesJson != 'null' THEN 1 ELSE 0 END as hasImages,
+             LENGTH(generatedImagesJson) as jsonLength
+      FROM orders
+      ORDER BY createdAt DESC
+      LIMIT 20
+    `);
+    const recentOrders = recentOrdersStmt.all();
+    
+    // Заказы для галереи (исключая Telegram)
+    const galleryOrdersStmt = db.prepare(`
+      SELECT invId, status, paymentType, imagesCount, createdAt
+      FROM orders
+      WHERE status = 'completed'
+        AND generatedImagesJson IS NOT NULL
+        AND generatedImagesJson != 'null'
+        AND imagesCount > 0
+        AND (paymentType IS NULL OR paymentType NOT LIKE 'telegram_%')
+      ORDER BY createdAt DESC
+      LIMIT 10
+    `);
+    const galleryOrders = galleryOrdersStmt.all();
+    
+    // Статистика по paymentType
+    const paymentTypeStatsStmt = db.prepare(`
+      SELECT 
+        paymentType,
+        COUNT(*) as count,
+        SUM(CASE WHEN status = 'completed' AND generatedImagesJson IS NOT NULL AND generatedImagesJson != 'null' THEN 1 ELSE 0 END) as completedWithImages
+      FROM orders
+      GROUP BY paymentType
+    `);
+    const paymentTypeStats = paymentTypeStatsStmt.all();
+    
+    // Статус кэша галереи
+    const cacheStatus = {
+      hasCache: !!galleryCache,
+      cacheAge: galleryCacheTime ? (Date.now() - galleryCacheTime) : null,
+      cacheSize: galleryCache ? galleryCache.length : 0,
+      cacheTTL: GALLERY_CACHE_TTL
+    };
+    
+    res.json({
+      timestamp: new Date().toISOString(),
+      recentOrders: recentOrders.map(o => ({
+        invId: o.invId,
+        status: o.status,
+        paymentType: o.paymentType || 'NULL',
+        imagesCount: o.imagesCount,
+        hasImages: o.hasImages === 1,
+        createdAt: new Date(o.createdAt).toISOString(),
+        jsonLength: o.jsonLength
+      })),
+      galleryOrders: galleryOrders.map(o => ({
+        invId: o.invId,
+        status: o.status,
+        paymentType: o.paymentType || 'NULL',
+        imagesCount: o.imagesCount,
+        createdAt: new Date(o.createdAt).toISOString()
+      })),
+      paymentTypeStats: paymentTypeStats.map(s => ({
+        paymentType: s.paymentType || 'NULL',
+        totalOrders: s.count,
+        completedWithImages: s.completedWithImages
+      })),
+      cacheStatus,
+      summary: {
+        totalRecentOrders: recentOrders.length,
+        galleryEligibleOrders: galleryOrders.length,
+        cacheEnabled: false, // Кэш отключен для надежности
+        lastCacheUpdate: galleryCacheTime ? new Date(galleryCacheTime).toISOString() : null
+      }
+    });
+  } catch (error) {
+    console.error('[Diagnostics] Error:', error);
+    res.status(500).json({
+      error: 'Ошибка при получении диагностики',
+      message: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
 // Health check (без логирования для снижения нагрузки)
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
