@@ -1157,9 +1157,11 @@ const GALLERY_CACHE_TTL = 5 * 60 * 1000; // 5 минут
 
 // Функция для очистки кэша галереи (вызывается при сохранении новых портретов)
 function clearGalleryCache() {
+  const hadCache = !!galleryCache;
+  const cacheSize = galleryCache ? galleryCache.length : 0;
   galleryCache = null;
   galleryCacheTime = 0;
-  console.log('[Gallery] Cache cleared due to new portrait generation');
+  console.log(`[Gallery] Cache cleared due to new portrait generation. Had ${cacheSize} portraits in cache.`);
 }
 
 app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
