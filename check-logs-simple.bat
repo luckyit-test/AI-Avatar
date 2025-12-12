@@ -1,25 +1,26 @@
 @echo off
 chcp 65001 >nul
-REM Простая проверка логов - выводит всё в консоль
-
 echo ========================================
-echo ПРОВЕРКА ЛОГОВ И ОКРУЖЕНИЯ НА ПРОДЕ
+echo Проверка логов галереи на проде
 echo ========================================
 echo.
-echo Скопируйте ВЕСЬ вывод ниже и отправьте мне
-echo.
-echo ========================================
+echo Выполняю команды через SSH...
+echo Пароль будет запрошен автоматически
 echo.
 
-plink.exe -batch -ssh root@43.245.226.24 -pw Yd2Vc_Wejus0DlNB "cd /opt/newava && echo '=== СТАТУС КОНТЕЙНЕРОВ ===' && docker compose ps && echo '' && echo '=== ПОСЛЕДНИЕ 300 СТРОК ЛОГОВ BACKEND ===' && docker compose logs --tail=300 backend 2>&1 && echo '' && echo '=== ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ (без значений) ===' && docker compose exec -T backend env 2>/dev/null | grep -E 'GEMINI|ROBOKASSA|PORT|ALLOWED' | sed 's/=.*/=***/' && echo '' && echo '=== ПРОВЕРКА .env ФАЙЛА ===' && if [ -f .env ]; then echo 'Файл существует'; ls -lh .env; echo 'Переменные (без значений):'; cat .env | sed 's/=.*/=***/' | head -15; else echo 'ФАЙЛ .env НЕ НАЙДЕН!'; fi"
+echo [1/3] Проверка последних запросов к галерее...
+echo Yd2Vc_Wejus0DlNB | ssh -o StrictHostKeyChecking=no root@43.245.226.24 "docker logs newava_backend --tail 200 2>&1 | grep -E 'Gallery|Order|paymentType' | tail -50"
+echo.
 
+echo [2/3] Проверка последних заказов в БД...
+echo Yd2Vc_Wejus0DlNB | ssh -o StrictHostKeyChecking=no root@43.245.226.24 "docker logs newava_backend --tail 200 2>&1 | grep -E 'generatePortraitsForOrder|saveOrder|completed' | tail -50"
 echo.
+
+echo [3/3] Проверка ошибок...
+echo Yd2Vc_Wejus0DlNB | ssh -o StrictHostKeyChecking=no root@43.245.226.24 "docker logs newava_backend --tail 200 2>&1 | grep -E 'ERROR|Error|error|Failed|failed' | tail -30"
+echo.
+
 echo ========================================
-echo ПРОВЕРКА ЗАВЕРШЕНА
+echo Проверка завершена
 echo ========================================
-echo.
-echo Скопируйте ВЕСЬ текст выше (от === СТАТУС КОНТЕЙНЕРОВ === до конца)
-echo и отправьте мне в сообщении
-echo.
 pause
-
