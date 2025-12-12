@@ -172,7 +172,7 @@ export async function generatePortraitsForOrder(invId, MAX_QUEUE_SIZE, addToQueu
             const publicUrl = await saveImageForOrder(style, status.result.imageDataUrl, invId);
             order.generatedImages[style] = publicUrl;
             saveOrder(order);
-            console.log(`[generatePortraitsForOrder] ✅ Successfully generated ${style} for order ${invId}`);
+            console.log(`[generatePortraitsForOrder] ✅ Successfully generated ${style} for order ${invId}, saved to: ${publicUrl}`);
             return { style, success: true, url: status.result.imageDataUrl };
           }
           
@@ -285,14 +285,16 @@ export async function generatePortraitsForOrder(invId, MAX_QUEUE_SIZE, addToQueu
       console.error(`[generatePortraitsForOrder] ❌ Order ${invId} failed: no portraits generated`);
     }
     
+    // Сохраняем финальный статус заказа
     saveOrder(order);
+    console.log(`[generatePortraitsForOrder] Order ${invId} saved to database with ${successful.length} portraits, status: ${order.status}`);
     
-    // Очищаем кэш галереи при завершении генерации (если есть успешные портреты)
+    // Очищаем кэш галереи ПОСЛЕ сохранения в БД (если есть успешные портреты)
     if (successful.length > 0) {
       console.log(`[generatePortraitsForOrder] Clearing gallery cache for order ${invId}, successful portraits: ${successful.length}`);
       if (clearGalleryCacheFn) {
         clearGalleryCacheFn();
-        console.log(`[generatePortraitsForOrder] Gallery cache cleared successfully`);
+        console.log(`[generatePortraitsForOrder] Gallery cache cleared successfully. Next gallery request will fetch fresh data from DB.`);
       } else {
         console.warn(`[generatePortraitsForOrder] clearGalleryCacheFn is not set! Gallery cache will not be cleared.`);
       }
