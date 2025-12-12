@@ -68,6 +68,19 @@ export function saveOrder(order) {
       ? Object.keys(order.generatedImages).length
       : 0;
 
+  const generatedImagesJson = order.generatedImages ? JSON.stringify(order.generatedImages) : null;
+  
+  // Логируем сохранение заказа для диагностики
+  if (order.status === 'completed' && generatedImagesJson) {
+    console.log(`[saveOrder] Saving completed order ${order.invId}:`, {
+      status: order.status,
+      paymentType: order.paymentType ?? 'NULL',
+      imagesCount,
+      generatedImagesJsonLength: generatedImagesJson.length,
+      generatedImagesKeys: order.generatedImages ? Object.keys(order.generatedImages) : []
+    });
+  }
+
   insertOrderStmt.run({
     invId: String(order.invId),
     status: order.status,
@@ -78,7 +91,7 @@ export function saveOrder(order) {
     company: order.company ?? null,
     photoSessionType: order.photoSessionType ?? 'Деловая фотосессия',
     hasImageData: order.hasImageData ? 1 : 0,
-    generatedImagesJson: order.generatedImages ? JSON.stringify(order.generatedImages) : null,
+    generatedImagesJson,
     imagesCount,
     failureReason: order.failureReason ?? null,
     retries: order.retries ?? 0,

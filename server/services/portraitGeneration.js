@@ -286,8 +286,22 @@ export async function generatePortraitsForOrder(invId, MAX_QUEUE_SIZE, addToQueu
     }
     
     // Сохраняем финальный статус заказа
+    // ВАЖНО: Сохраняем paymentType, чтобы веб-заказы не теряли его
+    if (!order.paymentType) {
+      // Для веб-заказов paymentType должен быть NULL (не telegram_*)
+      order.paymentType = null;
+    }
+    
+    console.log(`[generatePortraitsForOrder] Saving order ${invId} to DB:`, {
+      status: order.status,
+      paymentType: order.paymentType || 'NULL',
+      imagesCount: successful.length,
+      hasGeneratedImages: !!order.generatedImages,
+      generatedImagesKeys: order.generatedImages ? Object.keys(order.generatedImages) : []
+    });
+    
     saveOrder(order);
-    console.log(`[generatePortraitsForOrder] Order ${invId} saved to database with ${successful.length} portraits, status: ${order.status}`);
+    console.log(`[generatePortraitsForOrder] Order ${invId} saved to database with ${successful.length} portraits, status: ${order.status}, paymentType: ${order.paymentType || 'NULL'}`);
     
     // Очищаем кэш галереи ПОСЛЕ сохранения в БД (если есть успешные портреты)
     if (successful.length > 0) {
