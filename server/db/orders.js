@@ -17,7 +17,9 @@ INSERT INTO orders (
   generatedImagesJson,
   imagesCount,
   failureReason,
-  retries
+  retries,
+  paymentType,
+  promoCode
 )
 VALUES (
   @invId,
@@ -32,7 +34,9 @@ VALUES (
   @generatedImagesJson,
   @imagesCount,
   @failureReason,
-  @retries
+  @retries,
+  @paymentType,
+  @promoCode
 )
 ON CONFLICT(invId) DO UPDATE SET
   status = excluded.status,
