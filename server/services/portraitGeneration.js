@@ -23,7 +23,7 @@ export function setAddToQueueFunction(fn) {
 /**
  * Сохраняет изображение на диск и возвращает публичный URL
  */
-async function saveImageForOrder(style, dataUrl, invId) {
+export async function saveImageForOrder(style, dataUrl, invId) {
   try {
     const styleSlugMap = {
       'Классический': 'klassicheskiy',

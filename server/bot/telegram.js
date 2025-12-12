@@ -20,6 +20,7 @@ import { saveOrder, createNextInvId, orderImages, loadOrder } from '../db/orders
 import { createRoleKeyboard, createCompanyKeyboard, getRoleByIndex, getCompanyByIndex } from './keyboards.js';
 import { ROBOKASSA_LOGIN, ROBOKASSA_PASSWORD1, ROBOKASSA_PASSWORD2, ROBOKASSA_IS_TEST, ROBOKASSA_PAYMENT_AMOUNT, ROBOKASSA_PAYMENT_DESC, API_PREFIX, MAX_QUEUE_SIZE } from '../config/index.js';
 import { generatePortraitsForOrder } from '../services/portraitGeneration.js';
+import { saveImageForOrder } from '../services/portraitGeneration.js';
 import crypto from 'crypto';
 
 const STYLES = ['Классический', 'Современный', 'Креативный', 'Технологичный', 'Дружелюбный', 'Уверенный'];
@@ -788,8 +789,12 @@ export function initializeTelegramBot(token) {
             // Отмечаем, что пользователь использовал бесплатную генерацию
             markFreeGenerationUsed(userId, String(invId));
             
-            // Обновляем заказ с результатом
-            const generatedImages = { [portrait.style]: portrait.imageUrl };
+            // Сохраняем изображение в файл (как в основном коде)
+            const publicUrl = await saveImageForOrder(portrait.style, portrait.imageUrl, invId);
+            console.log('[Telegram Bot] Free portrait saved to file:', publicUrl);
+            
+            // Обновляем заказ с результатом (используем путь к файлу, а не data URL)
+            const generatedImages = { [portrait.style]: publicUrl };
             order.status = 'completed';
             order.generatedImages = generatedImages;
             order.imagesCount = 1;
@@ -798,7 +803,7 @@ export function initializeTelegramBot(token) {
             // Удаляем временное хранилище
             bot.tempImageStorage?.delete(fileId);
             
-            // Отправляем результат
+            // Отправляем результат пользователю
             const match = portrait.imageUrl.match(/^data:image\/\w+;base64,(.+)$/);
             const base64Data = match ? match[1] : portrait.imageUrl.replace(/^data:.*;base64,/, '');
             const buffer = Buffer.from(base64Data, 'base64');
