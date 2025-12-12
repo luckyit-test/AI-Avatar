@@ -281,6 +281,11 @@ export async function generatePortraitsForOrder(invId, MAX_QUEUE_SIZE, addToQueu
     
     saveOrder(order);
     
+    // Очищаем кэш галереи при завершении генерации (если есть успешные портреты)
+    if (successful.length > 0 && clearGalleryCacheFn) {
+      clearGalleryCacheFn();
+    }
+    
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     console.error(`[generatePortraitsForOrder] Fatal error for order ${invId}:`, errorMessage);

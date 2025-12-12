@@ -1155,6 +1155,20 @@ let galleryCache = null;
 let galleryCacheTime = 0;
 const GALLERY_CACHE_TTL = 5 * 60 * 1000; // 5 минут
 
+// Функция для очистки кэша галереи (вызывается при сохранении новых портретов)
+function clearGalleryCache() {
+  galleryCache = null;
+  galleryCacheTime = 0;
+  console.log('[Gallery] Cache cleared due to new portrait generation');
+}
+
+// Функция для очистки кэша галереи (вызывается при сохранении новых портретов)
+export function clearGalleryCache() {
+  galleryCache = null;
+  galleryCacheTime = 0;
+  console.log('[Gallery] Cache cleared');
+}
+
 app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit) || 50, 100); // Максимум 100 портретов
@@ -1785,8 +1799,9 @@ initializeAnalysisRoutes({
 });
 
 // Передаем addToQueueLocal в generatePortraitsForOrder для запуска обработки очереди
-import { setAddToQueueFunction } from './services/portraitGeneration.js';
+import { setAddToQueueFunction, setClearGalleryCacheFunction } from './services/portraitGeneration.js';
 setAddToQueueFunction(addToQueueLocal);
+setClearGalleryCacheFunction(clearGalleryCache);
 
 initializePaymentRoutes({
   createNextInvId,
