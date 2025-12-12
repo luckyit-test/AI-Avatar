@@ -562,14 +562,35 @@ export function initializeTelegramBot(token) {
         let message = `✅ Пол определен: ${genderText}\n\n`;
         message += '🎨 Выбери вариант генерации:\n\n';
         
+        // Создаем короткий идентификатор для callback_data (Telegram ограничивает до 64 байт)
+        // Используем первые 40 символов file_id + хеш для уникальности
+        const shortFileId = largestPhoto.file_id.length > 40 
+          ? largestPhoto.file_id.substring(0, 40) 
+          : largestPhoto.file_id;
+        
         const keyboard = [];
         
         if (!hasUsedFree) {
-          keyboard.push([{ text: '🎁 Бесплатный портрет (1 раз)', callback_data: `free_${largestPhoto.file_id}` }]);
+          const freeCallback = `free_${shortFileId}`;
+          if (freeCallback.length > 64) {
+            console.error('[Telegram Bot] Free callback_data too long:', freeCallback.length);
+            // Используем только первые символы
+            const truncatedId = shortFileId.substring(0, 64 - 5); // 5 символов для "free_"
+            keyboard.push([{ text: '🎁 Бесплатный портрет (1 раз)', callback_data: `free_${truncatedId}` }]);
+          } else {
+            keyboard.push([{ text: '🎁 Бесплатный портрет (1 раз)', callback_data: freeCallback }]);
+          }
           message += '🎁 Бесплатный портрет (1 раз) - Разработчик/Стартап\n';
         }
         
-        keyboard.push([{ text: '💰 6 портретов за 200₽', callback_data: `paid_6_${largestPhoto.file_id}` }]);
+        const paidCallback = `paid_6_${shortFileId}`;
+        if (paidCallback.length > 64) {
+          console.error('[Telegram Bot] Paid callback_data too long:', paidCallback.length);
+          const truncatedId = shortFileId.substring(0, 64 - 8); // 8 символов для "paid_6_"
+          keyboard.push([{ text: '💰 6 портретов за 200₽', callback_data: `paid_6_${truncatedId}` }]);
+        } else {
+          keyboard.push([{ text: '💰 6 портретов за 200₽', callback_data: paidCallback }]);
+        }
         message += '💰 6 профессиональных портретов за 200₽\n';
         message += '⭐ Премиум портрет за 500₽ (скоро)';
         
@@ -583,6 +604,16 @@ export function initializeTelegramBot(token) {
           gender: analysis.gender,
           timestamp: Date.now(),
         });
+        
+        // Также сохраняем по короткому ID для обратной совместимости
+        if (shortFileId !== largestPhoto.file_id) {
+          bot.tempImageStorage.set(shortFileId, {
+            imageData,
+            gender: analysis.gender,
+            timestamp: Date.now(),
+            originalFileId: largestPhoto.file_id,
+          });
+        }
         
         console.log('[Telegram Bot] Image stored in temp storage', {
           userId,
@@ -1057,7 +1088,18 @@ export function initializeTelegramBot(token) {
         // Обработка платного варианта (6 портретов) - выбор роли
         if (data.startsWith('paid_6_')) {
           const fileId = data.replace('paid_6_', '');
-          const stored = bot.tempImageStorage?.get(fileId);
+          let stored = bot.tempImageStorage?.get(fileId);
+          
+          // Если не найдено по короткому ID, пробуем найти по оригинальному file_id
+          if (!stored) {
+            // Ищем в хранилище по полному file_id
+            for (const [key, value] of bot.tempImageStorage.entries()) {
+              if (key.endsWith(fileId) || value.originalFileId === fileId) {
+                stored = value;
+                break;
+              }
+            }
+          }
           
           if (!stored) {
             await ctx.answerCbQuery('❌ Изображение устарело. Отправьте фото заново.');
