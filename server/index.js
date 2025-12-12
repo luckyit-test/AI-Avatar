@@ -1158,17 +1158,19 @@ app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit) || 50, 100); // Максимум 100 портретов
     
+    console.log('[Gallery Recent] Request received, limit:', limit);
+    
     // Проверяем кэш
     const now = Date.now();
     if (galleryCache && (now - galleryCacheTime) < GALLERY_CACHE_TTL) {
-      console.log('[Gallery] Returning cached portraits:', galleryCache.length);
+      console.log('[Gallery Recent] Returning cached portraits:', galleryCache.length);
       return res.json({ portraits: galleryCache.slice(0, limit) });
     }
 
     // Получаем последние завершенные заказы с портретами
     // Пробуем сначала строгие условия, потом смягчаем
     let stmt = db.prepare(`
-      SELECT invId, generatedImagesJson, createdAt, status
+      SELECT invId, generatedImagesJson, createdAt, status, imagesCount
       FROM orders 
       WHERE status = 'completed' 
         AND generatedImagesJson IS NOT NULL 
@@ -1179,12 +1181,13 @@ app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
     `);
     
     let orders = stmt.all();
+    console.log('[Gallery Recent] Found completed orders:', orders.length);
     
     // Если не нашли завершенные заказы, пробуем найти любые заказы с портретами
     if (orders.length === 0) {
-      console.log('[Gallery] No completed orders found, trying to find any orders with portraits');
+      console.log('[Gallery Recent] No completed orders found, trying to find any orders with portraits');
       stmt = db.prepare(`
-        SELECT invId, generatedImagesJson, createdAt, status
+        SELECT invId, generatedImagesJson, createdAt, status, imagesCount
         FROM orders 
         WHERE generatedImagesJson IS NOT NULL 
           AND generatedImagesJson != 'null'
@@ -1194,32 +1197,43 @@ app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
         LIMIT 50
       `);
       orders = stmt.all();
-      console.log('[Gallery] Found orders with portraits (any status):', orders.length);
-    } else {
-      console.log('[Gallery] Found completed orders:', orders.length);
+      console.log('[Gallery Recent] Found orders with portraits (any status):', orders.length);
     }
     
     const portraits = [];
 
     for (const order of orders) {
-      if (!order.generatedImagesJson) continue;
+      if (!order.generatedImagesJson) {
+        console.log('[Gallery Recent] Order', order.invId, 'has no generatedImagesJson');
+        continue;
+      }
       
       try {
         const images = JSON.parse(order.generatedImagesJson);
+        console.log('[Gallery Recent] Order', order.invId, 'parsed images:', {
+          isObject: typeof images === 'object',
+          keys: images && typeof images === 'object' ? Object.keys(images) : [],
+          imagesCount: order.imagesCount,
+        });
+        
         if (images && typeof images === 'object') {
           // Добавляем все портреты из заказа
           for (const url of Object.values(images)) {
             if (typeof url === 'string' && url.startsWith('/images/')) {
               portraits.push(url);
+            } else {
+              console.log('[Gallery Recent] Skipping invalid URL:', typeof url, url?.substring?.(0, 50));
             }
           }
+        } else {
+          console.log('[Gallery Recent] Order', order.invId, 'images is not an object:', typeof images);
         }
       } catch (e) {
-        console.warn('[Gallery] Failed to parse images for order', order.invId, e);
+        console.warn('[Gallery Recent] Failed to parse images for order', order.invId, e);
       }
     }
 
-    console.log('[Gallery] Total portraits extracted:', portraits.length);
+    console.log('[Gallery Recent] Total portraits extracted:', portraits.length);
 
     // Перемешиваем для разнообразия
     for (let i = portraits.length - 1; i > 0; i--) {
@@ -1231,10 +1245,10 @@ app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
     galleryCache = portraits;
     galleryCacheTime = now;
 
-    console.log('[Gallery] Returning portraits:', portraits.slice(0, limit).length);
+    console.log('[Gallery Recent] Returning portraits:', portraits.slice(0, limit).length);
     res.json({ portraits: portraits.slice(0, limit) });
   } catch (err) {
-    console.error('[Gallery] Failed to load recent portraits:', err);
+    console.error('[Gallery Recent] Failed to load recent portraits:', err);
     res.status(500).json({ error: 'Не удалось загрузить галерею портретов' });
   }
 });
@@ -1242,9 +1256,11 @@ app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
 // Галерея для страницы "Смотреть портреты" - последние 45 заказов с одним случайным изображением из каждого
 app.get(`${API_PREFIX}/gallery/orders`, (req, res) => {
   try {
+    console.log('[Gallery Orders] Request received');
+    
     // Получаем последние 45 завершенных заказов с портретами
     let stmt = db.prepare(`
-      SELECT invId, generatedImagesJson, createdAt, status
+      SELECT invId, generatedImagesJson, createdAt, status, imagesCount
       FROM orders 
       WHERE status = 'completed' 
         AND generatedImagesJson IS NOT NULL 
@@ -1255,12 +1271,13 @@ app.get(`${API_PREFIX}/gallery/orders`, (req, res) => {
     `);
     
     let orders = stmt.all();
+    console.log('[Gallery Orders] Found completed orders:', orders.length);
     
     // Если не нашли завершенные заказы, пробуем найти любые заказы с портретами
     if (orders.length === 0) {
       console.log('[Gallery Orders] No completed orders found, trying to find any orders with portraits');
       stmt = db.prepare(`
-        SELECT invId, generatedImagesJson, createdAt, status
+        SELECT invId, generatedImagesJson, createdAt, status, imagesCount
         FROM orders 
         WHERE generatedImagesJson IS NOT NULL 
           AND generatedImagesJson != 'null'
@@ -1271,22 +1288,31 @@ app.get(`${API_PREFIX}/gallery/orders`, (req, res) => {
       `);
       orders = stmt.all();
       console.log('[Gallery Orders] Found orders with portraits (any status):', orders.length);
-    } else {
-      console.log('[Gallery Orders] Found completed orders:', orders.length);
     }
     
     const galleryItems = [];
 
     for (const order of orders) {
-      if (!order.generatedImagesJson) continue;
+      if (!order.generatedImagesJson) {
+        console.log('[Gallery Orders] Order', order.invId, 'has no generatedImagesJson');
+        continue;
+      }
       
       try {
         const images = JSON.parse(order.generatedImagesJson);
+        console.log('[Gallery Orders] Order', order.invId, 'parsed images:', {
+          isObject: typeof images === 'object',
+          keys: images && typeof images === 'object' ? Object.keys(images) : [],
+          imagesCount: order.imagesCount,
+        });
+        
         if (images && typeof images === 'object') {
           // Получаем все URL изображений из заказа
           const imageUrls = Object.values(images).filter(url => 
             typeof url === 'string' && url.startsWith('/images/')
           );
+          
+          console.log('[Gallery Orders] Order', order.invId, 'extracted URLs:', imageUrls.length);
           
           if (imageUrls.length > 0) {
             // Выбираем случайное изображение из набора
@@ -1296,7 +1322,11 @@ app.get(`${API_PREFIX}/gallery/orders`, (req, res) => {
               imageUrl: imageUrls[randomIndex],
               createdAt: order.createdAt,
             });
+          } else {
+            console.log('[Gallery Orders] Order', order.invId, 'has no valid image URLs');
           }
+        } else {
+          console.log('[Gallery Orders] Order', order.invId, 'images is not an object:', typeof images);
         }
       } catch (e) {
         console.warn('[Gallery Orders] Failed to parse images for order', order.invId, e);
