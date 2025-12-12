@@ -1263,7 +1263,9 @@ app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
     galleryCache = portraits;
     galleryCacheTime = now;
 
+    console.log('[Gallery Recent] Cache updated with', portraits.length, 'portraits');
     console.log('[Gallery Recent] Returning portraits:', portraits.slice(0, limit).length);
+    console.log('[Gallery Recent] Sample portrait URLs:', portraits.slice(0, 3));
     res.json({ portraits: portraits.slice(0, limit) });
   } catch (err) {
     console.error('[Gallery Recent] Failed to load recent portraits:', err);
