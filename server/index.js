@@ -1170,7 +1170,8 @@ app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
     
     console.log('[Gallery Recent] Request received, limit:', limit);
     
-    // Проверяем кэш
+    // ВСЕГДА загружаем свежие данные из БД (убрали кэш для надежности)
+    // Проверяем кэш только для логирования
     const now = Date.now();
     const cacheAge = galleryCacheTime ? (now - galleryCacheTime) : Infinity;
     console.log('[Gallery Recent] Cache status:', {
@@ -1180,12 +1181,13 @@ app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
       cacheValid: galleryCache && cacheAge < GALLERY_CACHE_TTL
     });
     
-    if (galleryCache && cacheAge < GALLERY_CACHE_TTL) {
-      console.log('[Gallery Recent] Returning cached portraits:', galleryCache.length);
-      return res.json({ portraits: galleryCache.slice(0, limit) });
-    }
+    // Временно отключаем кэш - всегда загружаем свежие данные
+    // if (galleryCache && cacheAge < GALLERY_CACHE_TTL) {
+    //   console.log('[Gallery Recent] Returning cached portraits:', galleryCache.length);
+    //   return res.json({ portraits: galleryCache.slice(0, limit) });
+    // }
     
-    console.log('[Gallery Recent] Cache expired or missing, fetching from database...');
+    console.log('[Gallery Recent] Fetching fresh data from database (cache disabled for reliability)...');
 
     // Получаем последние завершенные заказы с портретами
     // ИСКЛЮЧАЕМ портреты из Telegram бота (только портреты с сайта)
