@@ -12,7 +12,7 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 import { IMAGE_ROOT_DIR } from '../config/index.js';
 
-async function migrateTelegramDataUrls() {
+export async function migrateTelegramDataUrls() {
   console.log('🔄 Начинаем миграцию data URL в файлы...');
   
   try {
