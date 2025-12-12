@@ -1196,7 +1196,7 @@ app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
         AND generatedImagesJson IS NOT NULL 
         AND generatedImagesJson != 'null'
         AND imagesCount > 0
-        AND (paymentType IS NULL OR paymentType NOT IN ('telegram_robokassa', 'telegram_stars'))
+        AND (paymentType IS NULL OR paymentType NOT IN ('telegram_robokassa', 'telegram_stars', 'telegram_free'))
       ORDER BY createdAt DESC 
       LIMIT 50
     `);
@@ -1214,7 +1214,7 @@ app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
           AND generatedImagesJson != 'null'
           AND generatedImagesJson != ''
           AND (imagesCount > 0 OR generatedImagesJson LIKE '%/images/%')
-          AND (paymentType IS NULL OR paymentType NOT IN ('telegram_robokassa', 'telegram_stars'))
+          AND (paymentType IS NULL OR paymentType NOT IN ('telegram_robokassa', 'telegram_stars', 'telegram_free'))
         ORDER BY createdAt DESC 
         LIMIT 50
       `);
@@ -1291,7 +1291,7 @@ app.get(`${API_PREFIX}/gallery/orders`, (req, res) => {
         AND generatedImagesJson IS NOT NULL 
         AND generatedImagesJson != 'null'
         AND imagesCount > 0
-        AND (paymentType IS NULL OR paymentType NOT IN ('telegram_robokassa', 'telegram_stars'))
+        AND (paymentType IS NULL OR paymentType NOT IN ('telegram_robokassa', 'telegram_stars', 'telegram_free'))
       ORDER BY createdAt DESC 
       LIMIT 45
     `);
@@ -1309,7 +1309,7 @@ app.get(`${API_PREFIX}/gallery/orders`, (req, res) => {
           AND generatedImagesJson != 'null'
           AND generatedImagesJson != ''
           AND (imagesCount > 0 OR generatedImagesJson LIKE '%/images/%')
-          AND (paymentType IS NULL OR paymentType NOT IN ('telegram_robokassa', 'telegram_stars'))
+          AND (paymentType IS NULL OR paymentType NOT IN ('telegram_robokassa', 'telegram_stars', 'telegram_free'))
         ORDER BY createdAt DESC 
         LIMIT 45
       `);
