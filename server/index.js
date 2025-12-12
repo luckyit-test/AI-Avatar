@@ -1153,7 +1153,7 @@ app.get(`${API_PREFIX}/order/:invId`, (req, res) => {
 // Галерея последних сгенерированных портретов для анимации на главной странице
 let galleryCache = null;
 let galleryCacheTime = 0;
-const GALLERY_CACHE_TTL = 5 * 60 * 1000; // 5 минут
+const GALLERY_CACHE_TTL = 1 * 60 * 1000; // 1 минута (уменьшено для более быстрого обновления)
 
 // Функция для очистки кэша галереи (вызывается при сохранении новых портретов)
 function clearGalleryCache() {
@@ -1188,14 +1188,15 @@ app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
     console.log('[Gallery Recent] Cache expired or missing, fetching from database...');
 
     // Получаем последние завершенные заказы с портретами
-    // Пробуем сначала строгие условия, потом смягчаем
+    // ИСКЛЮЧАЕМ портреты из Telegram бота (только портреты с сайта)
     let stmt = db.prepare(`
-      SELECT invId, generatedImagesJson, createdAt, status, imagesCount
+      SELECT invId, generatedImagesJson, createdAt, status, imagesCount, paymentType
       FROM orders 
       WHERE status = 'completed' 
         AND generatedImagesJson IS NOT NULL 
         AND generatedImagesJson != 'null'
         AND imagesCount > 0
+        AND (paymentType IS NULL OR paymentType NOT IN ('telegram_robokassa', 'telegram_stars'))
       ORDER BY createdAt DESC 
       LIMIT 50
     `);
@@ -1203,21 +1204,22 @@ app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
     let orders = stmt.all();
     console.log('[Gallery Recent] Found completed orders:', orders.length);
     
-    // Если не нашли завершенные заказы, пробуем найти любые заказы с портретами
+    // Если не нашли завершенные заказы, пробуем найти любые заказы с портретами (но все равно исключаем Telegram)
     if (orders.length === 0) {
       console.log('[Gallery Recent] No completed orders found, trying to find any orders with portraits');
       stmt = db.prepare(`
-        SELECT invId, generatedImagesJson, createdAt, status, imagesCount
+        SELECT invId, generatedImagesJson, createdAt, status, imagesCount, paymentType
         FROM orders 
         WHERE generatedImagesJson IS NOT NULL 
           AND generatedImagesJson != 'null'
           AND generatedImagesJson != ''
           AND (imagesCount > 0 OR generatedImagesJson LIKE '%/images/%')
+          AND (paymentType IS NULL OR paymentType NOT IN ('telegram_robokassa', 'telegram_stars'))
         ORDER BY createdAt DESC 
         LIMIT 50
       `);
       orders = stmt.all();
-      console.log('[Gallery Recent] Found orders with portraits (any status):', orders.length);
+      console.log('[Gallery Recent] Found orders with portraits (any status, excluding Telegram):', orders.length);
     }
     
     const portraits = [];
@@ -1281,13 +1283,15 @@ app.get(`${API_PREFIX}/gallery/orders`, (req, res) => {
     console.log('[Gallery Orders] Request received');
     
     // Получаем последние 45 завершенных заказов с портретами
+    // ИСКЛЮЧАЕМ портреты из Telegram бота (только портреты с сайта)
     let stmt = db.prepare(`
-      SELECT invId, generatedImagesJson, createdAt, status, imagesCount
+      SELECT invId, generatedImagesJson, createdAt, status, imagesCount, paymentType
       FROM orders 
       WHERE status = 'completed' 
         AND generatedImagesJson IS NOT NULL 
         AND generatedImagesJson != 'null'
         AND imagesCount > 0
+        AND (paymentType IS NULL OR paymentType NOT IN ('telegram_robokassa', 'telegram_stars'))
       ORDER BY createdAt DESC 
       LIMIT 45
     `);
@@ -1295,21 +1299,22 @@ app.get(`${API_PREFIX}/gallery/orders`, (req, res) => {
     let orders = stmt.all();
     console.log('[Gallery Orders] Found completed orders:', orders.length);
     
-    // Если не нашли завершенные заказы, пробуем найти любые заказы с портретами
+    // Если не нашли завершенные заказы, пробуем найти любые заказы с портретами (но все равно исключаем Telegram)
     if (orders.length === 0) {
       console.log('[Gallery Orders] No completed orders found, trying to find any orders with portraits');
       stmt = db.prepare(`
-        SELECT invId, generatedImagesJson, createdAt, status, imagesCount
+        SELECT invId, generatedImagesJson, createdAt, status, imagesCount, paymentType
         FROM orders 
         WHERE generatedImagesJson IS NOT NULL 
           AND generatedImagesJson != 'null'
           AND generatedImagesJson != ''
           AND (imagesCount > 0 OR generatedImagesJson LIKE '%/images/%')
+          AND (paymentType IS NULL OR paymentType NOT IN ('telegram_robokassa', 'telegram_stars'))
         ORDER BY createdAt DESC 
         LIMIT 45
       `);
       orders = stmt.all();
-      console.log('[Gallery Orders] Found orders with portraits (any status):', orders.length);
+      console.log('[Gallery Orders] Found orders with portraits (any status, excluding Telegram):', orders.length);
     }
     
     const galleryItems = [];
