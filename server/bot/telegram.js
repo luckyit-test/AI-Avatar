@@ -606,21 +606,47 @@ export function initializeTelegramBot(token) {
           hasUsedFree,
         });
         
+        // Проверяем, что клавиатура не пустая
+        if (keyboard.length === 0) {
+          console.error('[Telegram Bot] Keyboard is empty!', { userId, hasUsedFree });
+          await ctx.reply('❌ Ошибка: не удалось создать меню выбора. Попробуйте отправить фото заново.');
+          return;
+        }
+        
         try {
-          await ctx.reply(message, {
+          const replyOptions = {
             reply_markup: {
               inline_keyboard: keyboard,
             },
+          };
+          
+          console.log('[Telegram Bot] Sending message with keyboard', {
+            userId,
+            messagePreview: message.substring(0, 100),
+            keyboardButtons: keyboard.length,
+            replyOptions: JSON.stringify(replyOptions),
           });
+          
+          await ctx.reply(message, replyOptions);
           console.log('[Telegram Bot] Menu sent successfully', { userId });
         } catch (replyError) {
+          const errorMessage = replyError instanceof Error ? replyError.message : String(replyError);
+          const errorStack = replyError instanceof Error ? replyError.stack : undefined;
+          
           console.error('[Telegram Bot] Failed to send menu:', {
             userId,
-            error: replyError instanceof Error ? replyError.message : String(replyError),
-            stack: replyError instanceof Error ? replyError.stack : undefined,
+            error: errorMessage,
+            stack: errorStack,
+            keyboardLength: keyboard.length,
+            keyboard: JSON.stringify(keyboard),
           });
+          
           // Пытаемся отправить без клавиатуры
-          await ctx.reply(message);
+          try {
+            await ctx.reply(`${message}\n\n⚠️ Кнопки временно недоступны. Используйте команды бота.`);
+          } catch (fallbackError) {
+            console.error('[Telegram Bot] Failed to send fallback message:', fallbackError);
+          }
         }
         
         console.log('[Telegram Bot] Photo processing completed successfully', { userId });
