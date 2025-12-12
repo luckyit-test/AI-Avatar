@@ -118,13 +118,29 @@ export async function generatePortraitsForOrder(invId, MAX_QUEUE_SIZE, addToQueu
     return;
   }
   
+  // Логируем состояние заказа при загрузке
+  console.log(`[generatePortraitsForOrder] Order ${invId} loaded from DB:`, {
+    status: order.status,
+    paymentType: order.paymentType || 'NULL',
+    hasImageData: order.hasImageData,
+    hasGeneratedImages: !!order.generatedImages,
+    imagesCount: order.imagesCount
+  });
+  
   const { gender, role, company } = order;
+  
+  // Сохраняем paymentType, если он был установлен ранее
+  const savedPaymentType = order.paymentType;
   
   order.status = 'processing';
   order.generatedImages = {};
+  // Восстанавливаем paymentType, если он был установлен
+  if (savedPaymentType !== undefined) {
+    order.paymentType = savedPaymentType;
+  }
   saveOrder(order);
   
-  console.log(`[generatePortraitsForOrder] Starting generation for order ${invId}`, { gender, role, company });
+  console.log(`[generatePortraitsForOrder] Starting generation for order ${invId}`, { gender, role, company, paymentType: order.paymentType || 'NULL' });
 
   try {
     // ШАГ 1: Генерируем промежуточное изображение
