@@ -140,18 +140,23 @@ async function migrateTelegramDataUrls() {
     
   } catch (error) {
     console.error('❌ Критическая ошибка миграции:', error);
-    process.exit(1);
+    throw error; // Пробрасываем ошибку для обработки вызывающим кодом
   }
 }
 
-// Запускаем миграцию
-migrateTelegramDataUrls()
-  .then(() => {
-    console.log('\n🏁 Миграция завершена');
-    process.exit(0);
-  })
-  .catch((error) => {
-    console.error('❌ Фатальная ошибка:', error);
-    process.exit(1);
-  });
+// Запускаем миграцию только если скрипт запущен напрямую (не импортирован)
+// Проверяем, запущен ли скрипт напрямую через node
+const isMainModule = process.argv[1] && process.argv[1].includes('migrate-telegram-data-urls');
+
+if (isMainModule) {
+  migrateTelegramDataUrls()
+    .then(() => {
+      console.log('\n🏁 Миграция завершена');
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error('❌ Фатальная ошибка:', error);
+      process.exit(1);
+    });
+}
 

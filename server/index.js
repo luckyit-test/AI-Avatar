@@ -94,6 +94,7 @@ import adminRoutes, { initializeAdminRoutes } from './routes/admin.js';
 import generationRoutes, { initializeGenerationRoutes } from './routes/generation.js';
 import analysisRoutes, { initializeAnalysisRoutes } from './routes/analysis.js';
 import paymentRoutes, { initializePaymentRoutes } from './routes/payment.js';
+import migrationRoutes from './routes/migration.js';
 
 // Import Telegram Bot (optional)
 import { initializeTelegramBot, startTelegramBot, handleTelegramRobokassaPayment } from './bot/telegram.js';
@@ -1799,6 +1800,7 @@ initializePaymentRoutes({
 
 // Mount routes IMMEDIATELY after initialization, BEFORE other route handlers
 app.use(adminRoutes);
+app.use(`${API_PREFIX}`, migrationRoutes);
 app.use(generationRoutes);
 app.use(analysisRoutes);
 app.use(paymentRoutes);
