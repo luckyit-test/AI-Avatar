@@ -475,17 +475,44 @@ export function initializeTelegramBot(token) {
     
     // Обработка фотографий
     bot.on('photo', async (ctx) => {
+      let processingMsg = null;
       try {
         const userId = ctx.from.id;
         const photo = ctx.message.photo;
+        
+        console.log('[Telegram Bot] Photo received', {
+          userId,
+          chatId: ctx.chat.id,
+          photoCount: photo?.length || 0,
+          hasPhoto: !!photo,
+        });
+        
+        if (!photo || photo.length === 0) {
+          throw new Error('Фото не найдено в сообщении');
+        }
+        
         // Берем самое большое фото
         const largestPhoto = photo[photo.length - 1];
         
+        console.log('[Telegram Bot] Processing largest photo', {
+          userId,
+          fileId: largestPhoto.file_id,
+          fileSize: largestPhoto.file_size,
+          width: largestPhoto.width,
+          height: largestPhoto.height,
+        });
+        
         // Отправляем сообщение о начале обработки
-        const processingMsg = await ctx.reply('⏳ Обрабатываю изображение...');
+        processingMsg = await ctx.reply('⏳ Обрабатываю изображение...');
         
         // Конвертируем фото в base64
+        console.log('[Telegram Bot] Converting photo to base64', { userId, fileId: largestPhoto.file_id });
         const imageData = await convertTelegramPhotoToBase64(largestPhoto.file_id, bot);
+        console.log('[Telegram Bot] Photo converted to base64', {
+          userId,
+          imageDataLength: imageData?.length || 0,
+          hasImageData: !!imageData,
+        });
         
         // Анализируем изображение
         await ctx.telegram.editMessageText(
@@ -495,7 +522,14 @@ export function initializeTelegramBot(token) {
           '🔍 Анализирую изображение и определяю пол...'
         );
         
+        console.log('[Telegram Bot] Starting image analysis', { userId });
         const analysis = await analyzeImageForTelegram(imageData);
+        console.log('[Telegram Bot] Image analysis completed', {
+          userId,
+          isValid: analysis.isValid,
+          gender: analysis.gender,
+          errorMessage: analysis.errorMessage,
+        });
         
         if (!analysis.isValid) {
           await ctx.telegram.editMessageText(
@@ -550,6 +584,12 @@ export function initializeTelegramBot(token) {
           timestamp: Date.now(),
         });
         
+        console.log('[Telegram Bot] Image stored in temp storage', {
+          userId,
+          fileId: largestPhoto.file_id,
+          storageSize: bot.tempImageStorage.size,
+        });
+        
         // Очищаем старые записи (старше 10 минут)
         const now = Date.now();
         for (const [key, value] of bot.tempImageStorage.entries()) {
@@ -564,9 +604,39 @@ export function initializeTelegramBot(token) {
           },
         });
         
+        console.log('[Telegram Bot] Photo processing completed successfully', { userId });
+        
       } catch (error) {
-        console.error('[Telegram Bot] Error processing photo:', error);
-        await ctx.reply('❌ Произошла ошибка при обработке изображения. Попробуйте позже.');
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorStack = error instanceof Error ? error.stack : undefined;
+        const errorName = error instanceof Error ? error.name : 'unknown';
+        
+        console.error('[Telegram Bot] Error processing photo:', {
+          error: errorMessage,
+          errorName,
+          stack: errorStack,
+          userId: ctx.from?.id,
+          chatId: ctx.chat?.id,
+          hasPhoto: !!ctx.message?.photo,
+          photoCount: ctx.message?.photo?.length || 0,
+        });
+        
+        // Пытаемся отправить более информативное сообщение об ошибке
+        try {
+          if (processingMsg) {
+            await ctx.telegram.editMessageText(
+              ctx.chat.id,
+              processingMsg.message_id,
+              null,
+              `❌ Произошла ошибка при обработке изображения: ${errorMessage}`
+            );
+          } else {
+            await ctx.reply(`❌ Произошла ошибка при обработке изображения: ${errorMessage}`);
+          }
+        } catch (replyError) {
+          console.error('[Telegram Bot] Failed to send error message:', replyError);
+          // Если не удалось отправить сообщение, просто логируем
+        }
       }
     });
     
