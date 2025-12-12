@@ -229,9 +229,10 @@ const AdminOrders: React.FC<AdminOrdersProps> = ({ embedded }) => {
             <table className="min-w-full divide-y divide-slate-200">
               <thead className="bg-slate-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider whitespace-nowrap">InvId</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider whitespace-nowrap hidden md:table-cell">InvId</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider whitespace-nowrap">Статус</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider whitespace-nowrap">Сумма</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider whitespace-nowrap md:hidden">Промокод</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider whitespace-nowrap hidden md:table-cell">Промокод</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider whitespace-nowrap hidden lg:table-cell">Создан</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider whitespace-nowrap hidden md:table-cell">Пол</th>
@@ -246,7 +247,7 @@ const AdminOrders: React.FC<AdminOrdersProps> = ({ embedded }) => {
               <tbody className="bg-white divide-y divide-slate-200">
                 {orders.map((order) => (
                   <tr key={order.invId} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3 font-mono text-xs text-slate-900 whitespace-nowrap">
+                    <td className="px-4 py-3 font-mono text-xs text-slate-900 whitespace-nowrap hidden md:table-cell">
                       <span className="font-medium">{order.invId}</span>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
@@ -262,6 +263,15 @@ const AdminOrders: React.FC<AdminOrdersProps> = ({ embedded }) => {
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-900">
                       {order.amount} ₽
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap md:hidden">
+                      {order.promoCode ? (
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200 font-mono tracking-[0.1em] uppercase">
+                          {order.promoCode}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 text-sm">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap hidden md:table-cell">
                       {order.promoCode ? (
