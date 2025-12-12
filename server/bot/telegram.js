@@ -598,11 +598,30 @@ export function initializeTelegramBot(token) {
           }
         }
         
-        await ctx.reply(message, {
-          reply_markup: {
-            inline_keyboard: keyboard,
-          },
+        console.log('[Telegram Bot] Sending menu to user', {
+          userId,
+          messageLength: message.length,
+          keyboardLength: keyboard.length,
+          keyboard: JSON.stringify(keyboard),
+          hasUsedFree,
         });
+        
+        try {
+          await ctx.reply(message, {
+            reply_markup: {
+              inline_keyboard: keyboard,
+            },
+          });
+          console.log('[Telegram Bot] Menu sent successfully', { userId });
+        } catch (replyError) {
+          console.error('[Telegram Bot] Failed to send menu:', {
+            userId,
+            error: replyError instanceof Error ? replyError.message : String(replyError),
+            stack: replyError instanceof Error ? replyError.stack : undefined,
+          });
+          // Пытаемся отправить без клавиатуры
+          await ctx.reply(message);
+        }
         
         console.log('[Telegram Bot] Photo processing completed successfully', { userId });
         
