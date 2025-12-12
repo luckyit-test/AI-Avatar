@@ -96,7 +96,7 @@ import analysisRoutes, { initializeAnalysisRoutes } from './routes/analysis.js';
 import paymentRoutes, { initializePaymentRoutes } from './routes/payment.js';
 
 // Import Telegram Bot (optional)
-import { initializeTelegramBot, startTelegramBot } from './bot/telegram.js';
+import { initializeTelegramBot, startTelegramBot, handleTelegramRobokassaPayment } from './bot/telegram.js';
 import { TELEGRAM_BOT_TOKEN } from './config/index.js';
 
 const app = express();
@@ -1764,6 +1764,7 @@ initializePaymentRoutes({
   orderImages,
   generatePortraitsForOrder,
   MAX_QUEUE_SIZE,
+  handleTelegramRobokassaPayment,
 });
 
 // Mount routes IMMEDIATELY after initialization, BEFORE other route handlers

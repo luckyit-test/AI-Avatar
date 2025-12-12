@@ -17,10 +17,10 @@ const router = express.Router();
 
 // These functions should be imported from db/orders.js and services/payment.js
 // For now, they are placeholders that need to be implemented
-let createNextInvId, saveOrder, loadOrder, orderImages, generatePortraitsForOrder, MAX_QUEUE_SIZE;
+let createNextInvId, saveOrder, loadOrder, orderImages, generatePortraitsForOrder, MAX_QUEUE_SIZE, handleTelegramRobokassaPayment;
 
 export function initializePaymentRoutes(dependencies) {
-  ({ createNextInvId, saveOrder, loadOrder, orderImages, generatePortraitsForOrder, MAX_QUEUE_SIZE } = dependencies);
+  ({ createNextInvId, saveOrder, loadOrder, orderImages, generatePortraitsForOrder, MAX_QUEUE_SIZE, handleTelegramRobokassaPayment } = dependencies);
 }
 
 // Инициация платежа
@@ -203,10 +203,18 @@ function handleRobokassaResult(req, res) {
       order.status = 'paid';
       saveOrder(order);
       
-      // Запускаем генерацию портретов
-      generatePortraitsForOrder(invId, MAX_QUEUE_SIZE).catch(err => {
-        console.error('[Robokassa] Failed to generate portraits:', err);
-      });
+      // Если это Telegram заказ, обрабатываем через бота
+      if (order.paymentType === 'telegram_robokassa' && handleTelegramRobokassaPayment) {
+        console.log('[Robokassa] Telegram order detected, handling through bot');
+        handleTelegramRobokassaPayment(invId).catch(err => {
+          console.error('[Robokassa] Failed to handle Telegram payment:', err);
+        });
+      } else {
+        // Обычный веб-заказ - запускаем генерацию портретов
+        generatePortraitsForOrder(invId, MAX_QUEUE_SIZE).catch(err => {
+          console.error('[Robokassa] Failed to generate portraits:', err);
+        });
+      }
     }
 
     res.status(200).send(`OK${invId}`);
