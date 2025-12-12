@@ -160,7 +160,20 @@ async function analyzeImageForTelegram(imageData) {
  */
 async function generateSinglePortrait(imageData, prompt, style) {
   try {
+    console.log(`[Telegram Bot] generateSinglePortrait called`, {
+      style,
+      promptLength: prompt?.length || 0,
+      hasImageData: !!imageData,
+      imageDataLength: imageData?.length || 0,
+    });
+    
     const { mimeType, base64Data } = validateImageData(imageData);
+    
+    console.log(`[Telegram Bot] Image validated`, {
+      style,
+      mimeType,
+      base64DataLength: base64Data?.length || 0,
+    });
     
     const imagePart = {
       inlineData: {
@@ -169,8 +182,7 @@ async function generateSinglePortrait(imageData, prompt, style) {
       },
     };
     
-    // Используем прямую генерацию через Gemini API
-    const response = await genAIGeneration.models.generateContent({
+    const requestConfig = {
       model: 'gemini-2.5-flash-image',
       contents: {
         parts: [imagePart, { text: prompt }],
@@ -184,23 +196,59 @@ async function generateSinglePortrait(imageData, prompt, style) {
           { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
         ],
       },
+    };
+    
+    console.log(`[Telegram Bot] Calling Gemini API`, {
+      style,
+      model: requestConfig.model,
+      hasImagePart: !!imagePart,
+      promptLength: prompt?.length || 0,
+    });
+    
+    // Используем прямую генерацию через Gemini API
+    const response = await genAIGeneration.models.generateContent(requestConfig);
+    
+    console.log(`[Telegram Bot] Gemini API response received`, {
+      style,
+      hasResponse: !!response,
+      hasCandidates: !!response?.candidates,
+      candidatesLength: response?.candidates?.length || 0,
     });
     
     const imageParts = response.candidates?.[0]?.content?.parts?.filter(part => part.inlineData);
     
     if (!imageParts || imageParts.length === 0) {
-      throw new Error('Не удалось сгенерировать изображение');
+      console.error(`[Telegram Bot] No image parts in response`, {
+        style,
+        responseKeys: Object.keys(response || {}),
+        candidates: response?.candidates?.[0] ? Object.keys(response.candidates[0]) : [],
+        content: response?.candidates?.[0]?.content ? Object.keys(response.candidates[0].content) : [],
+        parts: response?.candidates?.[0]?.content?.parts?.map(p => Object.keys(p)) || [],
+      });
+      throw new Error('Не удалось сгенерировать изображение: ответ API не содержит изображения');
     }
     
     const generatedImage = imageParts[0].inlineData;
     const imageDataUrl = `data:${generatedImage.mimeType};base64,${generatedImage.data}`;
+    
+    console.log(`[Telegram Bot] Portrait generated successfully`, {
+      style,
+      mimeType: generatedImage.mimeType,
+      imageDataLength: generatedImage.data?.length || 0,
+    });
     
     return {
       style,
       imageUrl: imageDataUrl,
     };
   } catch (error) {
-    console.error(`[Telegram Bot] Failed to generate portrait ${style}:`, error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error(`[Telegram Bot] Failed to generate portrait ${style}:`, {
+      error: errorMessage,
+      stack: errorStack,
+      errorName: error instanceof Error ? error.name : 'unknown',
+    });
     throw error;
   }
 }
@@ -569,6 +617,14 @@ export function initializeTelegramBot(token) {
             };
             saveOrder(order);
             
+            console.log('[Telegram Bot] Starting free portrait generation', {
+              invId,
+              userId,
+              gender: stored.gender,
+              hasImageData: !!stored.imageData,
+              imageDataLength: stored.imageData?.length || 0,
+            });
+            
             // Генерируем один портрет
             const portrait = await generateSingleFreePortrait(
               stored.imageData,
@@ -576,6 +632,12 @@ export function initializeTelegramBot(token) {
               'Разработчик',
               'Стартап'
             );
+            
+            console.log('[Telegram Bot] Free portrait generated successfully', {
+              invId,
+              style: portrait.style,
+              hasImageUrl: !!portrait.imageUrl,
+            });
             
             // Отмечаем, что пользователь использовал бесплатную генерацию
             markFreeGenerationUsed(userId, String(invId));
@@ -602,8 +664,16 @@ export function initializeTelegramBot(token) {
             );
             
           } catch (error) {
-            console.error('[Telegram Bot] Error generating free portrait:', error);
-            await ctx.editMessageText('❌ Не удалось сгенерировать портрет. Попробуйте позже.');
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const errorStack = error instanceof Error ? error.stack : undefined;
+            console.error('[Telegram Bot] Error generating free portrait:', {
+              error: errorMessage,
+              stack: errorStack,
+              userId,
+              hasStored: !!stored,
+              gender: stored?.gender,
+            });
+            await ctx.editMessageText(`❌ Не удалось сгенерировать портрет: ${errorMessage}. Попробуйте позже или обратитесь в поддержку.`);
           }
           
           return;
