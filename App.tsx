@@ -192,9 +192,11 @@ function App() {
             // Сразу инициализируем состояние генерации (оптимистичный UI)
             // Это гарантирует, что пользователь увидит карточки генерации сразу
             const initialImages: Record<string, GeneratedImage> = {};
-            STYLES.forEach(style => {
+            devLog.log('[Polling] STYLES array:', STYLES);
+                        devLog.log('[Polling] order.generatedImages keys:', order.generatedImages ? Object.keys(order.generatedImages) : []);
+                        STYLES.forEach(style => {
                             // Use optional chaining and check for truthy value
-                            const imageUrl = order.generatedImages?.[style];
+                            const imageUrl = getImageUrl(style, order.generatedImages);
                             if (imageUrl && typeof imageUrl === 'string' && imageUrl.trim().length > 0) {
                                 // Обновляем если изображение готово, но еще не отмечено как done или URL изменился
                                 if (!updated[style] || updated[style].status !== 'done' || updated[style].url !== imageUrl) {
@@ -219,7 +221,7 @@ function App() {
                                 const images: Record<string, GeneratedImage> = {};
                                 STYLES.forEach(style => {
                             // Use optional chaining and check for truthy value
-                            const imageUrl = order.generatedImages?.[style];
+                            const imageUrl = getImageUrl(style, order.generatedImages);
                             if (imageUrl && typeof imageUrl === 'string' && imageUrl.trim().length > 0) {
                                 // Обновляем если изображение готово, но еще не отмечено как done или URL изменился
                                 if (!updated[style] || updated[style].status !== 'done' || updated[style].url !== imageUrl) {
@@ -265,12 +267,29 @@ function App() {
                 // ВАЖНО: Обновляем частично готовые изображения на КАЖДОМ polling запросе
                 // Это нужно делать независимо от изменения статуса, так как изображения могут появляться постепенно
                 if ((order.status === 'processing' || order.status === 'paid' || order.status === 'completed') && order.generatedImages) {
+                // Маппинг русских названий на транслитерацию
+                const STYLE_NAME_MAP: Record<string, string> = {
+                    'Классический': 'klassicheskiy',
+                    'Современный': 'sovremennyy',
+                    'Креативный': 'kreativnyy',
+                    'Технологичный': 'tekhnologichnyy',
+                    'Дружелюбный': 'druzhelyubnyy',
+                    'Уверенный': 'uverenniy',
+                };
+                const getImageUrl = (style: string, generatedImages: Record<string, string> | undefined): string | undefined => {
+                    if (!generatedImages) return undefined;
+                    if (generatedImages[style]) return generatedImages[style];
+                    const translit = STYLE_NAME_MAP[style];
+                    if (translit && generatedImages[translit]) return generatedImages[translit];
+                    return undefined;
+                };
+
                     setGeneratedImages(prev => {
                         const updated = { ...prev };
                         let hasUpdates = false;
                         STYLES.forEach(style => {
                             // Use optional chaining and check for truthy value
-                            const imageUrl = order.generatedImages?.[style];
+                            const imageUrl = getImageUrl(style, order.generatedImages);
                             if (imageUrl && typeof imageUrl === 'string' && imageUrl.trim().length > 0) {
                                 // Обновляем если изображение готово, но еще не отмечено как done или URL изменился
                                 if (!updated[style] || updated[style].status !== 'done' || updated[style].url !== imageUrl) {
@@ -303,7 +322,7 @@ function App() {
                         const images: Record<string, GeneratedImage> = {};
                         STYLES.forEach(style => {
                             // Use optional chaining and check for truthy value
-                            const imageUrl = order.generatedImages?.[style];
+                            const imageUrl = getImageUrl(style, order.generatedImages);
                             if (imageUrl && typeof imageUrl === 'string' && imageUrl.trim().length > 0) {
                                 // Обновляем если изображение готово, но еще не отмечено как done или URL изменился
                                 if (!updated[style] || updated[style].status !== 'done' || updated[style].url !== imageUrl) {
