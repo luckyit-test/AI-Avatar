@@ -218,25 +218,27 @@ function App() {
                                 devLog.log('[App] Setting generation state for order', { invId, status: order.status });
                                 
                                 // Инициализируем все 6 карточек со статусом processing
-                                const images: Record<string, GeneratedImage> = {};
-                                STYLES.forEach(style => {
-                            // Use optional chaining and check for truthy value
-                            const imageUrl = getImageUrl(style, order.generatedImages);
-                            if (imageUrl && typeof imageUrl === 'string' && imageUrl.trim().length > 0) {
-                                // Обновляем если изображение готово, но еще не отмечено как done или URL изменился
-                                if (!updated[style] || updated[style].status !== 'done' || updated[style].url !== imageUrl) {
-                                    updated[style] = { status: 'done', url: imageUrl };
+                                setGeneratedImages(prev => {
+                                    const updated = { ...prev };
+                                    let hasUpdates = false;
+                                    STYLES.forEach(style => {
+                                // Use optional chaining and check for truthy value
+                                const imageUrl = getImageUrl(style, order.generatedImages);
+                                if (imageUrl && typeof imageUrl === 'string' && imageUrl.trim().length > 0) {
+                                    // Обновляем если изображение готово, но еще не отмечено как done или URL изменился
+                                    if (!updated[style] || updated[style].status !== 'done' || updated[style].url !== imageUrl) {
+                                        updated[style] = { status: 'done', url: imageUrl };
+                                        hasUpdates = true;
+                                        devLog.log('[Polling] Updated image for style: ' + style, { url: imageUrl.substring(0, 50) + '...' });
+                                    }
+                                } else if (!updated[style] || (updated[style].status === 'pending' && order.status !== 'completed')) {
+                                    // Если изображения еще нет и заказ не завершен, устанавливаем processing
+                                    updated[style] = { status: 'processing' };
                                     hasUpdates = true;
-                                    devLog.log('[Polling] Updated image for style: ' + style, { url: imageUrl.substring(0, 50) + '...' });
                                 }
-                            } else if (!updated[style] || (updated[style].status === 'pending' && order.status !== 'completed')) {
-                                // Если изображения еще нет и заказ не завершен, устанавливаем processing
-                                updated[style] = { status: 'processing' };
-                                hasUpdates = true;
-                            }
-                        });
-                            return hasUpdates ? updated : prev;
-                        });
+                            });
+                                return hasUpdates ? updated : prev;
+                                });
         
         const MIN_POLL_DELAY = 2000;
         const MAX_POLL_DELAY = 30000;
