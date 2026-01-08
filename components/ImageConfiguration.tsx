@@ -108,10 +108,10 @@ export function ImageConfiguration({
                 </div>
             </div>
 
-            {/* Секция "Должность в ИТ" */}
+            {/* Секция "Должность" */}
             <div className="mb-6" data-onboarding="role">
                 <label className="block text-sm font-bold mb-3" style={{ color: '#1e293b' }}>
-                    Должность в ИТ
+                    Должность
                 </label>
                 <CustomSelect
                     options={IT_ROLES}

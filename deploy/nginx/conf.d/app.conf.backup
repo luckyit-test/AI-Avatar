@@ -1,0 +1,158 @@
+# HTTP сервер - только для ACME challenge, все остальное редирект на HTTPS
+server {
+    listen 80;
+    server_name newava.pro www.newava.pro 43.245.226.24;
+
+    client_max_body_size 10M;
+
+    # Обработка ACME challenge для получения SSL сертификата
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    # Проксируем API запросы на HTTPS без редиректа (сохраняем POST body)
+    location /api/ {
+        return 307 https://$host$request_uri;
+    }
+
+    # Редирект всех остальных запросов на HTTPS
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# Resolver для динамического разрешения имен Docker контейнеров
+resolver 127.0.0.11 valid=30s;
+
+# HTTPS сервер БЕЗ HTTP/2 (избегаем ERR_HTTP2_PROTOCOL_ERROR)
+server {
+    listen 443 ssl;
+    server_name newava.pro www.newava.pro 43.245.226.24;
+
+    # SSL сертификаты
+    ssl_certificate /etc/letsencrypt/live/newava.pro/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/newava.pro/privkey.pem;
+    
+    # SSL настройки безопасности
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    # Разрешаем большие размеры для загрузки изображений
+    client_max_body_size 10M;
+
+    # Проксируем API запросы к бэкенд серверу
+    location /api/ {
+        # Принудительно используем HTTP/1.1 для API (избегаем проблем с HTTP/2)
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        
+        # Настройки буферов для больших запросов/ответов
+        proxy_buffer_size 128k;
+        proxy_buffers 4 256k;
+        proxy_busy_buffers_size 256k;
+        proxy_temp_file_write_size 256k;
+        
+        # Включаем буферизацию ответов для стабильности
+        proxy_buffering on;
+        
+        # Отключаем буферизацию запросов для больших POST запросов
+        proxy_request_buffering off;
+        
+        # Используем переменную для динамического разрешения имени хоста
+        set $backend_upstream newava_backend:3001;
+        proxy_pass http://$backend_upstream;
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 300s;
+        proxy_send_timeout 300s;
+        
+        # CORS заголовки для совместимости с разными браузерами
+        add_header 'Access-Control-Allow-Origin' $http_origin always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
+        add_header 'Access-Control-Allow-Headers' 'Content-Type, Authorization, Accept, X-Requested-With' always;
+        add_header 'Access-Control-Allow-Credentials' 'true' always;
+        
+        # Обработка preflight запросов
+        if ($request_method = 'OPTIONS') {
+            add_header 'Access-Control-Allow-Origin' $http_origin always;
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
+            add_header 'Access-Control-Allow-Headers' 'Content-Type, Authorization, Accept, X-Requested-With' always;
+            add_header 'Access-Control-Max-Age' 1728000;
+            add_header 'Content-Type' 'text/plain; charset=utf-8';
+            add_header 'Content-Length' 0;
+            return 204;
+        }
+    }
+
+    # Коллбеки оплаты Robokassa обрабатывает backend
+    location /payment/ {
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        set $backend_upstream newava_backend:3001;
+        proxy_pass http://$backend_upstream;
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+
+    # Статические изображения портретов и исходников (отдаются backend-ом из /images)
+    location /images/ {
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Используем HTTP/1.1 для проксирования (избегаем проблем с HTTP/2 и Range requests)
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        
+        # Настройки буферов для больших изображений
+        proxy_buffer_size 128k;
+        proxy_buffers 8 256k;
+        proxy_busy_buffers_size 512k;
+        proxy_temp_file_write_size 512k;
+        
+        # Включаем буферизацию ответов для стабильности
+        proxy_buffering on;
+        
+        # Передаем Range заголовки для поддержки частичных запросов
+        proxy_set_header Range $http_range;
+        proxy_set_header If-Range $http_if_range;
+        
+        set $backend_upstream newava_backend:3001;
+        proxy_pass http://$backend_upstream;
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 300s;
+        proxy_send_timeout 300s;
+        
+        # Заголовки для правильной обработки изображений
+        add_header Accept-Ranges "bytes" always;
+        
+        # Кеширование изображений
+        proxy_cache_valid 200 1h;
+        add_header Cache-Control "public, max-age=3600" always;
+    }
+
+    # Удобный адрес админки: перенаправляем /admin на SPA с параметром admin=1
+    location = /admin {
+        return 302 /?admin=1;
+    }
+
+    # Все остальные запросы идут к фронтенд приложению
+    location / {
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        set $app_upstream newava_app:80;
+        proxy_pass http://$app_upstream;
+    }
+}

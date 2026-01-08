@@ -241,6 +241,56 @@ const ImageCard: React.FC<ImageCardProps> = React.memo(({
         >
             <div className="w-full aspect-square relative overflow-hidden">
                 <AnimatePresence mode="wait">
+                    {/* Готовый результат - показываем первым, чтобы он имел приоритет */}
+                    {status === 'done' && imageUrl && (
+                         <motion.div
+                            key={`done-${caption}`}
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0"
+                        >
+                            <img
+                                src={imageUrl}
+                                alt={caption}
+                                className="w-full h-full object-cover cursor-zoom-in transition-transform duration-300 group-hover:scale-105"
+                                onClick={() => onOpen && onOpen(imageUrl)}
+                            />
+                            {/* Success badge */}
+                            <div className="absolute top-2 left-2 z-10">
+                                <div className="p-1.5 rounded-full bg-green-500/90 backdrop-blur-sm">
+                                    <Icons.checkCircle className="w-4 h-4 text-white" />
+                                </div>
+                            </div>
+                            {/* Always-visible expand button (mobile + desktop) */}
+                            <div className="absolute top-2 right-2 z-10">
+                                <button
+                                    onClick={() => onOpen && onOpen(imageUrl)}
+                                    className="h-10 w-10 rounded-full bg-black/50 backdrop-blur-sm text-white flex items-center justify-center hover:bg-black/70 transition-all duration-200 hover:scale-110"
+                                    aria-label={`Открыть ${caption} на весь экран`}
+                                >
+                                    <Icons.expand className="h-5 w-5" />
+                                </button>
+                            </div>
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center gap-3 pb-4">
+                                <button
+                                    onClick={onDownload}
+                                    className="h-11 w-11 rounded-full bg-white/90 backdrop-blur-sm text-gray-800 flex items-center justify-center hover:bg-white transition-all duration-200 hover:scale-110 shadow-lg"
+                                    aria-label={`Скачать ${caption}`}
+                                >
+                                    <Icons.download className="h-5 w-5" />
+                                </button>
+                                <button
+                                    onClick={onRegenerate}
+                                    className="h-11 w-11 rounded-full bg-white/90 backdrop-blur-sm text-gray-800 flex items-center justify-center hover:bg-white transition-all duration-200 hover:scale-110 shadow-lg"
+                                    aria-label={`Создать заново ${caption}`}
+                                >
+                                    <Icons.refresh className="h-5 w-5" />
+                                </button>
+                            </div>
+                        </motion.div>
+                    )}
+
                     {/* Специальный режим: видеофон для портретов с привязанными видео (м/ж) */}
                     {isVideoPhase && (
                         <motion.div
@@ -264,7 +314,7 @@ const ImageCard: React.FC<ImageCardProps> = React.memo(({
                         (status === 'processing' && !hasVideoForGender) ||
                         (status === 'error' && !hasVideoForGender)) && (
                         <motion.div
-                            key={status}
+                            key={`${status}-${caption}`}
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
@@ -354,54 +404,6 @@ const ImageCard: React.FC<ImageCardProps> = React.memo(({
                                         </p>
                                     </>
                                 )}
-                            </div>
-                        </motion.div>
-                    )}
-                    {status === 'done' && imageUrl && (
-                         <motion.div
-                            key="done"
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="absolute inset-0"
-                        >
-                            <img
-                                src={imageUrl}
-                                alt={caption}
-                                className="w-full h-full object-cover cursor-zoom-in transition-transform duration-300 group-hover:scale-105"
-                                onClick={() => onOpen && onOpen(imageUrl)}
-                            />
-                            {/* Success badge */}
-                            <div className="absolute top-2 left-2 z-10">
-                                <div className="p-1.5 rounded-full bg-green-500/90 backdrop-blur-sm">
-                                    <Icons.checkCircle className="w-4 h-4 text-white" />
-                                </div>
-                            </div>
-                            {/* Always-visible expand button (mobile + desktop) */}
-                            <div className="absolute top-2 right-2 z-10">
-                                <button
-                                    onClick={() => onOpen && onOpen(imageUrl)}
-                                    className="h-10 w-10 rounded-full bg-black/50 backdrop-blur-sm text-white flex items-center justify-center hover:bg-black/70 transition-all duration-200 hover:scale-110"
-                                    aria-label={`Открыть ${caption} на весь экран`}
-                                >
-                                    <Icons.expand className="h-5 w-5" />
-                                </button>
-                            </div>
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center gap-3 pb-4">
-                                <button
-                                    onClick={onDownload}
-                                    className="h-11 w-11 rounded-full bg-white/90 backdrop-blur-sm text-gray-800 flex items-center justify-center hover:bg-white transition-all duration-200 hover:scale-110 shadow-lg"
-                                    aria-label={`Скачать ${caption}`}
-                                >
-                                    <Icons.download className="h-5 w-5" />
-                                </button>
-                                <button
-                                    onClick={onRegenerate}
-                                    className="h-11 w-11 rounded-full bg-white/90 backdrop-blur-sm text-gray-800 flex items-center justify-center hover:bg-white transition-all duration-200 hover:scale-110 shadow-lg"
-                                    aria-label={`Создать заново ${caption}`}
-                                >
-                                    <Icons.refresh className="h-5 w-5" />
-                                </button>
                             </div>
                         </motion.div>
                     )}
