@@ -305,7 +305,6 @@ function App() {
                                 hasUpdates = true;
                             }
                         });
-                                }
                     });
                 }
 
