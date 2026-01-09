@@ -306,13 +306,6 @@ function App() {
                             }
                         });
                                 }
-                            } else if (!updated[style] || (updated[style].status === 'pending' && order.status !== 'completed')) {
-                                // Если изображения еще нет и заказ не завершен, устанавливаем processing
-                                updated[style] = { status: 'processing' };
-                                hasUpdates = true;
-                            }
-                        });
-                        return hasUpdates ? updated : prev;
                     });
                 }
 
