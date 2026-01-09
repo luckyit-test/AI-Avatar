@@ -192,24 +192,83 @@ function App() {
             // Сразу инициализируем состояние генерации (оптимистичный UI)
             // Это гарантирует, что пользователь увидит карточки генерации сразу
             const initialImages: Record<string, GeneratedImage> = {};
-            devLog.log('[Polling] STYLES array:', STYLES);
-                        devLog.log('[Polling] order.generatedImages keys:', order.generatedImages ? Object.keys(order.generatedImages) : []);
-                        STYLES.forEach(style => {
-                            // Use optional chaining and check for truthy value
-                            const imageUrl = getImageUrl(style, order.generatedImages);
-                            if (imageUrl && typeof imageUrl === 'string' && imageUrl.trim().length > 0) {
-                                // Обновляем если изображение готово, но еще не отмечено как done или URL изменился
-                                if (!updated[style] || updated[style].status !== 'done' || updated[style].url !== imageUrl) {
-                                    updated[style] = { status: 'done', url: imageUrl };
-                                    hasUpdates = true;
-                                    devLog.log('[Polling] Updated image for style: ' + style, { url: imageUrl.substring(0, 50) + '...' });
+            STYLES.forEach(style => {
+                initialImages[style] = { status: 'processing' };
+            });
+            setGeneratedImages(initialImages);
+            setAppState('generating');
+            devLog.log('[App] Optimistically set generation state while loading order');
+
+            // Загружаем информацию о заказе с бэкенда
+            fetchOrder(invId)
+                .then((order) => {
+                    setCurrentOrder(order);
+
+                    // Если заказ оплачен или обрабатывается - показываем генерацию
+                    if (order.status === 'paid' || order.status === 'processing' || order.status === 'completed') {
+                        setHasActivePayment(true);
+                        
+                        // Восстанавливаем настройки из localStorage
+                        try {
+                            const raw = window.localStorage.getItem(PENDING_GENERATION_KEY);
+                            if (raw) {
+                                const data = JSON.parse(raw);
+                                devLog.log('[App] Restoring from localStorage:', { hasImage: !!data?.uploadedImage, hasGender: !!data?.genderOverride });
+                                if (data?.uploadedImage) {
+                                    setUploadedImage(data.uploadedImage);
+                                    devLog.log('[App] Restored uploadedImage from localStorage');
                                 }
-                            } else if (!updated[style] || (updated[style].status === 'pending' && order.status !== 'completed')) {
-                                // Если изображения еще нет и заказ не завершен, устанавливаем processing
-                                updated[style] = { status: 'processing' };
-                                hasUpdates = true;
+                                if (data?.genderOverride === 'male' || data?.genderOverride === 'female') {
+                                    setGenderOverride(data.genderOverride);
+                                    devLog.log('[App] Restored genderOverride from localStorage:', data.genderOverride);
+                                }
+                                if (data?.selectedRole && (IT_ROLES as readonly string[]).includes(data.selectedRole)) {
+                                    setSelectedRole(data.selectedRole as (typeof IT_ROLES)[number]);
+                                }
+                                if (data?.selectedCompany && (COMPANY_TYPES as readonly string[]).includes(data.selectedCompany)) {
+                                    setSelectedCompany(data.selectedCompany as (typeof COMPANY_TYPES)[number]);
+                                }
+                            } else {
+                                devLog.warn('[App] No data in localStorage for PENDING_GENERATION_KEY');
                             }
-                        });
+                            
+                            // Если изображение всё ещё не восстановилось — пробуем взять последнее исходное из отдельного ключа
+                            if (!uploadedImage) {
+                                try {
+                                    const lastSource = window.localStorage.getItem(LAST_SOURCE_IMAGE_KEY);
+                                    if (lastSource) {
+                                        setUploadedImage(lastSource);
+                                        devLog.log('[App] Restored uploadedImage from LAST_SOURCE_IMAGE_KEY');
+                                    }
+                                } catch (e) {
+                                    devLog.warn('[App] Failed to restore last source image from storage:', e);
+                                }
+                            }
+                            
+                            // Восстанавливаем настройки из заказа (если не восстановились из localStorage)
+                            if (order.gender && (order.gender === 'male' || order.gender === 'female')) {
+                                if (!genderOverride) {
+                                    setGenderOverride(order.gender as 'male' | 'female');
+                                    devLog.log('[App] Restored genderOverride from order:', order.gender);
+                                }
+                            }
+                            if (order.role && (IT_ROLES as readonly string[]).includes(order.role)) {
+                                setSelectedRole(order.role as (typeof IT_ROLES)[number]);
+                            }
+                            if (order.company && (COMPANY_TYPES as readonly string[]).includes(order.company)) {
+                                setSelectedCompany(order.company as (typeof COMPANY_TYPES)[number]);
+                            }
+                            
+                        // Если заказ завершен - показываем результаты
+                            if (order.status === 'completed' && order.generatedImages) {
+                                const images: Record<string, GeneratedImage> = {};
+                                STYLES.forEach(style => {
+                                    if (order.generatedImages && order.generatedImages[style]) {
+                                        images[style] = { status: 'done', url: order.generatedImages[style] };
+                                    } else {
+                                        images[style] = { status: 'error', error: 'Не сгенерировано' };
+                                    }
+                                });
                                 setGeneratedImages(images);
                                 setAppState('results-shown');
                             } else if (order.status === 'processing' || order.status === 'paid') {
@@ -218,27 +277,92 @@ function App() {
                                 devLog.log('[App] Setting generation state for order', { invId, status: order.status });
                                 
                                 // Инициализируем все 6 карточек со статусом processing
-                                setGeneratedImages(prev => {
-                                    const updated = { ...prev };
-                                    let hasUpdates = false;
-                                    STYLES.forEach(style => {
-                                // Use optional chaining and check for truthy value
-                                const imageUrl = getImageUrl(style, order.generatedImages);
-                                if (imageUrl && typeof imageUrl === 'string' && imageUrl.trim().length > 0) {
-                                    // Обновляем если изображение готово, но еще не отмечено как done или URL изменился
-                                    if (!updated[style] || updated[style].status !== 'done' || updated[style].url !== imageUrl) {
-                                        updated[style] = { status: 'done', url: imageUrl };
-                                        hasUpdates = true;
-                                        devLog.log('[Polling] Updated image for style: ' + style, { url: imageUrl.substring(0, 50) + '...' });
-                                    }
-                                } else if (!updated[style] || (updated[style].status === 'pending' && order.status !== 'completed')) {
-                                    // Если изображения еще нет и заказ не завершен, устанавливаем processing
-                                    updated[style] = { status: 'processing' };
-                                    hasUpdates = true;
-                                }
-                            });
-                                return hasUpdates ? updated : prev;
+                                const images: Record<string, GeneratedImage> = {};
+                                STYLES.forEach(style => {
+                                    images[style] = { status: 'processing' };
                                 });
+                                
+                                devLog.log('[App] Generated images state:', images, 'STYLES:', STYLES);
+                                
+                                // Устанавливаем состояние синхронно, используя функциональное обновление
+                                setGeneratedImages(() => images);
+                                setAppState('generating');
+                                
+                                devLog.log('[App] App state set to generating, generatedImages keys:', Object.keys(images));
+                            } else if (order.status === 'failed') {
+                                devLog.log('[App] Order is in failed status after load, showing failed state');
+                                setHasActivePayment(false);
+                                setGeneratedImages({});
+                                setUploadedImage(null);
+                                setIntermediateImage(null);
+                                setAppState('failed');
+                            }
+                        } catch (e) {
+                            devLog.warn('[App] Failed to restore order state:', e);
+                        }
+                    } else {
+                        // Заказ не был оплачен (status = created / cancelled / и т.п.) —
+                        // возвращаем пользователя на "чистую" главную страницу.
+                        devLog.log('[App] Order is not paid, resetting UI to idle state', { status: order.status });
+                        setHasActivePayment(false);
+                        setCurrentInvId(null);
+                        setCurrentOrder(null);
+                        setGeneratedImages({});
+                        setUploadedImage(null);
+                        setGenderOverride(null);
+                        setAppState('idle');
+                        try {
+                            window.localStorage.removeItem(CURRENT_ORDER_KEY);
+                            window.localStorage.removeItem(PENDING_GENERATION_KEY);
+                        } catch (storageErr) {
+                            devLog.warn('[App] Failed to clear localStorage after unpaid order:', storageErr);
+                        }
+                    }
+                })
+                .catch((err) => {
+                    console.error('[App] Failed to fetch order:', err);
+                    // Если заказ не найден или ошибка — очищаем localStorage и возвращаемся на чистый экран
+                    if (typeof window !== 'undefined') {
+                        try {
+                            window.localStorage.removeItem(CURRENT_ORDER_KEY);
+                            window.localStorage.removeItem(PENDING_GENERATION_KEY);
+                        } catch (storageErr) {
+                            devLog.warn('[App] Failed to clear localStorage after fetch error:', storageErr);
+                        }
+                    }
+                    setHasActivePayment(false);
+                    setCurrentInvId(null);
+                    setCurrentOrder(null);
+                    setGeneratedImages({});
+                    setUploadedImage(null);
+                    setGenderOverride(null);
+                    setAppState('idle');
+                });
+
+            // Чистим служебные параметры Robokassa из URL
+            ['payment', 'invId', 'InvId', 'OutSum', 'SignatureValue', 'IsTest', 'Culture'].forEach((key) =>
+                url.searchParams.delete(key),
+            );
+            window.history.replaceState({}, '', url.toString());
+        }
+    }, []);
+
+    // Polling статуса заказа с exponential backoff и оптимизацией
+    useEffect(() => {
+        if (!currentInvId) return;
+        
+        // Если currentOrder еще не загружен, не запускаем polling
+        if (!currentOrder) return;
+        
+        // Запускаем polling только для paid или processing
+        if (currentOrder.status !== 'processing' && currentOrder.status !== 'paid') return;
+
+        // AbortController для отмены запросов при размонтировании
+        const abortController = new AbortController();
+        
+        // Сбрасываем значения refs при запуске polling
+        pollDelayRef.current = 2000;
+        consecutiveErrorsRef.current = 0;
         
         const MIN_POLL_DELAY = 2000;
         const MAX_POLL_DELAY = 30000;
@@ -266,48 +390,6 @@ function App() {
                     return order;
                 });
                 
-                // ВАЖНО: Обновляем частично готовые изображения на КАЖДОМ polling запросе
-                // Это нужно делать независимо от изменения статуса, так как изображения могут появляться постепенно
-                if ((order.status === 'processing' || order.status === 'paid' || order.status === 'completed') && order.generatedImages) {
-                // Маппинг русских названий на транслитерацию
-                const STYLE_NAME_MAP: Record<string, string> = {
-                    'Классический': 'klassicheskiy',
-                    'Современный': 'sovremennyy',
-                    'Креативный': 'kreativnyy',
-                    'Технологичный': 'tekhnologichnyy',
-                    'Дружелюбный': 'druzhelyubnyy',
-                    'Уверенный': 'uverenniy',
-                };
-                const getImageUrl = (style: string, generatedImages: Record<string, string> | undefined): string | undefined => {
-                    if (!generatedImages) return undefined;
-                    if (generatedImages[style]) return generatedImages[style];
-                    const translit = STYLE_NAME_MAP[style];
-                    if (translit && generatedImages[translit]) return generatedImages[translit];
-                    return undefined;
-                };
-
-                    setGeneratedImages(prev => {
-                        const updated = { ...prev };
-                        let hasUpdates = false;
-                        STYLES.forEach(style => {
-                            // Use optional chaining and check for truthy value
-                            const imageUrl = getImageUrl(style, order.generatedImages);
-                            if (imageUrl && typeof imageUrl === 'string' && imageUrl.trim().length > 0) {
-                                // Обновляем если изображение готово, но еще не отмечено как done или URL изменился
-                                if (!updated[style] || updated[style].status !== 'done' || updated[style].url !== imageUrl) {
-                                    updated[style] = { status: 'done', url: imageUrl };
-                                    hasUpdates = true;
-                                    devLog.log('[Polling] Updated image for style: ' + style, { url: imageUrl.substring(0, 50) + '...' });
-                                }
-                            } else if (!updated[style] || (updated[style].status === 'pending' && order.status !== 'completed')) {
-                                // Если изображения еще нет и заказ не завершен, устанавливаем processing
-                                updated[style] = { status: 'processing' };
-                                hasUpdates = true;
-                            }
-                        });
-                    });
-                }
-
                 // Проверяем, изменился ли статус заказа (используем order из ответа)
                 if (statusChanged) {
 
@@ -315,19 +397,23 @@ function App() {
                     if (order.status === 'processing' && appState !== 'generating') {
                         const images: Record<string, GeneratedImage> = {};
                         STYLES.forEach(style => {
-                            // Use optional chaining and check for truthy value
-                            const imageUrl = getImageUrl(style, order.generatedImages);
-                            if (imageUrl && typeof imageUrl === 'string' && imageUrl.trim().length > 0) {
-                                // Обновляем если изображение готово, но еще не отмечено как done или URL изменился
-                                if (!updated[style] || updated[style].status !== 'done' || updated[style].url !== imageUrl) {
-                                    updated[style] = { status: 'done', url: imageUrl };
-                                    hasUpdates = true;
-                                    devLog.log('[Polling] Updated image for style: ' + style, { url: imageUrl.substring(0, 50) + '...' });
-                                }
-                            } else if (!updated[style] || (updated[style].status === 'pending' && order.status !== 'completed')) {
-                                // Если изображения еще нет и заказ не завершен, устанавливаем processing
-                                updated[style] = { status: 'processing' };
-                                hasUpdates = true;
+                            images[style] = { status: 'processing' };
+                        });
+                        setGeneratedImages(images);
+                        setAppState('generating');
+                        // Сбрасываем задержку при изменении статуса
+                        pollDelayRef.current = MIN_POLL_DELAY;
+                        consecutiveErrorsRef.current = 0; // Сбрасываем счетчик ошибок
+                    }
+
+                    // Если заказ завершен - обновляем UI и останавливаем polling
+                    if (order.status === 'completed' && order.generatedImages) {
+                        const images: Record<string, GeneratedImage> = {};
+                        STYLES.forEach(style => {
+                            if (order.generatedImages && order.generatedImages[style]) {
+                                images[style] = { status: 'done', url: order.generatedImages[style] };
+                            } else {
+                                images[style] = { status: 'error', error: 'Не сгенерировано' };
                             }
                         });
                         setGeneratedImages(images);
