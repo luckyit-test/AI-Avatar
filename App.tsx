@@ -399,7 +399,7 @@ function App() {
             if (pollTimeoutId) {
                 clearTimeout(pollTimeoutId);
             }
-        }
+        },
     }, [currentInvId, currentOrder, appState]);
 
     // Предупреждение при перезагрузке страницы, когда уже есть результаты генерации.
