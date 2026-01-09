@@ -31,7 +31,9 @@ export function describeRole(role) {
       return 'QA engineer; meticulous, quality-driven, methodical calmness';
     case 'CTO':
       return 'CTO; executive gravitas, visionary leadership, crisp and premium look';
-    default:
+        case 'Психолог':
+      return 'psychologist; empathetic, approachable, warm professional presence; calm and trustworthy demeanor';
+    
       return 'technology professional; credible and modern';
   }
 }
@@ -111,6 +113,20 @@ export function attireByContext(gender, role, company, specificGarment = null) {
     'tailored blazer, no tie',
     'business suit with open collar',
   ];
+  const femalePsychologistPool = [
+    'soft cardigan over blouse',
+    'warm knit sweater',
+    'comfortable turtleneck',
+    'relaxed blouse with soft fabric',
+    'lightweight cardigan',
+  ];
+  const malePsychologistPool = [
+    'soft cardigan over shirt',
+    'comfortable knit sweater',
+    'relaxed oxford shirt, no tie',
+    'warm merino sweater',
+    'soft crewneck sweater',
+  ];
   const roleCreative = 'smart-casual with tasteful minimal design accents';
 
   let attireCore;
@@ -140,12 +156,17 @@ export function attireByContext(gender, role, company, specificGarment = null) {
     case 'CTO':
       attireCore = isFormalCompany ? roleFormal : 'executive smart-casual; tailored blazer, no tie';
       break;
-    default:
+        case 'Психолог':
+      attireCore = isFormalCompany ? `${roleBusinessCasual}; soft, approachable colors; cardigan or knit preferred` : `${roleSmartCasual}; warm, comfortable clothing; soft cardigan, knit sweater, or relaxed blouse; avoid sharp formal lines`;
+      break;
+    
       attireCore = isFormalCompany ? roleBusinessCasual : roleSmartCasual;
   }
 
   let companyFlavor = '';
-  if (company === 'Финтех') companyFlavor = 'sleek monochrome palette';
+    if (role === 'Психолог') {
+    companyFlavor = 'warm, inviting, comfortable environment; soft natural lighting; calming neutral tones';
+  } else if (company === 'Финтех') companyFlavor = 'sleek monochrome palette';
   if (company === 'Стартап') companyFlavor = 'fresh, dynamic, contemporary casual';
   if (company === 'Продуктовая компания') companyFlavor = 'approachable and modern';
   if (company === 'Госкомпания') companyFlavor = 'conservative and respectful styling';
@@ -160,9 +181,17 @@ export function attireByContext(gender, role, company, specificGarment = null) {
     garment = specificGarment;
   } else {
     if (gender === 'female') {
-      garment = isFormalCompany ? randomChoice(femaleFormalPool) : randomChoice(femaleModernPool);
+      if (role === 'Психолог') {
+        garment = randomChoice(femalePsychologistPool);
+      } else {
+        garment = isFormalCompany ? randomChoice(femaleFormalPool) : randomChoice(femaleModernPool);
+      }
     } else if (gender === 'male') {
-      garment = isFormalCompany ? randomChoice(maleFormalPool) : randomChoice(maleModernPool);
+      if (role === 'Психолог') {
+        garment = randomChoice(malePsychologistPool);
+      } else {
+        garment = isFormalCompany ? randomChoice(maleFormalPool) : randomChoice(maleModernPool);
+      }
     }
   }
 
