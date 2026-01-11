@@ -1696,7 +1696,7 @@ app.delete(`${API_PREFIX}/admin/promocodes/:code`, requireAdminAuth, (req, res) 
 // Применение промокода для бесплатной генерации
 app.post(`${API_PREFIX}/promo/use`, express.json({ limit: '11mb' }), async (req, res) => {
   try {
-    const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || req.ip || req.connection.remoteAddress || 'unknown';
     const { code, imageData, gender, role, company } = req.body || {};
 
     if (!code || typeof code !== 'string') {
@@ -1710,7 +1710,13 @@ app.post(`${API_PREFIX}/promo/use`, express.json({ limit: '11mb' }), async (req,
     }
 
     // Проверка попыток по IP
-    const attempts = promoAttemptsByIp.get(clientIp) || { count: 0 };
+    const attempts = promoAttemptsByIp.get(clientIp) || { count: 0, lastAttempt: 0 };
+// Clear attempts if more than 1 hour passed
+const oneHour = 60 * 60 * 1000;
+if (attempts.lastAttempt && (Date.now() - attempts.lastAttempt) > oneHour) {
+  attempts.count = 0;
+}
+attempts.lastAttempt = Date.now();
     if (attempts.count >= 5) {
       return res.status(429).json({ ok: false, error: 'Превышено количество попыток ввода промокода. Попробуйте позже.' });
     }
