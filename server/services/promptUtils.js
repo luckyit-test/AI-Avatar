@@ -33,7 +33,6 @@ export function describeRole(role) {
       return 'CTO; executive gravitas, visionary leadership, crisp and premium look';
         case 'Психолог':
       return 'psychologist; empathetic, approachable, warm professional presence; calm and trustworthy demeanor';
-    
       return 'technology professional; credible and modern';
   }
 }
@@ -159,7 +158,7 @@ export function attireByContext(gender, role, company, specificGarment = null) {
         case 'Психолог':
       attireCore = isFormalCompany ? `${roleBusinessCasual}; soft, approachable colors; cardigan or knit preferred` : `${roleSmartCasual}; warm, comfortable clothing; soft cardigan, knit sweater, or relaxed blouse; avoid sharp formal lines`;
       break;
-    
+    
       attireCore = isFormalCompany ? roleBusinessCasual : roleSmartCasual;
   }
 
