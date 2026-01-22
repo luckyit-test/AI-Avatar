@@ -1728,12 +1728,6 @@ app.delete(`${API_PREFIX}/admin/promocodes/:code`, requireAdminAuth, (req, res) 
 
 // Применение промокода для бесплатной генерации
 // Analyze role and company endpoint
-app.post(`${API_PREFIX}/prompt/analyze`, express.json(), async (req, res) => {
-  try {
-    const { role, companySize } = req.body || {};
-    
-    if (!role || typeof role !== "string" || role.trim().length === 0) {
-      return res.status(400).json({ ok: false, error: "Должность обязательна" });
 
     }
     
