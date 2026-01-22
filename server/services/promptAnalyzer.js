@@ -23,7 +23,7 @@ export interface AnalyzedPromptData {
   companyContext;
 }
 
-export async function analyzeRoleAndCompany(
+async function analyzeRoleAndCompany(
   role,
   companySize
 ): Promise<AnalyzedPromptData> {
@@ -101,7 +101,11 @@ Return ONLY valid JSON, no additional text.`;
   }
 }
 
-export function clearAnalysisCache() {
+function clearAnalysisCache() {
   analysisCache.clear();
   console.log('[promptAnalyzer] Cache cleared');
 }
+
+// Export functions
+module.exports.analyzeRoleAndCompany = analyzeRoleAndCompany;
+module.exports.clearAnalysisCache = clearAnalysisCache;
