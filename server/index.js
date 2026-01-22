@@ -1072,35 +1072,6 @@ app.post(`${API_PREFIX}/prompt/analyze`, express.json(), async (req, res) => {
     res.status(500).json({
       ok: false,
       error: "Не удалось проанализировать данные. Попробуйте позже.",
-    });
-  }
-});
-
-
-
-
-    }
-
-    if (!companySize || typeof companySize !== "string") {
-      return res.status(400).json({ ok: false, error: "Размер компании обязателен" });
-    }
-
-    const analyzed = await analyzeRoleAndCompany(role.trim(), companySize);
-
-    res.json({
-      ok: true,
-      analyzed,
-    });
-  } catch (err) {
-    console.error("[API] Failed to analyze prompt:", err);
-    res.status(500).json({
-      ok: false,
-      error: "Не удалось проанализировать данные. Попробуйте позже.",
-    });
-  }
-});
-
-
 // Безопасная конфигурация CORS - только с разрешенных доменов
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
   ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
