@@ -1702,6 +1702,7 @@ app.post(`${API_PREFIX}/prompt/analyze`, express.json(), async (req, res) => {
     
     if (!role || typeof role !== "string" || role.trim().length === 0) {
       return res.status(400).json({ ok: false, error: "Должность обязательна" });
+
     }
     
     if (!companySize || typeof companySize !== "string") {
