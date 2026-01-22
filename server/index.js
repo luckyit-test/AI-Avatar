@@ -1118,13 +1118,6 @@ app.post(`${API_PREFIX}/evaluate-image`, rateLimit);
 // All payment-related endpoints are registered via app.use(paymentRoutes) below
 
 // Статус платежа (используется фронтендом после возврата пользователя)
-app.get(`${API_PREFIX}/payment/status`, (req, res) => {
-  const invId = req.query.invId;
-  if (!invId) {
-    return res.status(400).json({ paid: false, error: 'invId is required' });
-
-    }
-});
 // Analyze role and company endpoint
 app.post(`${API_PREFIX}/prompt/analyze`, express.json(), async (req, res) => {
   try {
