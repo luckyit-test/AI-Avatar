@@ -1724,7 +1724,6 @@ app.post(`${API_PREFIX}/prompt/analyze`, express.json(), async (req, res) => {
 });
 
 app.post(`${API_PREFIX}/promo/use`, express.json({ limit: '11mb' }), async (req, res) => {
-// Analyze role and company endpoint
     const { code, imageData, gender, role, company } = req.body || {};
 
     if (!code || typeof code !== 'string') {
