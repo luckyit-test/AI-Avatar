@@ -1072,6 +1072,10 @@ app.post(`${API_PREFIX}/prompt/analyze`, express.json(), async (req, res) => {
     res.status(500).json({
       ok: false,
       error: "Не удалось проанализировать данные. Попробуйте позже.",
+    });
+  }
+});
+
 // Безопасная конфигурация CORS - только с разрешенных доменов
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
     });
