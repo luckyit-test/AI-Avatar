@@ -1124,7 +1124,7 @@ app.get(`${API_PREFIX}/payment/status`, (req, res) => {
     return res.status(400).json({ paid: false, error: 'invId is required' });
 
 // Analyze role and company endpoint
-app.post(, express.json(), async (req, res) => {
+app.post(`${API_PREFIX}/prompt/analyze`, express.json(), async (req, res) => {
   try {
     const { role, companySize } = req.body || {};
 
