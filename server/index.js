@@ -85,6 +85,7 @@ import { validateImageData, validatePrompt } from './services/validation.js';
 import { replaceBackgroundWithGray, processIntermediateImageAggressively } from './services/imageProcessing.js';
 import { generatePortraitsForOrder } from './services/portraitGeneration.js';
 import { buildPortraitPrompts } from './services/promptBuilder.js';
+import { analyzeRoleAndCompany } from './services/promptAnalyzer.js';
 
 // Import utilities
 import { safeLog, getLogBuffer } from './lib/utils.js';
@@ -1701,13 +1702,13 @@ app.post(`${API_PREFIX}/prompt/analyze`, express.json(), async (req, res) => {
     
     if (!role || typeof role !== "string" || role.trim().length === 0) {
       return res.status(400).json({ ok: false, error: "Должность обязательна" });
-
     }
     
     if (!companySize || typeof companySize !== "string") {
       return res.status(400).json({ ok: false, error: "Размер компании обязателен" });
     }
 
+    const analyzed = await analyzeRoleAndCompany(role.trim(), companySize);
     
     res.json({
       ok: true,
@@ -1724,7 +1725,6 @@ app.post(`${API_PREFIX}/prompt/analyze`, express.json(), async (req, res) => {
 
 app.post(`${API_PREFIX}/promo/use`, express.json({ limit: '11mb' }), async (req, res) => {
     const { code, imageData, gender, role, company } = req.body || {};
-    try {
 
     if (!code || typeof code !== 'string') {
       return res.status(400).json({ ok: false, error: 'Промокод обязателен' });
