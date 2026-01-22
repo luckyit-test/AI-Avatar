@@ -85,7 +85,7 @@ import { validateImageData, validatePrompt } from './services/validation.js';
 import { replaceBackgroundWithGray, processIntermediateImageAggressively } from './services/imageProcessing.js';
 import { generatePortraitsForOrder } from './services/portraitGeneration.js';
 import { buildPortraitPrompts } from './services/promptBuilder.js';
-import { analyzeRoleAndCompany } from './services/promptAnalyzer.js';
+import { analyzeRoleAndCompany } from './services/promptAnalyzer.cjs';
 
 // Import utilities
 import { safeLog, getLogBuffer } from './lib/utils.js';
