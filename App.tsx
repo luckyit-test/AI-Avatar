@@ -4,7 +4,7 @@
 */
 import React, { useState, ChangeEvent, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { generateImage, evaluateImage, addGenerationToQueue, createPayment, checkPaymentStatus, fetchOrder, retryOrder, usePromoCode, adminCheckSession, adminLogin, adminLogout, type DetectedGender, type QueueStatus, type ImageEvaluationResult, type OrderInfo } from './services/geminiService';
+import { generateImage, evaluateImage, addGenerationToQueue, createPayment, checkPaymentStatus, fetchOrder, retryOrder, usePromoCode, analyzePrompt, adminCheckSession, adminLogin, adminLogout, type DetectedGender, type QueueStatus, type ImageEvaluationResult, type OrderInfo } from './services/geminiService';
 import { createAlbumPage } from './lib/albumUtils';
 import { compressImage, shouldCompressImage } from './lib/imageCompression';
 import { errorLogger } from './lib/errorLogger';
@@ -1055,7 +1055,27 @@ function App() {
             devLog.log('[App] ========================================');
 
             // ШАГ 2: Генерируем все 6 стилей параллельно на основе промежуточного изображения
-            const prompts = buildPromptsByContext(getEffectiveGender(), selectedRole, selectedCompany, variability, naturalLook);
+            // Analyze role and company first
+            let analyzedData = null;
+            if (selectedRole && selectedCompany) {
+              try {
+                const analysisResult = await analyzePrompt(selectedRole, selectedCompany);
+                if (analysisResult.ok && analysisResult.analyzed) {
+                  analyzedData = analysisResult.analyzed;
+                }
+              } catch (err) {
+                console.error("[App] Failed to analyze prompt:", err);
+              }
+            }
+            
+            const prompts = buildPromptsByContext(
+              getEffectiveGender(), 
+              selectedRole, 
+              selectedCompany, 
+              variability, 
+              naturalLook,
+              analyzedData
+            );
 
             // Логируем информацию о промптах для проверки инструкций по бороде/усам
             devLog.log('[App] ========================================');
@@ -1454,7 +1474,27 @@ function App() {
         setGeneratedImages(prev => ({ ...prev, [style]: { status: 'pending' } }));
 
         try {
-            const prompts = buildPromptsByContext(getEffectiveGender(), selectedRole, selectedCompany, variability, naturalLook);
+            // Analyze role and company first
+            let analyzedData = null;
+            if (selectedRole && selectedCompany) {
+              try {
+                const analysisResult = await analyzePrompt(selectedRole, selectedCompany);
+                if (analysisResult.ok && analysisResult.analyzed) {
+                  analyzedData = analysisResult.analyzed;
+                }
+              } catch (err) {
+                console.error("[App] Failed to analyze prompt:", err);
+              }
+            }
+            
+            const prompts = buildPromptsByContext(
+              getEffectiveGender(), 
+              selectedRole, 
+              selectedCompany, 
+              variability, 
+              naturalLook,
+              analyzedData
+            );
             const prompt = prompts[style];
             
             // Callback для обновления статуса в реальном времени

@@ -1058,6 +1058,30 @@ export async function checkGenerationStatus(jobId: string): Promise<QueueStatus>
  * Генерирует изображение через очередь с polling статуса
  */
 export async function generateImage(
+
+export async function analyzePrompt(role: string, companySize: string): Promise<{ ok: boolean; analyzed?: any; error?: string }> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/prompt/analyze`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ role, companySize }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+      return { ok: false, error: errorData.error || "Failed to analyze prompt" };
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("[geminiService] Failed to analyze prompt:", error);
+    return { ok: false, error: error instanceof Error ? error.message : "Network error" };
+  }
+}
+
   imageDataUrl: string, 
   prompt: string,
   onStatusUpdate?: (status: QueueStatus) => void
