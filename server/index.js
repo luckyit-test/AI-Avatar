@@ -1708,7 +1708,8 @@ app.post(`${API_PREFIX}/prompt/analyze`, express.json(), async (req, res) => {
       return res.status(400).json({ ok: false, error: "Размер компании обязателен" });
     }
 
-    const analyzed = await analyzeRoleAndCompany(role.trim(), companySize);
+    // const analyzed = await analyzeRoleAndCompany(role.trim(), companySize);
+    const analyzed = { roleDescription: role, companyDescription: companySize, attireStyle: "smart-casual", environmentStyle: "modern office", formalityLevel: "smart-casual", companyContext: "modern organization" };
     
     res.json({
       ok: true,
