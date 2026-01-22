@@ -100,10 +100,6 @@ import migrationRoutes from './routes/migration.js';
 import { initializeTelegramBot, startTelegramBot, handleTelegramRobokassaPayment } from './bot/telegram.js';
 import { TELEGRAM_BOT_TOKEN } from './config/index.js';
 
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
-const { analyzeRoleAndCompany } = require("./services/promptAnalyzer.js");
-
 const app = express();
 
 // Initialize database
@@ -493,6 +489,7 @@ async function processJob(job) {
         }
         
         throw error;
+      }
     }
     
     // Для промежуточных изображений пробуем финальный минимальный промпт перед сдачей
@@ -547,6 +544,7 @@ async function processJob(job) {
           jobId: job.id,
           error: minimalError instanceof Error ? minimalError.message : String(minimalError)
         });
+      }
     }
     
     throw lastError || new Error('Превышено максимальное количество попыток');
@@ -690,6 +688,7 @@ async function processQueue() {
           activeJobs: activeJobs.size
         });
         await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
 
       // Берем ровно 6 задач (порция от одного пользователя)
       // Если в очереди меньше 6 - берем сколько есть, но следующая порция будет ждать
@@ -697,6 +696,7 @@ async function processQueue() {
 
       for (let i = 0; i < BATCH_SIZE && generationQueue.length > 0; i++) {
         batchJobs.push(generationQueue.shift());
+      }
 
       if (batchJobs.length === 0) break;
 
@@ -708,6 +708,7 @@ async function processQueue() {
       for (let i = 0; i < batchJobs.length; i++) {
         geminiRequestsPerSecond.set(currentSecond, (geminiRequestsPerSecond.get(currentSecond) || 0) + 1);
         geminiRequestTimestamps.push(Date.now());
+      }
 
       safeLog('Starting batch of jobs', {
         batchSize: batchJobs.length,
@@ -857,6 +858,7 @@ async function performImageAnalysis(imageData, type, jobId = null) {
       const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         parsed = JSON.parse(jsonMatch[0]);
+      }
     }
     
     if (!parsed || typeof parsed.isValid !== 'boolean') {
@@ -1042,6 +1044,39 @@ async function processAnalysisQueue() {
 
 // Payment redirects (success/fail) are handled by server/routes/payment.js
 // All payment-related endpoints are registered via app.use(paymentRoutes) below
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const { analyzeRoleAndCompany } = require("./services/promptAnalyzer.js");
+
+
+// Analyze role and company endpoint
+app.post(`${API_PREFIX}/prompt/analyze`, express.json(), async (req, res) => {
+  try {
+    const { role, companySize } = req.body || {};
+
+    if (!role || typeof role !== "string" || role.trim().length === 0) {
+      return res.status(400).json({ ok: false, error: "Должность обязательна" });
+    }
+
+    if (!companySize || typeof companySize !== "string") {
+      return res.status(400).json({ ok: false, error: "Размер компании обязателен" });
+    }
+
+    const analyzed = await analyzeRoleAndCompany(role.trim(), companySize);
+
+    res.json({
+      ok: true,
+      analyzed,
+    });
+  } catch (err) {
+    console.error("[API] Failed to analyze prompt:", err);
+    res.status(500).json({
+      ok: false,
+      error: "Не удалось проанализировать данные. Попробуйте позже.",
+    });
+  }
+});
+
 
 // Безопасная конфигурация CORS - только с разрешенных доменов
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
@@ -1112,52 +1147,10 @@ app.post(`${API_PREFIX}/evaluate-image`, rateLimit);
 // All payment-related endpoints are registered via app.use(paymentRoutes) below
 
 // Статус платежа (используется фронтендом после возврата пользователя)
-// Analyze role and company endpoint
-app.post(`${API_PREFIX}/prompt/analyze`, express.json(), async (req, res) => {
-  try {
-    const { role, companySize } = req.body || {};
-
-    if (!role || typeof role !== "string" || role.trim().length === 0) {
-      return res.status(400).json({ ok: false, error: "Должность обязательна" });
-      return res.status(400).json({ ok: false, error: "Размер компании обязателен" });
-    }
-
-    const analyzed = await analyzeRoleAndCompany(role.trim(), companySize);
-
-    res.json({
-      ok: true,
-      analyzed,
-    });
-  } catch (err) {
-    console.error("[API] Failed to analyze prompt:", err);
-    res.status(500).json({
-      ok: false,
-      error: "Не удалось проанализировать данные. Попробуйте позже.",
-    });
-  }
-});
-
-    }
-
-    if (!companySize || typeof companySize !== "string") {
-      return res.status(400).json({ ok: false, error: "Размер компании обязателен" });
-    }
-
-    const analyzed = await analyzeRoleAndCompany(role.trim(), companySize);
-
-    res.json({
-      ok: true,
-      analyzed,
-    });
-  } catch (err) {
-    console.error("[API] Failed to analyze prompt:", err);
-    res.status(500).json({
-      ok: false,
-      error: "Не удалось проанализировать данные. Попробуйте позже.",
-    });
-  }
-});
-
+app.get(`${API_PREFIX}/payment/status`, (req, res) => {
+  const invId = req.query.invId;
+  if (!invId) {
+    return res.status(400).json({ paid: false, error: 'invId is required' });
   }
   const order = loadOrder(invId);
   if (!order) {
@@ -1277,6 +1270,7 @@ app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
       if (!order.generatedImagesJson) {
         console.log('[Gallery Recent] Order', order.invId, 'has no generatedImagesJson');
         continue;
+      }
       
       try {
         const images = JSON.parse(order.generatedImagesJson);
@@ -1300,6 +1294,7 @@ app.get(`${API_PREFIX}/gallery/recent`, (req, res) => {
         }
       } catch (e) {
         console.warn('[Gallery Recent] Failed to parse images for order', order.invId, e);
+      }
     }
 
     console.log('[Gallery Recent] Total portraits extracted:', portraits.length);
@@ -1371,6 +1366,7 @@ app.get(`${API_PREFIX}/gallery/orders`, (req, res) => {
       if (!order.generatedImagesJson) {
         console.log('[Gallery Orders] Order', order.invId, 'has no generatedImagesJson');
         continue;
+      }
       
       try {
         const images = JSON.parse(order.generatedImagesJson);
@@ -1404,6 +1400,7 @@ app.get(`${API_PREFIX}/gallery/orders`, (req, res) => {
         }
       } catch (e) {
         console.warn('[Gallery Orders] Failed to parse images for order', order.invId, e);
+      }
     }
 
     console.log('[Gallery Orders] Total gallery items:', galleryItems.length);
@@ -1468,6 +1465,7 @@ app.post(`${API_PREFIX}/order/:invId/retry`, express.json({ limit: '11mb' }), as
         failedOrder.status = 'failed';
         failedOrder.failureReason = err instanceof Error ? err.message : String(err);
         saveOrder(failedOrder);
+      }
     });
 
     return res.json({ ok: true, invId: String(invId), retries: order.retries });
@@ -1733,27 +1731,9 @@ app.delete(`${API_PREFIX}/admin/promocodes/:code`, requireAdminAuth, (req, res) 
 app.post(`${API_PREFIX}/prompt/analyze`, express.json(), async (req, res) => {
   try {
     const { role, companySize } = req.body || {};
-
+    
     if (!role || typeof role !== "string" || role.trim().length === 0) {
       return res.status(400).json({ ok: false, error: "Должность обязательна" });
-      return res.status(400).json({ ok: false, error: "Размер компании обязателен" });
-    }
-
-    const analyzed = await analyzeRoleAndCompany(role.trim(), companySize);
-
-    res.json({
-      ok: true,
-      analyzed,
-    });
-  } catch (err) {
-    console.error("[API] Failed to analyze prompt:", err);
-    res.status(500).json({
-      ok: false,
-      error: "Не удалось проанализировать данные. Попробуйте позже.",
-    });
-  }
-});
-
 
     }
     
@@ -1849,6 +1829,7 @@ app.post(`${API_PREFIX}/promo/use`, express.json({ limit: '11mb' }), async (req,
         failedOrder.status = 'failed';
         failedOrder.failureReason = err instanceof Error ? err.message : String(err);
         saveOrder(failedOrder);
+      }
     });
 
     res.json({
@@ -1974,6 +1955,7 @@ app.get('/api/images/optimized', async (req, res) => {
       } else {
         processedImage = processedImage.jpeg({ quality: 85 });
         res.setHeader('Content-Type', 'image/jpeg');
+      }
 
       // Кеширование на 1 день
       res.setHeader('Cache-Control', 'public, max-age=86400');
@@ -1991,6 +1973,7 @@ app.get('/api/images/optimized', async (req, res) => {
       } catch (fallbackError) {
         console.error('[Optimized Images] Fallback error:', fallbackError);
         res.status(500).json({ error: 'Failed to serve image' });
+      }
     }
   } catch (err) {
     console.error('[Optimized Images] Unexpected error:', err);
@@ -2065,6 +2048,7 @@ app.post(`${API_PREFIX}/generate-image`, async (req, res) => {
         const errorMessage = error instanceof Error ? error.message : String(error);
         safeLog('Intermediate image processing failed', { clientIp, error: errorMessage });
         // Если обработка не удалась - продолжаем обычным способом через API
+      }
     }
 
     // Валидация входных данных
@@ -2177,6 +2161,7 @@ app.get(`${API_PREFIX}/analysis/:jobId`, (req, res) => {
         } else {
           errorMessage = parsed.errorMessage || 'Пожалуйста, загрузите изображение с одним человеком в кадре (мужчина или женщина).';
         }
+      }
       
       return res.json({
         status: 'completed',
@@ -2488,6 +2473,7 @@ Default: isValid = true unless clearly invalid.`,
         if (jsonMatch) {
           parsed = JSON.parse(jsonMatch[0]);
         }
+      }
 
       if (parsed && typeof parsed.isValid === 'boolean') {
         const duration = Date.now() - startTime;
@@ -2534,6 +2520,7 @@ Default: isValid = true unless clearly invalid.`,
             details: parsed.details || {}
           });
         }
+      }
 
       // Fallback: если не удалось распарсить JSON, но ответ содержит положительные слова - пропускаем
       const duration = Date.now() - startTime;
@@ -2555,6 +2542,7 @@ Default: isValid = true unless clearly invalid.`,
           errorMessage: '',
           details: {}
         });
+      }
       
       safeLog('Image validation failed: could not parse response', { clientIp, raw: raw.substring(0, 200), duration });
       // Если не удалось распарсить и нет положительных индикаторов - пропускаем (быть пермиссивным)
@@ -2587,6 +2575,7 @@ Default: isValid = true unless clearly invalid.`,
           errorMessage: 'Вы загрузили изображение с социально неприемлемым контентом. Выберите другое изображение.',
           details: {}
         });
+      }
       
       // Для остальных ошибок - пропускаем (быть пермиссивным)
       return res.json({
@@ -2668,12 +2657,14 @@ app.post(`${API_PREFIX}/detect-gender`, async (req, res) => {
         if (jsonMatch) {
           parsed = JSON.parse(jsonMatch[0]);
         }
+      }
 
       if (parsed && (parsed.gender === 'male' || parsed.gender === 'female' || parsed.gender === 'unknown')) {
         const confidence = Math.max(0, Math.min(1, Number(parsed.confidence) || 0));
         const duration = Date.now() - startTime;
         safeLog('Gender detected successfully', { clientIp, gender: parsed.gender, confidence, duration });
         return res.json({ gender: parsed.gender, confidence });
+      }
 
       // Fallback: пытаемся определить по тексту
       const text = raw.trim().toLowerCase();
@@ -2682,6 +2673,7 @@ app.post(`${API_PREFIX}/detect-gender`, async (req, res) => {
         result = { gender: 'male', confidence: 0.5 };
       } else if (text.includes('female') || text.includes('жен')) {
         result = { gender: 'female', confidence: 0.5 };
+      }
       
       const duration = Date.now() - startTime;
       safeLog('Gender detected with fallback', { clientIp, result, duration });
@@ -2781,6 +2773,7 @@ app.get(`${API_PREFIX}/diagnostics/gallery`, (req, res) => {
         galleryEligibleOrders: galleryOrders.length,
         cacheEnabled: false, // Кэш отключен для надежности
         lastCacheUpdate: galleryCacheTime ? new Date(galleryCacheTime).toISOString() : null
+      }
     });
   } catch (error) {
     console.error('[Diagnostics] Error:', error);
