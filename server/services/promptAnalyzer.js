@@ -5,27 +5,27 @@
 import { GoogleGenAI } from '@google/generative-ai';
 import { GEMINI_API_KEY_ANALYSIS } from '../config/index.js';
 
-const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY_ANALYSIS });
+const genAI = new GoogleGenAI({ apiKey });
 
 // Cache for analysis results (in-memory, can be moved to DB later)
 const analysisCache = new Map();
 
-function getCacheKey(role: string, companySize: string): string {
+function getCacheKey(role, companySize) {
   return `${role.toLowerCase().trim()}|${companySize.toLowerCase().trim()}`;
 }
 
 export interface AnalyzedPromptData {
-  roleDescription: string;
-  companyDescription: string;
-  attireStyle: string;
-  environmentStyle: string;
+  roleDescription;
+  companyDescription;
+  attireStyle;
+  environmentStyle;
   formalityLevel: 'formal' | 'business-casual' | 'casual' | 'smart-casual';
-  companyContext: string;
+  companyContext;
 }
 
 export async function analyzeRoleAndCompany(
-  role: string,
-  companySize: string
+  role,
+  companySize
 ): Promise<AnalyzedPromptData> {
   const cacheKey = getCacheKey(role, companySize);
   
@@ -56,7 +56,7 @@ Provide a JSON response with the following structure:
   "companyDescription": "Brief description of company context and culture based on size (2-3 sentences, in Russian)",
   "attireStyle": "Detailed attire description suitable for this role and company size (in Russian, e.g., 'smart-casual, solid neutral colors, cardigan or lightweight knit')",
   "environmentStyle": "Description of appropriate background/environment (in Russian, e.g., 'modern tech office, dynamic and energetic')",
-  "formalityLevel": "one of: formal, business-casual, casual, smart-casual",
+  "formalityLevel": "one of, business-casual, casual, smart-casual",
   "companyContext": "Brief context about company culture and atmosphere (in Russian, 1-2 sentences)"
 }
 
@@ -79,7 +79,7 @@ Return ONLY valid JSON, no additional text.`;
 
     // Validate required fields
     if (!analyzed.roleDescription || !analyzed.companyDescription || !analyzed.attireStyle || !analyzed.environmentStyle) {
-      throw new Error('Invalid analysis response: missing required fields');
+      throw new Error('Invalid analysis response required fields');
     }
 
     // Cache the result
@@ -101,7 +101,7 @@ Return ONLY valid JSON, no additional text.`;
   }
 }
 
-export function clearAnalysisCache(): void {
+export function clearAnalysisCache() {
   analysisCache.clear();
   console.log('[promptAnalyzer] Cache cleared');
 }
