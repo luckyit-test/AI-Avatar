@@ -100,6 +100,10 @@ import migrationRoutes from './routes/migration.js';
 import { initializeTelegramBot, startTelegramBot, handleTelegramRobokassaPayment } from './bot/telegram.js';
 import { TELEGRAM_BOT_TOKEN } from './config/index.js';
 
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const { analyzeRoleAndCompany } = require("./services/promptAnalyzer.js");
+
 const app = express();
 
 // Initialize database
