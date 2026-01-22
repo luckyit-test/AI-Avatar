@@ -1044,6 +1044,35 @@ async function processAnalysisQueue() {
 
 // Payment redirects (success/fail) are handled by server/routes/payment.js
 // All payment-related endpoints are registered via app.use(paymentRoutes) below
+// Analyze role and company endpoint
+app.post(`${API_PREFIX}/prompt/analyze`, express.json(), async (req, res) => {
+  try {
+    const { role, companySize } = req.body || {};
+
+    if (!role || typeof role !== "string" || role.trim().length === 0) {
+      return res.status(400).json({ ok: false, error: "Должность обязательна" });
+    }
+
+    if (!companySize || typeof companySize !== "string") {
+      return res.status(400).json({ ok: false, error: "Размер компании обязателен" });
+    }
+
+    const analyzed = await analyzeRoleAndCompany(role.trim(), companySize);
+
+    res.json({
+      ok: true,
+      analyzed,
+    });
+  } catch (err) {
+    console.error("[API] Failed to analyze prompt:", err);
+    res.status(500).json({
+      ok: false,
+      error: "Не удалось проанализировать данные. Попробуйте позже.",
+    });
+  }
+});
+
+
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 const { analyzeRoleAndCompany } = require("./services/promptAnalyzer.js");
