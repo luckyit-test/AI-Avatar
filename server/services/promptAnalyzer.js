@@ -2,8 +2,6 @@
  * Prompt Analyzer Service
  * Analyzes custom role and company size to generate appropriate prompts
  */
-import { GoogleGenAI } from '@google/generative-ai';
-import { GEMINI_API_KEY_ANALYSIS } from '../config/index.js';
 
 const genAI = new GoogleGenAI({ apiKey });
 
@@ -14,7 +12,6 @@ function getCacheKey(role, companySize) {
   return `${role.toLowerCase().trim()}|${companySize.toLowerCase().trim()}`;
 }
 
-export interface AnalyzedPromptData {
   roleDescription;
   companyDescription;
   attireStyle;
@@ -26,7 +23,6 @@ export interface AnalyzedPromptData {
 async function analyzeRoleAndCompany(
   role,
   companySize
-): Promise<AnalyzedPromptData> {
   const cacheKey = getCacheKey(role, companySize);
   
   // Check cache first
@@ -75,7 +71,6 @@ Return ONLY valid JSON, no additional text.`;
       jsonText = jsonText.replace(/```\n?/g, '').trim();
     }
 
-    const analyzed = JSON.parse(jsonText) as AnalyzedPromptData;
 
     // Validate required fields
     if (!analyzed.roleDescription || !analyzed.companyDescription || !analyzed.attireStyle || !analyzed.environmentStyle) {
