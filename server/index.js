@@ -85,6 +85,7 @@ import { validateImageData, validatePrompt } from './services/validation.js';
 import { replaceBackgroundWithGray, processIntermediateImageAggressively } from './services/imageProcessing.js';
 import { generatePortraitsForOrder } from './services/portraitGeneration.js';
 import { buildPortraitPrompts } from './services/promptBuilder.js';
+import { analyzeRoleAndCompany } from './services/promptAnalyzer.js';
 
 // Import utilities
 import { safeLog, getLogBuffer } from './lib/utils.js';
@@ -1708,8 +1709,7 @@ app.post(`${API_PREFIX}/prompt/analyze`, express.json(), async (req, res) => {
       return res.status(400).json({ ok: false, error: "Размер компании обязателен" });
     }
 
-    // const analyzed = await analyzeRoleAndCompany(role.trim(), companySize);
-    const analyzed = { roleDescription: role, companyDescription: companySize, attireStyle: "smart-casual", environmentStyle: "modern office", formalityLevel: "smart-casual", companyContext: "modern organization" };
+    const analyzed = await analyzeRoleAndCompany(role.trim(), companySize);
     
     res.json({
       ok: true,
