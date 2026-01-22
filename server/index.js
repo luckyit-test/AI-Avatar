@@ -96,6 +96,7 @@ import analysisRoutes, { initializeAnalysisRoutes } from './routes/analysis.js';
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 const { analyzeRoleAndCompany } = require("./services/promptAnalyzer.js");
+const { analyzeRoleAndCompany } = require("./services/promptAnalyzer.js");
 
 import paymentRoutes, { initializePaymentRoutes } from './routes/payment.js';
 import migrationRoutes from './routes/migration.js';
