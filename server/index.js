@@ -1146,6 +1146,27 @@ app.post(`${API_PREFIX}/prompt/analyze`, express.json(), async (req, res) => {
   }
 });
 
+    }
+
+    if (!companySize || typeof companySize !== "string") {
+      return res.status(400).json({ ok: false, error: "Размер компании обязателен" });
+    }
+
+    const analyzed = await analyzeRoleAndCompany(role.trim(), companySize);
+
+    res.json({
+      ok: true,
+      analyzed,
+    });
+  } catch (err) {
+    console.error("[API] Failed to analyze prompt:", err);
+    res.status(500).json({
+      ok: false,
+      error: "Не удалось проанализировать данные. Попробуйте позже.",
+    });
+  }
+});
+
   }
   const order = loadOrder(invId);
   if (!order) {
@@ -1726,9 +1747,30 @@ app.delete(`${API_PREFIX}/admin/promocodes/:code`, requireAdminAuth, (req, res) 
 app.post(`${API_PREFIX}/prompt/analyze`, express.json(), async (req, res) => {
   try {
     const { role, companySize } = req.body || {};
-    
+
     if (!role || typeof role !== "string" || role.trim().length === 0) {
       return res.status(400).json({ ok: false, error: "Должность обязательна" });
+    }
+
+    if (!companySize || typeof companySize !== "string") {
+      return res.status(400).json({ ok: false, error: "Размер компании обязателен" });
+    }
+
+    const analyzed = await analyzeRoleAndCompany(role.trim(), companySize);
+
+    res.json({
+      ok: true,
+      analyzed,
+    });
+  } catch (err) {
+    console.error("[API] Failed to analyze prompt:", err);
+    res.status(500).json({
+      ok: false,
+      error: "Не удалось проанализировать данные. Попробуйте позже.",
+    });
+  }
+});
+
 
     }
     
