@@ -222,10 +222,10 @@ function App() {
                                     setGenderOverride(data.genderOverride);
                                     devLog.log('[App] Restored genderOverride from localStorage:', data.genderOverride);
                                 }
-                                if (data?.selectedRole && (IT_ROLES as readonly string[]).includes(data.selectedRole)) {
+                                if (data?.selectedRole && ( as readonly string[]).includes(data.selectedRole)) {
                                     setSelectedRole(data.selectedRole);
                                 }
-                                if (data?.selectedCompany && (COMPANY_TYPES as readonly string[]).includes(data.selectedCompany)) {
+                                if (data?.selectedCompany && ( as readonly string[]).includes(data.selectedCompany)) {
                                     setSelectedCompany(data.selectedCompany);
                                 }
                             } else {
@@ -252,10 +252,10 @@ function App() {
                                     devLog.log('[App] Restored genderOverride from order:', order.gender);
                                 }
                             }
-                            if (order.role && (IT_ROLES as readonly string[]).includes(order.role)) {
+                            if (order.role && ( as readonly string[]).includes(order.role)) {
                                 setSelectedRole(order.role);
                             }
-                            if (order.company && (COMPANY_TYPES as readonly string[]).includes(order.company)) {
+                            if (order.company && ( as readonly string[]).includes(order.company)) {
                                 setSelectedCompany(order.company);
                             }
                             
