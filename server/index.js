@@ -1079,13 +1079,6 @@ app.post(`${API_PREFIX}/prompt/analyze`, express.json(), async (req, res) => {
 
 
 
-// Analyze role and company endpoint
-app.post(`${API_PREFIX}/prompt/analyze`, express.json(), async (req, res) => {
-  try {
-    const { role, companySize } = req.body || {};
-
-    if (!role || typeof role !== "string" || role.trim().length === 0) {
-      return res.status(400).json({ ok: false, error: "Должность обязательна" });
     }
 
     if (!companySize || typeof companySize !== "string") {
@@ -1757,12 +1750,6 @@ app.delete(`${API_PREFIX}/admin/promocodes/:code`, requireAdminAuth, (req, res) 
 });
 
 // Применение промокода для бесплатной генерации
-// Analyze role and company endpoint
-
-    }
-    
-    if (!companySize || typeof companySize !== "string") {
-      return res.status(400).json({ ok: false, error: "Размер компании обязателен" });
     }
 
     
