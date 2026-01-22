@@ -238,6 +238,7 @@ export function buildPromptsByContext(
     company: string,
     variability: VariabilityLevel,
     naturalLook: boolean,
+    analyzedData?: any,
 ): Record<string, string> {
     // Если пол не указан, выбрасываем ошибку
     if (!gender || (gender !== 'male' && gender !== 'female')) {
@@ -247,9 +248,13 @@ export function buildPromptsByContext(
     const constraints = gender === 'female'
         ? 'No facial hair. No beard. No mustache.'
         : 'CRITICAL FACIAL HAIR PRESERVATION: You MUST preserve the facial hair EXACTLY as shown in the original photo - including style, length, thickness, density, and visibility. If the person is clean-shaven (no beard, no mustache) in the original photo, the generated portrait MUST also be clean-shaven with NO facial hair. If the person has a short, subtle, barely visible beard in the original, the generated portrait MUST have the EXACT SAME short, subtle, barely visible beard - do NOT make it longer, thicker, denser, or more prominent. If the person has short, barely visible mustache in the original, preserve it as EXACTLY short and barely visible - do NOT make it longer, thicker, or more noticeable. The facial hair length, thickness, density, style, visibility, and grooming must match the original photo EXACTLY. Do NOT enhance, lengthen, thicken, densify, or make facial hair more prominent than in the original. Do NOT add facial hair if there is none in the original. Do NOT remove facial hair if it exists in the original. The beard and mustache must look IDENTICAL to the original in every aspect - length, fullness, thickness, and visibility.';
-    const roleDesc = describeRole(role);
-    const companyDesc = describeCompany(company);
-    const attire = attireByContext(gender, role, company);
+    // Use analyzed data if available, otherwise fallback to describeRole/describeCompany
+    const roleDesc = analyzedData?.roleDescription || describeRole(role);
+    const companyDesc = analyzedData?.companyDescription || describeCompany(company);
+    // Use analyzed attire if available
+    const attire = analyzedData?.attireStyle 
+        ? `${analyzedData.attireStyle}. ${analyzedData.environmentStyle || ""}. ${gender === "female" ? "No facial hair. No beard. No mustache." : "Preserve facial hair exactly as in original. If no facial hair in original, do not add any. Do not remove facial hair if present. Grooming neat and professional."}`
+        : attireByContext(gender, role, company);
     const naturality = naturalLook
         ? 'Photorealistic and authentic. Preserve identity and facial features EXACTLY as in the original photo. The person must look like themselves - maintain the same face shape, bone structure, eye shape, nose, mouth, and all distinctive features. Natural skin texture with visible pores, fine lines, wrinkles, freckles, moles, and all natural skin variations. No plastic skin, no airbrushing, no over-smoothing, no AI artifacts. The skin must look completely real and natural, as if photographed with a professional camera. Preserve ALL natural skin imperfections, texture variations, and facial details. Avoid any digital smoothing, retouching, or artificial enhancement that makes skin look plastic, fake, or changes the person\'s appearance. The generated portrait must be recognizable as the same person from the original photo.'
         : '';
