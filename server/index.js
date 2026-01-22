@@ -93,6 +93,10 @@ import { safeLog, getLogBuffer } from './lib/utils.js';
 import adminRoutes, { initializeAdminRoutes } from './routes/admin.js';
 import generationRoutes, { initializeGenerationRoutes } from './routes/generation.js';
 import analysisRoutes, { initializeAnalysisRoutes } from './routes/analysis.js';
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const { analyzeRoleAndCompany } = require("./services/promptAnalyzer.js");
+
 import paymentRoutes, { initializePaymentRoutes } from './routes/payment.js';
 import migrationRoutes from './routes/migration.js';
 
@@ -1073,9 +1077,6 @@ app.post(`${API_PREFIX}/prompt/analyze`, express.json(), async (req, res) => {
 });
 
 
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
-const { analyzeRoleAndCompany } = require("./services/promptAnalyzer.js");
 
 
 // Analyze role and company endpoint
