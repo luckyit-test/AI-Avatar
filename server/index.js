@@ -1694,9 +1694,37 @@ app.delete(`${API_PREFIX}/admin/promocodes/:code`, requireAdminAuth, (req, res) 
 });
 
 // Применение промокода для бесплатной генерации
-app.post(`${API_PREFIX}/promo/use`, express.json({ limit: '11mb' }), async (req, res) => {
+// Analyze role and company endpoint
+app.post(`${API_PREFIX}/prompt/analyze`, express.json(), async (req, res) => {
   try {
+    const { role, companySize } = req.body || {};
+    
+    if (!role || typeof role !== "string" || role.trim().length === 0) {
+      return res.status(400).json({ ok: false, error: "Должность обязательна" });
+
+    }
+    
+    if (!companySize || typeof companySize !== "string") {
+      return res.status(400).json({ ok: false, error: "Размер компании обязателен" });
+    }
+
+    
+    res.json({
+      ok: true,
+      analyzed,
+    });
+  } catch (err) {
+    console.error("[API] Failed to analyze prompt:", err);
+    res.status(500).json({
+      ok: false,
+      error: "Не удалось проанализировать данные. Попробуйте позже.",
+    });
+  }
+});
+
+app.post(`${API_PREFIX}/promo/use`, express.json({ limit: '11mb' }), async (req, res) => {
     const { code, imageData, gender, role, company } = req.body || {};
+    try {
 
     if (!code || typeof code !== 'string') {
       return res.status(400).json({ ok: false, error: 'Промокод обязателен' });
