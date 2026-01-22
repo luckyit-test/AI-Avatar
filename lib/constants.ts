@@ -1,56 +1,18 @@
 /**
- * Константы приложения
+ * Application constants
  */
 export const STYLES = ['Классический', 'Современный', 'Креативный', 'Технологичный', 'Дружелюбный', 'Уверенный'] as const;
 
-export const IT_ROLES = [
-    'Психолог',
-    'Разработчик',
-    'Frontend разработчик',
-    'Backend разработчик',
-    'Full stack разработчик',
-    'Mobile разработчик',
-    'Аналитик',
-    'Архитектор',
-    'Solution Architect',
-    'DevOps инженер',
-    'SRE инженер',
-    'Системный администратор',
-    'ML инженер',
-    'Data Engineer',
-    'Старший разработчик',
-    'Ведущий разработчик',
-    'Delivery Manager',
-    'Scrum Master',
-    'Технический директор',
-    'Руководитель разработки',
-    'Дизайнер UI/UX',
-    'Старший аналитик',
-    'QA инженер',
-    'Инженер по безопасности',
-    'Продуктовый менеджер',
-    'CTO'
+// Company sizes instead of types
+export const COMPANY_SIZES = [
+  'Стартап (до 15 чел)',
+  'Небольшая компания (16-100 чел)',
+  'Средняя компания (101-250 чел)',
+  'Крупный бизнес (251+ чел)',
 ] as const;
 
-export const COMPANY_TYPES = [
-    'Стартап',
-    'Средний бизнес',
-    'Enterprise',
-    'Аутсорсинг/Аутстаффинг',
-    'Финтех',
-    'Банк',
-    'Медиа',
-    'Ритейл',
-    'Логистика',
-    'Образование',
-    'Здоровье',
-    'EdTech',
-    'HealthTech',
-    'Маркетплейс',
-    'Социальная сеть',
-    'Разработка игр',
-    'GameDev'
-] as const;
+// Keep old constants for backward compatibility (will be removed later)
+export const IT_ROLES = [] as const;
+export const COMPANY_TYPES = [] as const;
 
 export type VariabilityLevel = 'low' | 'medium' | 'high';
-
