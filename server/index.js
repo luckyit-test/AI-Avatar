@@ -91,10 +91,6 @@ import { safeLog, getLogBuffer } from './lib/utils.js';
 
 // Import routes
 import adminRoutes, { initializeAdminRoutes } from './routes/admin.js';
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
-const { analyzeRoleAndCompany } = require("./services/promptAnalyzer.js");
-
 import generationRoutes, { initializeGenerationRoutes } from './routes/generation.js';
 import analysisRoutes, { initializeAnalysisRoutes } from './routes/analysis.js';
 import paymentRoutes, { initializePaymentRoutes } from './routes/payment.js';
