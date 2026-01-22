@@ -23,7 +23,7 @@ import { GenerationFlow } from './components/GenerationFlow';
 import { ResultsView } from './components/ResultsView';
 import { GalleryPage } from './components/GalleryPage';
 import { cn, devLog } from './lib/utils';
-import { STYLES, IT_ROLES, COMPANY_TYPES, type VariabilityLevel } from './lib/constants';
+import { STYLES, COMPANY_SIZES, type VariabilityLevel } from './lib/constants';
 import { buildPromptsByContext } from './lib/promptUtils';
 
 type ImageStatus = 'pending' | 'queued' | 'processing' | 'done' | 'error';
@@ -68,8 +68,8 @@ function App() {
     const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
     const [detectedGender, setDetectedGender] = useState<DetectedGender>('unknown');
     const [genderOverride, setGenderOverride] = useState<'male' | 'female' | null>(null);
-    const [selectedRole, setSelectedRole] = useState<typeof IT_ROLES[number]>('Разработчик');
-    const [selectedCompany, setSelectedCompany] = useState<typeof COMPANY_TYPES[number]>('Стартап');
+    const [selectedRole, setSelectedRole] = useState<string>("");
+    const [selectedCompany, setSelectedCompany] = useState<typeof COMPANY_SIZES[number]>("Стартап (до 15 чел)");
     const [hasActivePayment, setHasActivePayment] = useState<boolean>(false);
     const autoGenerationStartedRef = useRef<boolean>(false);
     // Refs для polling (должны быть на верхнем уровне компонента)
@@ -223,10 +223,10 @@ function App() {
                                     devLog.log('[App] Restored genderOverride from localStorage:', data.genderOverride);
                                 }
                                 if (data?.selectedRole && (IT_ROLES as readonly string[]).includes(data.selectedRole)) {
-                                    setSelectedRole(data.selectedRole as (typeof IT_ROLES)[number]);
+                                    setSelectedRole(data.selectedRole);
                                 }
                                 if (data?.selectedCompany && (COMPANY_TYPES as readonly string[]).includes(data.selectedCompany)) {
-                                    setSelectedCompany(data.selectedCompany as (typeof COMPANY_TYPES)[number]);
+                                    setSelectedCompany(data.selectedCompany);
                                 }
                             } else {
                                 devLog.warn('[App] No data in localStorage for PENDING_GENERATION_KEY');
@@ -253,10 +253,10 @@ function App() {
                                 }
                             }
                             if (order.role && (IT_ROLES as readonly string[]).includes(order.role)) {
-                                setSelectedRole(order.role as (typeof IT_ROLES)[number]);
+                                setSelectedRole(order.role);
                             }
                             if (order.company && (COMPANY_TYPES as readonly string[]).includes(order.company)) {
-                                setSelectedCompany(order.company as (typeof COMPANY_TYPES)[number]);
+                                setSelectedCompany(order.company);
                             }
                             
                         // Если заказ завершен - показываем результаты
