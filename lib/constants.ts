@@ -12,7 +12,6 @@ export const COMPANY_SIZES = [
 ] as const;
 
 // Keep old constants for backward compatibility (will be removed later)
-export const IT_ROLES = [] as const;
 export const COMPANY_TYPES = [] as const;
 
 export type VariabilityLevel = 'low' | 'medium' | 'high';
