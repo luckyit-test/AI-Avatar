@@ -1074,6 +1074,10 @@ app.post(`${API_PREFIX}/prompt/analyze`, express.json(), async (req, res) => {
       error: "Не удалось проанализировать данные. Попробуйте позже.",
 // Безопасная конфигурация CORS - только с разрешенных доменов
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
+    });
+  }
+});
+
   ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
   : ['http://localhost:3000', 'http://localhost:5173']; // По умолчанию только локальные для разработки
 
