@@ -6,6 +6,7 @@ import { join } from 'path';
 import sharp from 'sharp';
 import { IMAGE_ROOT_DIR } from '../config/index.js';
 import { buildPortraitPrompts } from './promptBuilder.js';
+import { analyzeRoleAndCompany } from \"./promptAnalyzer.js\";
 import { replaceBackgroundWithGray } from './imageProcessing.js';
 import { addToQueue, getJobStatus } from '../queues/generationQueue.js';
 import { loadOrder, saveOrder, orderImages } from '../db/orders.js';
@@ -154,7 +155,21 @@ export async function generatePortraitsForOrder(invId, MAX_QUEUE_SIZE, addToQueu
     }
     
     // ШАГ 2: Строим промпты для всех 6 стилей
-    const prompts = buildPortraitPrompts(gender, role, company);
+    // Analyze role and company
+
+    let analyzed = null;
+
+    try {
+
+      analyzed = await analyzeRoleAndCompany(gender, role);
+
+    } catch (err) {
+
+      console.error("[portraitGeneration] Analysis failed, using defaults:", err);
+
+    }
+
+    const prompts = buildPortraitPrompts(gender, role, company, analyzed);
     
     // ШАГ 3: Генерируем все 6 портретов параллельно
     console.log(`[generatePortraitsForOrder] Generating 6 final portraits`);

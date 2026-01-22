@@ -91,6 +91,10 @@ import { safeLog, getLogBuffer } from './lib/utils.js';
 
 // Import routes
 import adminRoutes, { initializeAdminRoutes } from './routes/admin.js';
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const { analyzeRoleAndCompany } = require("./services/promptAnalyzer.js");
+
 import generationRoutes, { initializeGenerationRoutes } from './routes/generation.js';
 import analysisRoutes, { initializeAnalysisRoutes } from './routes/analysis.js';
 import paymentRoutes, { initializePaymentRoutes } from './routes/payment.js';
@@ -1118,6 +1122,35 @@ app.get(`${API_PREFIX}/payment/status`, (req, res) => {
   const invId = req.query.invId;
   if (!invId) {
     return res.status(400).json({ paid: false, error: 'invId is required' });
+
+// Analyze role and company endpoint
+app.post(, express.json(), async (req, res) => {
+  try {
+    const { role, companySize } = req.body || {};
+
+    if (!role || typeof role !== "string" || role.trim().length === 0) {
+      return res.status(400).json({ ok: false, error: "Должность обязательна" });
+    }
+
+    if (!companySize || typeof companySize !== "string") {
+      return res.status(400).json({ ok: false, error: "Размер компании обязателен" });
+    }
+
+    const analyzed = await analyzeRoleAndCompany(role.trim(), companySize);
+
+    res.json({
+      ok: true,
+      analyzed,
+    });
+  } catch (err) {
+    console.error("[API] Failed to analyze prompt:", err);
+    res.status(500).json({
+      ok: false,
+      error: "Не удалось проанализировать данные. Попробуйте позже.",
+    });
+  }
+});
+
   }
   const order = loadOrder(invId);
   if (!order) {

@@ -78,7 +78,7 @@ export function describeCompany(company) {
   }
 }
 
-export function attireByContext(gender, role, company, specificGarment = null) {
+export function attireByContext(gender, role, company, specificGarment = null, analyzed = null) {
   const baseFemale = 'No facial hair. No beard. No mustache.';
   const baseMale = 'Preserve facial hair exactly as in original. If no facial hair in original, do not add any. Do not remove facial hair if present. Grooming neat and professional.';
 
@@ -129,6 +129,10 @@ export function attireByContext(gender, role, company, specificGarment = null) {
   const roleCreative = 'smart-casual with tasteful minimal design accents';
 
   let attireCore;
+    // Use analyzed attireStyle if available
+    if (analyzed && analyzed.attireStyle) {
+        attireCore = analyzed.attireStyle;
+    } else {
   switch (role) {
     case 'Разработчик':
     case 'DevOps-инженер':

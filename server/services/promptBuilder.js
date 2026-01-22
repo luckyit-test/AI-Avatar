@@ -7,7 +7,7 @@ function randomChoice(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-export function buildPortraitPrompts(gender, role, company) {
+export function buildPortraitPrompts(gender, role, company, analyzed = null) {
   const STYLES = ['Классический', 'Современный', 'Креативный', 'Технологичный', 'Дружелюбный', 'Уверенный'];
   
   if (!gender || (gender !== 'male' && gender !== 'female')) {
@@ -31,8 +31,8 @@ export function buildPortraitPrompts(gender, role, company) {
 
   // Генерируем 6 разных вариантов одежды с гарантией минимум 3 уникальных
   const attireVariants = generateAttireVariants(gender, role, company, 6);
-  const roleDesc = describeRole(role);
-  const companyDesc = describeCompany(company);
+  const roleDesc = analyzed && analyzed.roleDescription ? analyzed.roleDescription : describeRole(role);
+  const companyDesc = analyzed && analyzed.companyDescription ? analyzed.companyDescription : describeCompany(company);
 
   function buildVariations(variabilityLevel) {
     const lightingNeutral = [
@@ -173,7 +173,7 @@ export function buildPortraitPrompts(gender, role, company) {
   const base = (tone, attireIndex) => {
     const v = buildVariations(variability);
     const attire = attireVariants[attireIndex];
-    const fullAttire = attireByContext(gender, role, company, attire);
+    const fullAttire = attireByContext(gender, role, company, attire, analyzed);
     
     const skinDetail = gender === 'female'
       ? 'Preserve realistic skin texture EXACTLY as shown in the original - natural pores, fine lines, wrinkles, freckles, moles, and all skin variations. The skin must look like real human skin photographed naturally - no smoothing, no airbrushing, no plastic or doll-like appearance. Natural skin imperfections MUST be preserved. Do not alter the person\'s natural appearance or skin texture.'
