@@ -1,22 +1,22 @@
 /**
  * ImageConfiguration component
- * Handles gender, role, and company selection
+ * Handles gender, role (text input), and company size selection
  */
 import React from 'react';
 import { Icons } from './Icons';
 import { CustomSelect } from './CustomSelect';
 import { cn } from '../lib/utils';
-import { IT_ROLES, COMPANY_TYPES } from '../lib/constants';
+import { COMPANY_SIZES } from '../lib/constants';
 import type { DetectedGender } from '../services/geminiService';
 
 export interface ImageConfigurationProps {
     genderOverride: 'male' | 'female' | null;
-    selectedRole: typeof IT_ROLES[number];
-    selectedCompany: typeof COMPANY_TYPES[number];
+    selectedRole: string;
+    selectedCompany: typeof COMPANY_SIZES[number];
     appState: 'idle' | 'image-uploaded' | 'generating' | 'results-shown' | 'failed';
     onGenderChange: (gender: 'male' | 'female' | null) => void;
-    onRoleChange: (role: typeof IT_ROLES[number]) => void;
-    onCompanyChange: (company: typeof COMPANY_TYPES[number]) => void;
+    onRoleChange: (role: string) => void;
+    onCompanyChange: (company: typeof COMPANY_SIZES[number]) => void;
     getEffectiveGender: () => DetectedGender | null;
 }
 
@@ -63,19 +63,19 @@ export function ImageConfiguration({
                         Настройте параметры
                     </h2>
                     <p className="text-sm text-gray-500">
-                        Под ваш запрос
+                        Выберите пол
                     </p>
                 </div>
             </div>
 
-            {/* Секция "Пол" */}
+            {/* Кнопки "Пол" */}
             <div className="mb-6">
                 <div className="flex gap-2">
                     <button
                         className={cn(
                             'flex-1 px-4 py-2.5 text-sm rounded-lg border transition-all duration-200 font-medium',
                             genderOverride === 'female'
-                                ? 'bg-white border-gray-300 text-gray-900 shadow-sm' 
+                                ? 'bg-white border-gray-300 text-gray-900 shadow-sm'
                                 : 'bg-gray-100 border-gray-200 text-gray-700 hover:bg-gray-50',
                             isDisabled && 'opacity-60 cursor-not-allowed'
                         )}
@@ -92,7 +92,7 @@ export function ImageConfiguration({
                         className={cn(
                             'flex-1 px-4 py-2.5 text-sm rounded-lg border transition-all duration-200 font-medium',
                             genderOverride === 'male'
-                                ? 'bg-white border-gray-300 text-gray-900 shadow-sm' 
+                                ? 'bg-white border-gray-300 text-gray-900 shadow-sm'
                                 : 'bg-gray-100 border-gray-200 text-gray-700 hover:bg-gray-50',
                             isDisabled && 'opacity-60 cursor-not-allowed'
                         )}
@@ -108,32 +108,39 @@ export function ImageConfiguration({
                 </div>
             </div>
 
-            {/* Секция "Должность" */}
+            {/* Поле "Должность" */}
             <div className="mb-6" data-onboarding="role">
                 <label className="block text-sm font-bold mb-3" style={{ color: '#1e293b' }}>
                     Должность
                 </label>
-                <CustomSelect
-                    options={IT_ROLES}
+                <input
+                    type="text"
                     value={selectedRole}
-                    onChange={(value) => onRoleChange(value as typeof IT_ROLES[number])}
-                    placeholder="Выберите должность"
+                    onChange={(e) => onRoleChange(e.target.value)}
+                    placeholder="Введите вашу должность"
+                    disabled={isDisabled}
+                    className={cn(
+                        'w-full px-4 py-2.5 text-sm rounded-lg border transition-all duration-200',
+                        'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                        isDisabled
+                            ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed'
+                            : 'bg-white border-gray-300 text-gray-900 hover:border-gray-400'
+                    )}
                 />
             </div>
 
-            {/* Секция "Тип компании" */}
+            {/* Поле "Размер компании" */}
             <div className="mb-6" data-onboarding="company">
                 <label className="block text-sm font-bold mb-3" style={{ color: '#1e293b' }}>
-                    Тип компании
+                    Размер компании
                 </label>
                 <CustomSelect
-                    options={COMPANY_TYPES}
+                    options={COMPANY_SIZES}
                     value={selectedCompany}
-                    onChange={(value) => onCompanyChange(value as typeof COMPANY_TYPES[number])}
-                    placeholder="Выберите тип компании"
+                    onChange={(value) => onCompanyChange(value as typeof COMPANY_SIZES[number])}
+                    placeholder="Выберите размер компании"
                 />
             </div>
         </div>
     );
 }
-
