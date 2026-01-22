@@ -1057,8 +1057,6 @@ export async function checkGenerationStatus(jobId: string): Promise<QueueStatus>
 /**
  * Генерирует изображение через очередь с polling статуса
  */
-export async function generateImage(
-}
 export async function analyzePrompt(role: string, companySize: string): Promise<{ ok: boolean; analyzed?: any; error?: string }> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/prompt/analyze`, {
