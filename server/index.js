@@ -1077,11 +1077,7 @@ app.post(`${API_PREFIX}/prompt/analyze`, express.json(), async (req, res) => {
 });
 
 // Безопасная конфигурация CORS - только с разрешенных доменов
-const allowedOrigins = process.env.ALLOWED_ORIGINS 
-    });
-  }
-});
-
+const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
   : ['http://localhost:3000', 'http://localhost:5173']; // По умолчанию только локальные для разработки
 
@@ -1693,11 +1689,11 @@ app.post(`${API_PREFIX}/admin/promocodes`, express.json(), requireAdminAuth, (re
     const { code, maxUses, isActive, expiresAt, note } = req.body || {};
     const normalized = normalizePromoCode(code);
     if (!normalized || normalized.length !== 6 || !/^[A-Z0-9]{6}$/.test(normalized)) {
-      return res.status(400).json({ error: 'Промокод должен состоять из 6 символов (латинские буквы и цифры)' });
+      return res.status(400).json({ error: 'Промокод должен быть ровно 6 символов (буквы и цифры)' });
     }
     const maxUsesNum = Number(maxUses) || 0;
     if (maxUsesNum <= 0) {
-      return res.status(400).json({ error: 'Максимальное количество активаций должно быть больше 0' });
+      return res.status(400).json({ error: 'Максимальное количество использований должно быть больше 0' });
     }
     const existing = getPromoByCode(normalized);
     const promo = {
@@ -1714,34 +1710,6 @@ app.post(`${API_PREFIX}/admin/promocodes`, express.json(), requireAdminAuth, (re
   } catch (err) {
     console.error('[Admin] Failed to create/update promo code:', err);
     res.status(500).json({ error: 'Не удалось сохранить промокод' });
-  }
-});
-
-app.delete(`${API_PREFIX}/admin/promocodes/:code`, requireAdminAuth, (req, res) => {
-  try {
-    const code = normalizePromoCode(req.params.code);
-    deletePromoStmt.run(code);
-    res.json({ ok: true });
-  } catch (err) {
-    console.error('[Admin] Failed to delete promo code:', err);
-    res.status(500).json({ error: 'Не удалось удалить промокод' });
-  }
-});
-
-// Применение промокода для бесплатной генерации
-    }
-
-    
-    res.json({
-      ok: true,
-      analyzed,
-    });
-  } catch (err) {
-    console.error("[API] Failed to analyze prompt:", err);
-    res.status(500).json({
-      ok: false,
-      error: "Не удалось проанализировать данные. Попробуйте позже.",
-    });
   }
 });
 
